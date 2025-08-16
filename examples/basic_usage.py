@@ -167,25 +167,6 @@ async def labels_example():
                 except Exception as e:
                     print(f"  {label_id}: Error - {e}")
             
-            # Search labels
-            print(f"\n🔍 Searching labels containing 'customer'...")
-            customer_labels = await client.search_labels("customer", limit=5)
-            print(f"Found {len(customer_labels)} labels:")
-            for label in customer_labels:
-                print(f"  {label.id}: '{label.value}'")
-            
-            # Get labels by prefix
-            print(f"\n📋 Getting @SYS labels...")
-            sys_labels = await client.get_labels_by_prefix("@SYS", limit=10)
-            print(f"Found {len(sys_labels)} @SYS labels:")
-            for label in sys_labels[:5]:  # Show first 5
-                print(f"  {label.id}: '{label.value}'")
-            
-            # Build label cache
-            print(f"\n💾 Building label cache...")
-            cached_count = await client.build_label_cache(["@SYS"], "en-US")
-            print(f"Cached {cached_count} labels")
-            
             # Show cache info
             cache_info = client.get_label_cache_info()
             print(f"Cache info: {cache_info}")

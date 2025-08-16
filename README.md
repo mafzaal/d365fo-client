@@ -211,18 +211,7 @@ labels = await client.get_labels_batch([
 for label_id, text in labels.items():
     print(f"{label_id}: {text}")
 
-# Search labels
-customer_labels = await client.search_labels("customer", limit=10)
-for label in customer_labels:
-    print(f"{label.id}: {label.value}")
-
-# Get labels by prefix
-sys_labels = await client.get_labels_by_prefix("@SYS", limit=100)
-
-# Build cache for better performance
-cached_count = await client.build_label_cache(["@SYS", "@SCM"])
-print(f"Cached {cached_count} labels")
-
+```
 # Enhanced entity info with resolved labels
 entity_info = await client.get_entity_info_with_labels("Customers")
 if entity_info.label_text:

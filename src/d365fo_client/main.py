@@ -61,16 +61,6 @@ async def example_usage():
             text = await client.get_label_text(label_id)
             print(f"  {label_id}: '{text}'")
         
-        # Search labels
-        # customer_labels = await client.search_labels("customer", limit=3)
-        # print(f"\nFound {len(customer_labels)} labels containing 'customer':")
-        # for label in customer_labels:
-        #     print(f"  {label.id}: '{label.value}'")
-        
-        # Build label cache
-        # print("\nBuilding label cache...")
-        # cached_count = await client.build_label_cache(["@SYS"], "en-US")
-        
         # Show cache info
         cache_info = client.get_label_cache_info()
         print(f"Label cache: {cache_info}")

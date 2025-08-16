@@ -312,55 +312,6 @@ class FOClient:
         """
         return await self.label_ops.get_labels_batch(label_ids, language)
     
-    async def search_labels(self, search_term: str, language: str = "en-US", 
-                           limit: int = 50) -> List[LabelInfo]:
-        """Search labels containing specific text
-        
-        Args:
-            search_term: Text to search for in label values
-            language: Language code
-            limit: Maximum number of results
-            
-        Returns:
-            List of LabelInfo objects
-        """
-        return await self.label_ops.search_labels(search_term, language, limit)
-    
-    async def get_labels_by_prefix(self, prefix: str, language: str = "en-US", 
-                                  limit: int = 100) -> List[LabelInfo]:
-        """Get labels that start with a specific prefix
-        
-        Args:
-            prefix: Label ID prefix (e.g., "@SYS", "@SCM:")
-            language: Language code
-            limit: Maximum number of results
-            
-        Returns:
-            List of LabelInfo objects
-        """
-        return await self.label_ops.get_labels_by_prefix(prefix, language, limit)
-    
-    async def get_available_languages(self) -> List[str]:
-        """Get list of available languages in the system
-        
-        Returns:
-            List of language codes
-        """
-        return await self.label_ops.get_available_languages()
-    
-    async def build_label_cache(self, prefixes: List[str] = None, 
-                               language: str = "en-US") -> int:
-        """Build a cache of commonly used labels
-        
-        Args:
-            prefixes: List of label prefixes to cache (default: common system prefixes)
-            language: Language code
-            
-        Returns:
-            Number of labels cached
-        """
-        return await self.label_ops.build_label_cache(prefixes, language)
-    
     # Enhanced Entity Operations with Labels
     
     async def get_entity_info_with_labels(self, entity_name: str, 
