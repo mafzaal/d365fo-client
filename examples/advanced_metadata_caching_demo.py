@@ -72,11 +72,12 @@ async def main():
         # Initialize search engine
         search_engine = MetadataSearchEngine(metadata_cache)
         
+        
         # Example 1: Fast entity lookup
         print("\n🔍 Example 1: Fast Entity Lookup")
         print("-" * 30)
         
-        customer_entity = await metadata_cache.get_entity("Customers", "public")
+        customer_entity = await metadata_cache.get_entity("Customer", "public")
         if customer_entity:
             print(f"Found entity: {customer_entity.name}")
             print(f"Entity set: {customer_entity.entity_set_name}")

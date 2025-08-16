@@ -265,7 +265,7 @@ class MetadataDatabase:
             )
         """)
         
-        # FTS5 virtual table for search
+        # FTS5 virtual table for search (content-based for direct data insertion)
         await db.execute("""
             CREATE VIRTUAL TABLE IF NOT EXISTS metadata_search USING fts5(
                 entity_name,
@@ -274,8 +274,7 @@ class MetadataDatabase:
                 description,
                 labels,
                 properties_text,
-                actions_text,
-                content=''
+                actions_text
             )
         """)
         
@@ -385,6 +384,113 @@ class MetadataDatabase:
                 created_at=datetime.fromisoformat(row[5]) if row[5] else None,
                 is_active=True
             )
+    
+    async def populate_fts_index(self, version_id: int):
+        """Populate FTS5 search index with metadata for given version"""
+        async with aiosqlite.connect(self.db_path) as db:
+            # Check if we need to recreate the FTS5 table (handle content-less tables)
+            try:
+                # Try to clear existing FTS5 data
+                await db.execute("DELETE FROM metadata_search")
+            except Exception as e:
+                if "contentless" in str(e):
+                    logger.info("Recreating FTS5 table (was content-less)")
+                    # Drop and recreate the table with proper schema
+                    await db.execute("DROP TABLE IF EXISTS metadata_search")
+                    await db.execute("""
+                        CREATE VIRTUAL TABLE metadata_search USING fts5(
+                            entity_name,
+                            entity_type,
+                            entity_set_name,
+                            description,
+                            labels,
+                            properties_text,
+                            actions_text
+                        )
+                    """)
+                else:
+                    raise
+            
+            # Populate with public entities
+            cursor = await db.execute("""
+                SELECT pe.name, pe.entity_set_name, pe.label_id,
+                       GROUP_CONCAT(ep.name || ':' || COALESCE(ep.type_name, '')) as properties,
+                       GROUP_CONCAT(ea.name) as actions
+                FROM public_entities pe
+                LEFT JOIN entity_properties ep ON pe.id = ep.entity_id
+                LEFT JOIN entity_actions ea ON pe.id = ea.entity_id
+                WHERE pe.version_id = ?
+                GROUP BY pe.id, pe.name, pe.entity_set_name, pe.label_id
+            """, (version_id,))
+            
+            async for entity in cursor:
+                name, entity_set_name, label_id, properties, actions = entity
+                await db.execute("""
+                    INSERT INTO metadata_search(entity_name, entity_type, entity_set_name, 
+                                              description, labels, properties_text, actions_text)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (name, 'public_entity', entity_set_name or "", label_id or "", 
+                      label_id or "", properties or "", actions or ""))
+            
+            # Populate with data entities
+            cursor = await db.execute("""
+                SELECT name, public_collection_name, label_id, entity_category
+                FROM data_entities
+                WHERE version_id = ?
+            """, (version_id,))
+            
+            async for entity in cursor:
+                name, collection_name, label_id, category = entity
+                description = f"{label_id or ''} {category or ''}".strip()
+                await db.execute("""
+                    INSERT INTO metadata_search(entity_name, entity_type, entity_set_name, 
+                                              description, labels, properties_text, actions_text)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (name, 'data_entity', collection_name or "", description, 
+                      label_id or "", "", ""))
+            
+            # Populate with enumerations
+            cursor = await db.execute("""
+                SELECT e.name, e.label_id,
+                       GROUP_CONCAT(em.name || ':' || em.value) as members
+                FROM enumerations e
+                LEFT JOIN enumeration_members em ON e.id = em.enumeration_id
+                WHERE e.version_id = ?
+                GROUP BY e.id, e.name, e.label_id
+            """, (version_id,))
+            
+            async for enum in cursor:
+                name, label_id, members = enum
+                await db.execute("""
+                    INSERT INTO metadata_search(entity_name, entity_type, entity_set_name, 
+                                              description, labels, properties_text, actions_text)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (name, 'enumeration', name, label_id or "", label_id or "", 
+                      members or "", ""))
+            
+            await db.commit()
+            logger.info("FTS5 search index populated successfully")
+    
+    async def rebuild_fts_index(self, environment_id: int):
+        """Rebuild FTS5 search index for active version"""
+        # Get active version
+        version_info = await self.get_active_version(environment_id)
+        if not version_info:
+            logger.warning("No active metadata version found, cannot rebuild search index")
+            return
+        
+        # Find the version ID
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                "SELECT id FROM metadata_versions WHERE environment_id = ? AND is_active = 1",
+                (environment_id,)
+            )
+            row = await cursor.fetchone()
+            if row:
+                await self.populate_fts_index(row[0])
+                logger.info("FTS5 search index rebuilt successfully")
+            else:
+                logger.warning("Could not find active version ID for FTS index rebuild")
 
 
 class MetadataCache:
@@ -650,17 +756,20 @@ class MetadataCache:
             
             if constraint_type == "Referential":
                 constraint = ReferentialConstraintInfo(
+                    constraint_type="Referential",
                     property=prop_name,
                     referenced_property=ref_prop
                 )
             elif constraint_type == "Fixed":
                 constraint = FixedConstraintInfo(
+                    constraint_type="Fixed",
                     property=prop_name,
                     value=fixed_val,
                     value_str=fixed_val_str
                 )
             elif constraint_type == "RelatedFixed":
                 constraint = RelatedFixedConstraintInfo(
+                    constraint_type="RelatedFixed",
                     related_property=related_prop,
                     value=fixed_val,
                     value_str=fixed_val_str
@@ -778,6 +887,14 @@ class MetadataSearchEngine:
         self.cache = metadata_cache
         self._search_cache = {}
         self._search_cache_lock = threading.RLock()
+    
+    async def rebuild_search_index(self):
+        """Rebuild the FTS5 search index from current metadata"""
+        if self.cache._environment_id is None:
+            await self.cache.initialize()
+        
+        # Delegate to database layer
+        await self.cache._database.rebuild_fts_index(self.cache._environment_id)
     
     async def search(self, query: SearchQuery) -> SearchResults:
         """Execute metadata search

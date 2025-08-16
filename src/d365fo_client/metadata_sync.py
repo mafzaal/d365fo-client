@@ -70,7 +70,7 @@ class MetadataSyncManager:
                 # Clear search cache after sync
                 if hasattr(self.cache, '_search_engine'):
                     self.cache._search_engine._search_cache.clear()
-                
+               
                 logger.info(f"Metadata sync completed: {result.sync_type}, "
                            f"{result.entities_synced} entities, "
                            f"{result.duration_ms:.2f}ms")
@@ -148,8 +148,8 @@ class MetadataSyncManager:
         public_entities_count = await self._sync_public_entities(version_id)
         enums_count = await self._sync_enumerations(version_id)
         
-        # Update search index
-        await self._update_search_index()
+        # Update search index using centralized method
+        await self._update_search_index(version_id)
         
         return SyncResult(
             sync_type="full",
@@ -466,61 +466,13 @@ class MetadataSyncManager:
             
             await db.commit()
     
-    async def _update_search_index(self):
-        """Update FTS5 search index with current metadata"""
+    async def _update_search_index(self, version_id: int):
+        """Update FTS5 search index using centralized database method"""
         logger.info("Updating search index")
         
         try:
-            import aiosqlite
-            
-            async with aiosqlite.connect(self.cache._database.db_path) as db:
-                # Recreate search index (FTS5 doesn't support DELETE operations)
-                await db.execute("DROP TABLE IF EXISTS metadata_search")
-                await db.execute("""
-                    CREATE VIRTUAL TABLE metadata_search USING fts5(
-                        entity_name, entity_type, entity_set_name, description, labels,
-                        content=''
-                    )
-                """)
-                
-                # Index data entities
-                await db.execute("""
-                    INSERT INTO metadata_search 
-                    (entity_name, entity_type, entity_set_name, description, labels)
-                    SELECT de.name, 'data_entity', de.public_collection_name,
-                           de.name || ' ' || COALESCE(de.public_entity_name, ''),
-                           COALESCE(de.label_id, '')
-                    FROM data_entities de
-                    JOIN metadata_versions mv ON de.version_id = mv.id
-                    WHERE mv.environment_id = ? AND mv.is_active = 1
-                """, (self.cache._environment_id,))
-                
-                # Index public entities
-                await db.execute("""
-                    INSERT INTO metadata_search 
-                    (entity_name, entity_type, entity_set_name, description, labels)
-                    SELECT pe.name, 'public_entity', pe.entity_set_name,
-                           pe.name || ' ' || pe.entity_set_name,
-                           COALESCE(pe.label_id, '')
-                    FROM public_entities pe
-                    JOIN metadata_versions mv ON pe.version_id = mv.id
-                    WHERE mv.environment_id = ? AND mv.is_active = 1
-                """, (self.cache._environment_id,))
-                
-                # Index enumerations
-                await db.execute("""
-                    INSERT INTO metadata_search 
-                    (entity_name, entity_type, entity_set_name, description, labels)
-                    SELECT e.name, 'enumeration', e.name,
-                           e.name,
-                           COALESCE(e.label_id, '')
-                    FROM enumerations e
-                    JOIN metadata_versions mv ON e.version_id = mv.id
-                    WHERE mv.environment_id = ? AND mv.is_active = 1
-                """, (self.cache._environment_id,))
-                
-                await db.commit()
-                
+            # Use the centralized FTS5 population method from MetadataDatabase
+            await self.cache._database.populate_fts_index(version_id)
             logger.info("Search index updated successfully")
             
         except Exception as e:
