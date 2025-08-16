@@ -12,6 +12,9 @@ from d365fo_client.utils import (
     get_user_cache_dir,
     get_default_cache_directory,
     ensure_directory_exists,
+    extract_domain_from_url,
+    get_environment_cache_dir,
+    get_environment_cache_directory,
 )
 
 
@@ -135,6 +138,114 @@ class TestEnsureDirectoryExists:
             assert result == test_path
 
 
+class TestExtractDomainFromUrl:
+    """Test the extract_domain_from_url function."""
+    
+    def test_standard_https_url(self):
+        """Test standard HTTPS URL."""
+        domain = extract_domain_from_url("https://mycompany.sandbox.operations.dynamics.com")
+        assert domain == "mycompany.sandbox.operations.dynamics.com"
+    
+    def test_http_url(self):
+        """Test HTTP URL."""
+        domain = extract_domain_from_url("http://test-env.dynamics.com")
+        assert domain == "test-env.dynamics.com"
+    
+    def test_url_with_path(self):
+        """Test URL with path components."""
+        domain = extract_domain_from_url("https://mycompany.dynamics.com/some/path")
+        assert domain == "mycompany.dynamics.com"
+    
+    def test_url_with_port(self):
+        """Test URL with custom port."""
+        domain = extract_domain_from_url("https://localhost:8080")
+        assert domain == "localhost_8080"
+    
+    def test_url_with_default_ports(self):
+        """Test URL with default ports (should be removed)."""
+        domain = extract_domain_from_url("https://example.com:443")
+        assert domain == "example.com"
+        
+        domain = extract_domain_from_url("http://example.com:80")
+        assert domain == "example.com"
+    
+    def test_url_with_invalid_characters(self):
+        """Test URL with characters that need sanitization."""
+        domain = extract_domain_from_url("https://test<domain>:8080")
+        assert domain == "test_domain__8080"
+    
+    def test_malformed_url(self):
+        """Test malformed URL fallback."""
+        domain = extract_domain_from_url("not-a-valid-url")
+        assert len(domain) > 0
+        assert domain == "not-a-valid-url"
+    
+    def test_empty_url(self):
+        """Test empty URL fallback."""
+        domain = extract_domain_from_url("")
+        assert domain == "unknown-domain"
+    
+    def test_case_normalization(self):
+        """Test that domains are normalized to lowercase."""
+        domain = extract_domain_from_url("https://MyCompany.DYNAMICS.COM")
+        assert domain == "mycompany.dynamics.com"
+
+
+class TestGetEnvironmentCacheDir:
+    """Test the get_environment_cache_dir function."""
+    
+    def test_default_app_name(self):
+        """Test environment cache directory with default app name."""
+        cache_dir = get_environment_cache_dir("https://test.dynamics.com")
+        assert "d365fo-client" in str(cache_dir)
+        assert "test.dynamics.com" in str(cache_dir)
+    
+    def test_custom_app_name(self):
+        """Test environment cache directory with custom app name."""
+        cache_dir = get_environment_cache_dir("https://test.dynamics.com", "my-app")
+        assert "my-app" in str(cache_dir)
+        assert "test.dynamics.com" in str(cache_dir)
+    
+    def test_different_environments(self):
+        """Test that different environments get different cache directories."""
+        cache_dir1 = get_environment_cache_dir("https://prod.dynamics.com")
+        cache_dir2 = get_environment_cache_dir("https://test.dynamics.com")
+        
+        assert cache_dir1 != cache_dir2
+        assert "prod.dynamics.com" in str(cache_dir1)
+        assert "test.dynamics.com" in str(cache_dir2)
+    
+    def test_complex_domain(self):
+        """Test with complex domain structure."""
+        cache_dir = get_environment_cache_dir("https://mycompany.sandbox.operations.dynamics.com")
+        assert "mycompany.sandbox.operations.dynamics.com" in str(cache_dir)
+    
+    def test_localhost_with_port(self):
+        """Test localhost with port."""
+        cache_dir = get_environment_cache_dir("https://localhost:8080")
+        assert "localhost_8080" in str(cache_dir)
+
+
+class TestGetEnvironmentCacheDirectory:
+    """Test the get_environment_cache_directory function."""
+    
+    def test_returns_string(self):
+        """Test that function returns a string."""
+        cache_dir = get_environment_cache_directory("https://test.dynamics.com")
+        assert isinstance(cache_dir, str)
+    
+    def test_contains_domain(self):
+        """Test that returned path contains the domain."""
+        cache_dir = get_environment_cache_directory("https://test.dynamics.com")
+        assert "test.dynamics.com" in cache_dir
+    
+    def test_is_absolute_path(self):
+        """Test that returned path is absolute."""
+        cache_dir = get_environment_cache_directory("https://test.dynamics.com")
+        path = Path(cache_dir)
+        assert path.is_absolute()
+
+
 class TestGetDefaultCacheDirectory:
     """Test the get_default_cache_directory function."""
     
@@ -197,15 +308,62 @@ def test_integration_with_fo_client_config():
     """Test integration with FOClientConfig."""
     from d365fo_client.models import FOClientConfig
     
-    # Test default cache directory is set
-    config = FOClientConfig(base_url="https://test.com")
+    # Test environment-specific cache directory is set automatically
+    config = FOClientConfig(base_url="https://test.dynamics.com")
     assert config.metadata_cache_dir is not None
     assert "d365fo-client" in config.metadata_cache_dir
+    assert "test.dynamics.com" in config.metadata_cache_dir
     
-    # Test custom cache directory is preserved
+    # Test different environments get different cache directories
+    config1 = FOClientConfig(base_url="https://prod.dynamics.com")
+    config2 = FOClientConfig(base_url="https://test.dynamics.com")
+    assert config1.metadata_cache_dir != config2.metadata_cache_dir
+    assert "prod.dynamics.com" in config1.metadata_cache_dir
+    assert "test.dynamics.com" in config2.metadata_cache_dir
+    
+    # Test custom cache directory is still preserved
     custom_dir = "/custom/cache/dir"
-    config = FOClientConfig(base_url="https://test.com", metadata_cache_dir=custom_dir)
+    config = FOClientConfig(base_url="https://test.dynamics.com", metadata_cache_dir=custom_dir)
     assert config.metadata_cache_dir == custom_dir
+
+
+def test_environment_separation():
+    """Test that different environments have completely separate cache structures."""
+    # Test with different environment URLs
+    urls = [
+        "https://prod.dynamics.com",
+        "https://test.dynamics.com", 
+        "https://dev.dynamics.com",
+        "https://mycompany.sandbox.operations.dynamics.com",
+        "https://localhost:8080"
+    ]
+    
+    cache_dirs = [get_environment_cache_directory(url) for url in urls]
+    
+    # All cache directories should be unique
+    assert len(set(cache_dirs)) == len(cache_dirs)
+    
+    # Each should contain the appropriate domain identifier
+    for i, cache_dir in enumerate(cache_dirs):
+        if "localhost:8080" in urls[i]:
+            assert "localhost_8080" in cache_dir
+        else:
+            # Extract expected domain
+            domain = extract_domain_from_url(urls[i])
+            assert domain in cache_dir
+
+
+def test_cache_directory_structure():
+    """Test the expected cache directory structure."""
+    cache_dir = get_environment_cache_dir("https://test.dynamics.com")
+    
+    # Should follow pattern: {user_cache}/d365fo-client/{domain}
+    parts = cache_dir.parts
+    assert "d365fo-client" in parts
+    assert "test.dynamics.com" in parts
+    
+    # Domain should be the last part
+    assert parts[-1] == "test.dynamics.com"
 
 
 def test_integration_with_metadata_manager():

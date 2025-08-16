@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime
 
-from .utils import get_default_cache_directory
+from .utils import get_environment_cache_directory
 
 
 @dataclass
@@ -25,7 +25,7 @@ class FOClientConfig:
     def __post_init__(self):
         """Post-initialization to set default cache directory if not provided."""
         if self.metadata_cache_dir is None:
-            self.metadata_cache_dir = get_default_cache_directory()
+            self.metadata_cache_dir = get_environment_cache_directory(self.base_url)
 
 
 @dataclass

@@ -2,8 +2,10 @@
 
 import os
 import platform
+import re
 from pathlib import Path
 from typing import Union
+from urllib.parse import urlparse
 
 
 def get_user_cache_dir(app_name: str = "d365fo-client") -> Path:
@@ -86,3 +88,108 @@ def get_default_cache_directory() -> str:
         True
     """
     return str(get_user_cache_dir())
+
+
+def extract_domain_from_url(url: str) -> str:
+    """Extract and sanitize domain name from URL for use as directory name.
+    
+    Args:
+        url: The base URL (e.g., "https://mycompany.sandbox.operations.dynamics.com")
+        
+    Returns:
+        Sanitized domain name suitable for directory name
+        
+    Examples:
+        >>> extract_domain_from_url("https://mycompany.sandbox.operations.dynamics.com")
+        'mycompany.sandbox.operations.dynamics.com'
+        
+        >>> extract_domain_from_url("https://test-env.dynamics.com/")
+        'test-env.dynamics.com'
+        
+        >>> extract_domain_from_url("https://localhost:8080")
+        'localhost_8080'
+    """
+    if not url or not url.strip():
+        return 'unknown-domain'
+    
+    try:
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+        
+        # If no netloc (malformed URL), try to extract something useful
+        if not domain:
+            # Try to extract domain-like pattern from the URL
+            domain_match = re.search(r'([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', url)
+            if domain_match:
+                domain = domain_match.group(1).lower()
+            else:
+                # Fallback: create a safe name from the original URL
+                safe_name = re.sub(r'[^\w\.-]', '_', url.lower())
+                return safe_name[:50] or 'unknown-domain'
+        
+        # Remove default ports for common schemes
+        if (parsed.scheme == 'https' and domain.endswith(':443')) or \
+           (parsed.scheme == 'http' and domain.endswith(':80')):
+            domain = domain.rsplit(':', 1)[0]
+        
+        # Replace invalid filesystem characters with underscore
+        # Windows reserved characters: < > : " | ? * \ /
+        # Also replace other potentially problematic characters
+        domain = re.sub(r'[<>:"|?*\\/]', '_', domain)
+        
+        # Replace remaining special characters that might cause issues
+        domain = re.sub(r'[^\w\.-]', '_', domain)
+        
+        return domain or 'unknown-domain'
+        
+    except Exception:
+        # Fallback: create a safe name from the original URL
+        safe_name = re.sub(r'[^\w\.-]', '_', url.lower())
+        return safe_name[:50] or 'unknown-domain'  # Limit length
+
+
+def get_environment_cache_dir(base_url: str, app_name: str = "d365fo-client") -> Path:
+    """Get environment-specific cache directory based on F&O base URL.
+    
+    This creates a separate cache directory for each F&O environment, allowing
+    users to work with multiple environments without cache conflicts.
+    
+    Args:
+        base_url: F&O environment base URL
+        app_name: Application name (default: "d365fo-client")
+        
+    Returns:
+        Path object pointing to the environment-specific cache directory
+        
+    Examples:
+        >>> cache_dir = get_environment_cache_dir("https://mycompany.sandbox.operations.dynamics.com")
+        >>> "mycompany.sandbox.operations.dynamics.com" in str(cache_dir)
+        True
+        
+        >>> cache_dir = get_environment_cache_dir("https://test.dynamics.com", "my-app")
+        >>> "test.dynamics.com" in str(cache_dir) and "my-app" in str(cache_dir)
+        True
+    """
+    domain = extract_domain_from_url(base_url)
+    base_cache_dir = get_user_cache_dir(app_name)
+    return base_cache_dir / domain
+
+
+def get_environment_cache_directory(base_url: str) -> str:
+    """Get environment-specific cache directory as string.
+    
+    Convenience function that returns the environment-specific cache directory
+    as a string, ready to be used for metadata_cache_dir.
+    
+    Args:
+        base_url: F&O environment base URL
+        
+    Returns:
+        String path to the environment-specific cache directory
+        
+    Examples:
+        >>> cache_dir = get_environment_cache_directory("https://test.dynamics.com")
+        >>> isinstance(cache_dir, str) and "test.dynamics.com" in cache_dir
+        True
+    """
+    return str(get_environment_cache_dir(base_url))

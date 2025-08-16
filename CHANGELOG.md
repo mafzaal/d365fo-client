@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Complete modular refactoring of F&O client implementation
+- Environment-specific cache directories for multi-environment support
+- Platform-appropriate user cache directory management (Windows/macOS/Linux)
+- Domain-based cache separation to prevent conflicts between different F&O environments
+- Comprehensive utility functions for cache directory management
+
+### Improved
+- Cache directory structure now follows OS best practices
+- Each F&O environment gets its own isolated cache directory
+- Cross-platform compatibility for cache directory handling
 - Comprehensive OData client with CRUD operations
 - Advanced metadata management and caching
 - Label operations with multilingual support
