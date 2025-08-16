@@ -1,13 +1,23 @@
-"""Label caching functionality for D365 F&O client."""
+"""Caching functionality for D365 F&O client.
+
+This module provides backward compatibility for the label cache
+while directing users to the new metadata caching system.
+"""
 
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
+import warnings
 
 from .models import LabelInfo
 
 
 class LabelCache:
-    """Simple in-memory label cache with expiration"""
+    """Legacy label cache - use MetadataCache for new implementations
+    
+    This class is maintained for backward compatibility.
+    For new applications, use the MetadataCache class which provides
+    comprehensive metadata caching including labels.
+    """
     
     def __init__(self, expiry_minutes: int = 60):
         """Initialize label cache
@@ -15,6 +25,12 @@ class LabelCache:
         Args:
             expiry_minutes: Cache expiration time in minutes
         """
+        warnings.warn(
+            "LabelCache is deprecated. Use MetadataCache for comprehensive metadata caching.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        
         self._cache: Dict[str, Dict[str, Any]] = {}
         self._expiry_minutes = expiry_minutes
         self._last_updated: Optional[datetime] = None

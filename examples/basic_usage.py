@@ -149,8 +149,10 @@ async def metadata_example():
     print("METADATA OPERATIONS EXAMPLE")
     print("="*50)
     
+    base_url = os.getenv('D365FO_BASE_URL', 'https://usnconeboxax1aos.cloud.onebox.dynamics.com')
+
     config = FOClientConfig(
-        base_url="https://your-fo-environment.dynamics.com",
+        base_url=base_url,
         use_default_credentials=True
     )
     
@@ -191,9 +193,10 @@ async def labels_example():
     print("\n" + "="*50)
     print("LABEL OPERATIONS EXAMPLE")
     print("="*50)
+    base_url = os.getenv('D365FO_BASE_URL', 'https://usnconeboxax1aos.cloud.onebox.dynamics.com')
     
     config = FOClientConfig(
-        base_url="https://your-fo-environment.dynamics.com",
+        base_url=base_url,
         use_default_credentials=True,
         use_label_cache=True
     )
@@ -232,8 +235,10 @@ async def enhanced_entity_example():
     print("ENHANCED ENTITY WITH LABELS EXAMPLE")
     print("="*50)
     
+    base_url = os.getenv('D365FO_BASE_URL', 'https://usnconeboxax1aos.cloud.onebox.dynamics.com')
+
     config = FOClientConfig(
-        base_url="https://your-fo-environment.dynamics.com",
+        base_url=base_url,
         use_default_credentials=True,
         use_label_cache=True
     )

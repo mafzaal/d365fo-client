@@ -6,7 +6,8 @@ import re
 from .models import (
     DataEntityInfo, PublicEntityInfo, EnumerationInfo, 
     PublicEntityPropertyInfo, EnumerationMemberInfo, QueryOptions,
-    PublicEntityActionInfo, ActionParameterInfo, ActionParameterTypeInfo, ActionReturnTypeInfo
+    PublicEntityActionInfo, ActionParameterInfo, ActionParameterTypeInfo, ActionReturnTypeInfo,
+    NavigationPropertyInfo, PropertyGroupInfo, ReferentialConstraintInfo
 )
 from .session import SessionManager
 from .labels import LabelOperations
@@ -258,9 +259,7 @@ class MetadataAPIOperations:
                         entity_set_name=item.get('EntitySetName', ''),
                         label_id=item.get('LabelId'),
                         is_read_only=item.get('IsReadOnly', False),
-                        configuration_enabled=item.get('ConfigurationEnabled', True),
-                        navigation_properties=item.get('NavigationProperties', []),
-                        property_groups=item.get('PropertyGroups', [])
+                        configuration_enabled=item.get('ConfigurationEnabled', True)
                     )
                     
                     # Process properties
@@ -282,6 +281,37 @@ class MetadataAPIOperations:
                             dimension_type_property=prop_data.get('DimensionTypeProperty')
                         )
                         entity.properties.append(prop)
+                    
+                    # Process navigation properties
+                    for nav_data in item.get('NavigationProperties', []):
+                        nav_prop = NavigationPropertyInfo(
+                            name=nav_data.get('Name', ''),
+                            related_entity=nav_data.get('RelatedEntity', ''),
+                            related_relation_name=nav_data.get('RelatedRelationName'),
+                            cardinality=nav_data.get('Cardinality', 'Single')
+                        )
+                        
+                        # Process constraints
+                        for constraint_data in nav_data.get('Constraints', []):
+                            # Check for ReferentialConstraint type (most common)
+                            odata_type = constraint_data.get('@odata.type', '')
+                            if 'ReferentialConstraint' in odata_type:
+                                constraint = ReferentialConstraintInfo(
+                                    constraint_type="Referential",
+                                    property=constraint_data.get('Property', ''),
+                                    referenced_property=constraint_data.get('ReferencedProperty', '')
+                                )
+                                nav_prop.constraints.append(constraint)
+                        
+                        entity.navigation_properties.append(nav_prop)
+                    
+                    # Process property groups
+                    for group_data in item.get('PropertyGroups', []):
+                        prop_group = PropertyGroupInfo(
+                            name=group_data.get('Name', ''),
+                            properties=group_data.get('Properties', [])
+                        )
+                        entity.property_groups.append(prop_group)
                     
                     # Process actions
                     for action_data in item.get('Actions', []):
