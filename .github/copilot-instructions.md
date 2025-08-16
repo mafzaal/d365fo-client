@@ -59,10 +59,12 @@ d365fo-client/
 - Run tests with `uv run pytest`
 
 ### 5. Documentation
+- Store all documentation files in the `docs/` folder
 - Maintain comprehensive README.md with usage examples
 - Use docstrings for all public functions and classes
 - Follow Google or NumPy docstring format
-- Consider using Sphinx for API documentation
+- Place API documentation, guides, and tutorials in `docs/`
+- Consider using Sphinx for API documentation with output to `docs/`
 
 ### 6. Version Management
 - Follow semantic versioning (MAJOR.MINOR.PATCH)
