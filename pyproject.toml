@@ -6,7 +6,12 @@ readme = "README.md"
 license = "MIT"
 authors = [{ name = "Muhammad Afzaal", email = "mo@thedataguy.pro" }]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "aiohttp>=3.10.0",
+    "aiofiles>=24.1.0",
+    "azure-identity>=1.19.0",
+    "requests>=2.32.0",
+]
 keywords = ["dynamics365", "d365", "finance", "operations", "erp", "microsoft"]
 classifiers = [
     "Development Status :: 3 - Alpha",
