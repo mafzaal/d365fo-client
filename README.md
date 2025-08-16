@@ -279,7 +279,13 @@ d365fo-client/
 │       ├── query.py             # OData query utilities
 │       ├── exceptions.py        # Custom exceptions
 │       └── main.py              # CLI entry point
-├── tests/                       # Test files
+├── tests/                       # Comprehensive test suite
+│   ├── integration/             # Multi-tier integration tests (17 tests - all passing ✅)
+│   │   ├── mock_server/         # Mock D365 F&O API server
+│   │   ├── test_sandbox.py      # Sandbox environment tests
+│   │   ├── test_mock_server.py  # Mock server tests  
+│   │   └── README.md           # Integration testing documentation
+│   └── unit/                   # Unit tests
 ├── docs/                        # Documentation
 ├── pyproject.toml               # Project configuration
 └── README.md                    # This file
@@ -329,16 +335,145 @@ config = FOClientConfig(
 )
 ```
 
+## Testing
+
+This project includes comprehensive testing at multiple levels to ensure reliability and quality.
+
+### Unit Tests
+
+Run standard unit tests for core functionality:
+
+```bash
+# Run all unit tests
+uv run pytest
+
+# Run with coverage
+uv run pytest --cov=d365fo_client --cov-report=html
+
+# Run specific test file
+uv run pytest tests/test_client.py -v
+```
+
+### Integration Tests
+
+The project includes a sophisticated multi-tier integration testing framework:
+
+#### Quick Start
+
+```bash
+# Run sandbox integration tests (recommended)
+.\tests\integration\integration-test-simple.ps1 test-sandbox
+
+# Run mock server tests (no external dependencies)
+.\tests\integration\integration-test-simple.ps1 test-mock
+
+# Run with verbose output
+.\tests\integration\integration-test-simple.ps1 test-sandbox -VerboseOutput
+```
+
+#### Test Levels
+
+1. **Mock Server Tests** - Fast, isolated tests against a simulated D365 F&O API
+   - No external dependencies
+   - Complete API simulation
+   - Ideal for CI/CD pipelines
+
+2. **Sandbox Tests** ⭐ *(Default)* - Tests against real D365 F&O test environments
+   - Validates authentication
+   - Tests real API behavior
+   - Requires test environment access
+
+3. **Live Tests** - Optional tests against production environments
+   - Final validation
+   - Performance benchmarking
+   - Use with caution
+
+#### Configuration
+
+Set up integration testing with environment variables:
+
+```bash
+# Copy the template and configure
+cp tests/integration/.env.template tests/integration/.env
+
+# Edit .env file with your settings:
+INTEGRATION_TEST_LEVEL=sandbox
+D365FO_SANDBOX_BASE_URL=https://your-test.dynamics.com
+AZURE_CLIENT_ID=your-client-id
+AZURE_CLIENT_SECRET=your-client-secret
+AZURE_TENANT_ID=your-tenant-id
+```
+
+#### Available Commands
+
+```bash
+# Test environment setup
+.\tests\integration\integration-test-simple.ps1 setup
+
+# Dependency checking
+.\tests\integration\integration-test-simple.ps1 deps-check
+
+# Run specific test levels
+.\tests\integration\integration-test-simple.ps1 test-mock
+.\tests\integration\integration-test-simple.ps1 test-sandbox
+.\tests\integration\integration-test-simple.ps1 test-live
+
+# Coverage and reporting
+.\tests\integration\integration-test-simple.ps1 coverage
+
+# Clean up test artifacts
+.\tests\integration\integration-test-simple.ps1 clean
+```
+
+#### Test Coverage
+
+Integration tests cover:
+
+- ✅ **Connection & Authentication** - Azure AD integration, SSL/TLS validation
+- ✅ **Version Methods** - Application, platform, and build version retrieval
+- ✅ **Metadata Operations** - Entity discovery, metadata API validation
+- ✅ **Data Operations** - CRUD operations, OData query validation
+- ✅ **Error Handling** - Network failures, authentication errors, invalid requests
+- ✅ **Performance** - Response time validation, concurrent operations
+
+For detailed information, see [Integration Testing Documentation](tests/integration/README.md).
+
+### Test Results
+
+Recent sandbox integration test results:
+```
+✅ 17 passed, 0 failed, 2 warnings in 37.67s
+====================================================== 
+✅ TestSandboxConnection::test_connection_success
+✅ TestSandboxConnection::test_metadata_connection_success  
+✅ TestSandboxVersionMethods::test_get_application_version
+✅ TestSandboxVersionMethods::test_get_platform_build_version
+✅ TestSandboxVersionMethods::test_get_application_build_version
+✅ TestSandboxVersionMethods::test_version_consistency
+✅ TestSandboxMetadataOperations::test_download_metadata
+✅ TestSandboxMetadataOperations::test_search_entities
+✅ TestSandboxMetadataOperations::test_get_data_entities
+✅ TestSandboxMetadataOperations::test_get_public_entities
+✅ TestSandboxDataOperations::test_get_available_entities
+✅ TestSandboxDataOperations::test_odata_query_options
+✅ TestSandboxAuthentication::test_authenticated_requests
+✅ TestSandboxErrorHandling::test_invalid_entity_error
+✅ TestSandboxErrorHandling::test_invalid_action_error
+✅ TestSandboxPerformance::test_response_times
+✅ TestSandboxPerformance::test_concurrent_operations
+```
+
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
 4. Run tests (`uv run pytest`)
-5. Format code (`uv run black . && uv run isort .`)
-6. Commit changes (`git commit -m 'Add amazing feature'`)
-7. Push to branch (`git push origin feature/amazing-feature`)
-8. Open a Pull Request
+5. Run integration tests (`.\tests\integration\integration-test-simple.ps1 test-sandbox`)
+6. Format code (`uv run black . && uv run isort .`)
+7. Commit changes (`git commit -m 'Add amazing feature'`)
+8. Push to branch (`git push origin feature/amazing-feature`)
+9. Open a Pull Request
 
 ## License
 

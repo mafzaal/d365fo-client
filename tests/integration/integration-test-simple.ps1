@@ -94,7 +94,7 @@ switch ($Command) {
     }
     "coverage" { 
         Write-Host "Running tests with coverage..." -ForegroundColor Cyan
-        $args = @("tests\integration\test_runner.py", "mock", "--coverage")
+        $args = @("tests\integration\test_runner.py", "sandbox", "--coverage")
         
         if ($VerboseOutput) {
             $args += "--verbose"

@@ -68,12 +68,21 @@ def run_tests(test_level: str, specific_test: str = None, verbose: bool = False,
         # Fallback to traditional python -m pytest
         cmd = ['python', '-m', 'pytest']
     
-    # Add test directory
+    # Add test directory and filtering based on test level
     test_dir = Path(__file__).parent
     if specific_test:
         cmd.append(str(test_dir / specific_test))
     else:
-        cmd.append(str(test_dir))
+        # Filter tests based on level to avoid running incompatible tests
+        if test_level == 'mock':
+            cmd.append(str(test_dir / 'test_mock_server.py'))
+        elif test_level == 'sandbox':
+            cmd.append(str(test_dir / 'test_sandbox.py'))
+        elif test_level == 'live':
+            cmd.append(str(test_dir / 'test_live.py'))
+        else:
+            # For 'all' level, run everything
+            cmd.append(str(test_dir))
     
     # Add pytest options
     cmd.extend([
@@ -93,9 +102,6 @@ def run_tests(test_level: str, specific_test: str = None, verbose: bool = False,
             '--cov-report=html',
             '--cov-report=term-missing'
         ])
-    
-    # Add integration test marker
-    cmd.extend(['-m', 'integration or not integration'])
     
     if verbose:
         print(f"🚀 Running command: {' '.join(cmd)}")

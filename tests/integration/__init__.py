@@ -10,7 +10,7 @@ Integration tests are organized into different tiers:
 Configuration:
 - Set INTEGRATION_TEST_LEVEL environment variable to control which tests run
 - Values: 'mock', 'sandbox', 'live', 'all'
-- Default: 'mock' (only mock server tests)
+- Default: 'sandbox' (sandbox environment tests)
 
 Environment Variables:
 - D365FO_TEST_BASE_URL: Base URL for test environment
@@ -23,7 +23,7 @@ import os
 import pytest
 
 # Integration test configuration
-INTEGRATION_TEST_LEVEL = os.getenv('INTEGRATION_TEST_LEVEL', 'mock').lower()
+INTEGRATION_TEST_LEVEL = os.getenv('INTEGRATION_TEST_LEVEL', 'sandbox').lower()
 
 def skip_if_not_level(required_level: str):
     """Decorator to skip tests based on integration test level."""
