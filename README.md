@@ -352,7 +352,7 @@ See [CHANGELOG.md](CHANGELOG.md) for a list of changes and version history.
 
 - 📧 Email: mo@thedataguy.pro
 - 🐛 Issues: [GitHub Issues](https://github.com/mafzaal/d365fo-client/issues)
-- 📖 Documentation: [Read the Docs](https://d365fo-client.readthedocs.io)
+
 
 ## Related Projects
 

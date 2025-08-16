@@ -25,7 +25,7 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/mafzaal/d365fo-client"
 Repository = "https://github.com/mafzaal/d365fo-client"
-Documentation = "https://d365fo-client.readthedocs.io"
+Documentation = "https://github.com/mafzaal/d365fo-client"
 Issues = "https://github.com/mafzaal/d365fo-client/issues"
 Changelog = "https://github.com/mafzaal/d365fo-client/blob/main/CHANGELOG.md"
 
