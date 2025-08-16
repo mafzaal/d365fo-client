@@ -379,11 +379,9 @@ class FOClient:
             
             # Get entity metadata from Metadata API
             url = f"{self.metadata_url}/PublicEntities('{entity_name}')"
-            params = {
-                "$expand": "Properties"
-            }
+        
             
-            async with session.get(url, params=params) as response:
+            async with session.get(url) as response:
                 if response.status == 200:
                     entity_data = await response.json()
                     
@@ -427,7 +425,7 @@ class FOClient:
                     
                     return entity_info
                 else:
-                    print(f"Error fetching entity metadata: {response.status}")
+                    print(f"Error fetching entity metadata: {response.status} - {await response.text()} ")
                     
         except Exception as e:
             print(f"Exception fetching entity metadata: {e}")

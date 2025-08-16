@@ -37,7 +37,7 @@ async def example_usage():
         
         # Get entity info with labels
         print("\n📊 Getting entity information...")
-        customers_info = await client.get_entity_info_with_labels("Customers")
+        customers_info = await client.get_entity_info_with_labels("Customer")
         if customers_info:
             print(f"Customers entity: {customers_info.name}")
             if customers_info.label_text:
@@ -62,14 +62,14 @@ async def example_usage():
             print(f"  {label_id}: '{text}'")
         
         # Search labels
-        customer_labels = await client.search_labels("customer", limit=3)
-        print(f"\nFound {len(customer_labels)} labels containing 'customer':")
-        for label in customer_labels:
-            print(f"  {label.id}: '{label.value}'")
+        # customer_labels = await client.search_labels("customer", limit=3)
+        # print(f"\nFound {len(customer_labels)} labels containing 'customer':")
+        # for label in customer_labels:
+        #     print(f"  {label.id}: '{label.value}'")
         
         # Build label cache
-        print("\nBuilding label cache...")
-        cached_count = await client.build_label_cache(["@SYS"], "en-US")
+        # print("\nBuilding label cache...")
+        # cached_count = await client.build_label_cache(["@SYS"], "en-US")
         
         # Show cache info
         cache_info = client.get_label_cache_info()
@@ -97,6 +97,22 @@ async def example_usage():
         print(f"Found {len(calc_actions)} calculation actions")
         for action in calc_actions[:5]:  # Show first 5
             print(f"  - {action}")
+
+        print("\n🔧 Calling actions...")
+        entity_actions = { "DataManagementEntities": [
+                    "GetApplicationVersion",
+                    "GetPlatformBuildVersion", 
+                    "GetApplicationBuildVersion"
+                    ],
+                    "DocumentRoutingClientApps": ["GetPlatformVersion"],
+                    
+                }
+
+        for entity in entity_actions:
+            for action in entity_actions[entity]:
+                print(f"Calling action '{action}' on entity '{entity}'...")
+                result = await client.call_action(action, entity_name=entity)
+                print(f"Action '{action}' result: {result}")
 
 
 def main() -> None:

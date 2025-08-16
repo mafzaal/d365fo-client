@@ -102,10 +102,10 @@ class QueryBuilder:
         if entity_name and entity_key:
             # Bound action on specific entity
             encoded_key = QueryBuilder.encode_key(entity_key)
-            return f"{base}/data/{entity_name}('{encoded_key}')/{action_name}"
+            return f"{base}/data/{entity_name}('{encoded_key}')/Microsoft.Dynamics.DataEntities.{action_name}"
         elif entity_name:
             # Bound action on entity set
-            return f"{base}/data/{entity_name}/{action_name}"
+            return f"{base}/data/{entity_name}/Microsoft.Dynamics.DataEntities.{action_name}"
         else:
             # Unbound action
-            return f"{base}/data/{action_name}"
+            return f"{base}/data/Microsoft.Dynamics.DataEntities.{action_name}"

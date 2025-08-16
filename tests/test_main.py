@@ -93,11 +93,11 @@ def test_url_builders():
     
     # Test action URL - unbound
     url = QueryBuilder.build_action_url("https://test.com", "calculateTax")
-    assert url == "https://test.com/data/calculateTax"
+    assert url == "https://test.com/data/Microsoft.Dynamics.DataEntities.calculateTax"
     
     # Test action URL - bound
     url = QueryBuilder.build_action_url("https://test.com", "calculateBalance", "Customers", "US-001")
-    assert url == "https://test.com/data/Customers('US-001')/calculateBalance"
+    assert url == "https://test.com/data/Customers('US-001')/Microsoft.Dynamics.DataEntities.calculateBalance"
 
 
 def test_cache_functionality():
