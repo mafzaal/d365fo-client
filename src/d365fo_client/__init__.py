@@ -50,6 +50,7 @@ from .exceptions import (
     FOClientError, AuthenticationError, MetadataError,
     EntityError, ActionError, LabelError, ConfigurationError, NetworkError
 )
+from .utils import get_user_cache_dir, get_default_cache_directory, ensure_directory_exists
 from .main import main
 
 # Public API
@@ -75,6 +76,11 @@ __all__ = [
     "LabelError",
     "ConfigurationError",
     "NetworkError",
+    
+    # Utilities
+    "get_user_cache_dir",
+    "get_default_cache_directory",
+    "ensure_directory_exists",
     
     # Entry point
     "main",

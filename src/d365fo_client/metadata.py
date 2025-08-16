@@ -7,6 +7,7 @@ import re
 from typing import Dict, List, Optional, Any
 
 from .models import EntityInfo, ActionInfo
+from .utils import ensure_directory_exists
 
 
 class MetadataManager:
@@ -24,8 +25,8 @@ class MetadataManager:
         self.actions_cache = os.path.join(cache_dir, "actions.json")
         self._root = None
         
-        # Create cache directory
-        os.makedirs(cache_dir, exist_ok=True)
+        # Create cache directory using utility function
+        ensure_directory_exists(cache_dir)
     
     @property
     def root(self) -> Optional[ET.Element]:

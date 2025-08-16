@@ -296,9 +296,38 @@ d365fo-client/
 | `use_default_credentials` | bool | True | Use Azure Default Credential |
 | `verify_ssl` | bool | False | Verify SSL certificates |
 | `timeout` | int | 30 | Request timeout in seconds |
-| `metadata_cache_dir` | str | "./metadata_cache" | Metadata cache directory |
+| `metadata_cache_dir` | str | Platform-specific user cache | Metadata cache directory |
 | `use_label_cache` | bool | True | Enable label caching |
 | `label_cache_expiry_minutes` | int | 60 | Label cache expiry time |
+
+### Cache Directory Behavior
+
+By default, the client uses platform-appropriate user cache directories:
+
+- **Windows**: `%LOCALAPPDATA%\d365fo-client` (e.g., `C:\Users\username\AppData\Local\d365fo-client`)
+- **macOS**: `~/Library/Caches/d365fo-client` (e.g., `/Users/username/Library/Caches/d365fo-client`)
+- **Linux**: `~/.cache/d365fo-client` (e.g., `/home/username/.cache/d365fo-client`)
+
+You can override this by explicitly setting `metadata_cache_dir`:
+
+```python
+from d365fo_client import FOClientConfig
+
+# Use custom cache directory
+config = FOClientConfig(
+    base_url="https://your-fo-environment.dynamics.com",
+    metadata_cache_dir="/custom/cache/path"
+)
+
+# Or get the default cache directory programmatically
+from d365fo_client import get_user_cache_dir
+
+cache_dir = get_user_cache_dir("my-app")  # Platform-appropriate cache dir
+config = FOClientConfig(
+    base_url="https://your-fo-environment.dynamics.com", 
+    metadata_cache_dir=str(cache_dir)
+)
+```
 
 ## Contributing
 

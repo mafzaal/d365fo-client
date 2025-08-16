@@ -4,6 +4,8 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime
 
+from .utils import get_default_cache_directory
+
 
 @dataclass
 class FOClientConfig:
@@ -14,11 +16,16 @@ class FOClientConfig:
     tenant_id: Optional[str] = None
     use_default_credentials: bool = True
     verify_ssl: bool = False
-    metadata_cache_dir: str = "./metadata_cache"
+    metadata_cache_dir: str = None
     timeout: int = 30
     # Label cache configuration
     use_label_cache: bool = True
     label_cache_expiry_minutes: int = 60
+    
+    def __post_init__(self):
+        """Post-initialization to set default cache directory if not provided."""
+        if self.metadata_cache_dir is None:
+            self.metadata_cache_dir = get_default_cache_directory()
 
 
 @dataclass

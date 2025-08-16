@@ -16,11 +16,59 @@ To run this example:
 
 import asyncio
 import logging
-from d365fo_client import FOClient, FOClientConfig, QueryOptions, FOClientError
+from d365fo_client import (
+    FOClient, FOClientConfig, QueryOptions, FOClientError,
+    get_user_cache_dir, get_default_cache_directory
+)
 
 # Set up logging to see what's happening
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+async def cache_directory_example():
+    """Demonstrate cache directory configuration options."""
+    print("\n" + "="*50)
+    print("CACHE DIRECTORY CONFIGURATION EXAMPLE")
+    print("="*50)
+    
+    # Show default cache directory behavior
+    print("📁 Cache Directory Options:")
+    
+    # Get platform-appropriate cache directory
+    default_cache = get_default_cache_directory()
+    print(f"   Default cache directory: {default_cache}")
+    
+    # Get custom cache directory
+    custom_cache = get_user_cache_dir("my-custom-app")
+    print(f"   Custom app cache directory: {custom_cache}")
+    
+    # Example 1: Use default cache directory (recommended)
+    print("\n📋 Example 1: Default cache directory")
+    config_default = FOClientConfig(
+        base_url="https://your-fo-environment.dynamics.com",
+        # metadata_cache_dir is automatically set to platform-appropriate directory
+    )
+    print(f"   Cache directory: {config_default.metadata_cache_dir}")
+    
+    # Example 2: Custom cache directory
+    print("\n📋 Example 2: Custom cache directory")
+    config_custom = FOClientConfig(
+        base_url="https://your-fo-environment.dynamics.com",
+        metadata_cache_dir="./my_custom_cache"  # Explicit custom directory
+    )
+    print(f"   Cache directory: {config_custom.metadata_cache_dir}")
+    
+    # Example 3: App-specific cache directory
+    print("\n📋 Example 3: App-specific cache directory")
+    app_cache_dir = str(get_user_cache_dir("my-erp-integration"))
+    config_app = FOClientConfig(
+        base_url="https://your-fo-environment.dynamics.com",
+        metadata_cache_dir=app_cache_dir
+    )
+    print(f"   Cache directory: {config_app.metadata_cache_dir}")
+    
+    print("\n✅ Cache directory configuration examples complete!")
 
 
 async def basic_crud_example():
@@ -225,6 +273,7 @@ async def main():
     print("=" * 60)
     
     # Run examples
+    await cache_directory_example()
     await basic_crud_example()
     await metadata_example()
     await labels_example()
