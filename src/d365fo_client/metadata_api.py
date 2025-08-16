@@ -31,26 +31,39 @@ class MetadataAPIOperations:
     
     # DataEntities endpoint operations
     
-    async def get_data_entities(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
+    async def get_data_entities(self, options: Optional[QueryOptions] = None) -> List[DataEntityInfo]:
         """Get data entities from DataEntities endpoint
-        
+
         Args:
             options: OData query options
-            
+
         Returns:
-            Response containing data entities
+            List of DataEntityInfo objects
         """
         session = await self.session_manager.get_session()
         url = f"{self.metadata_url}/DataEntities"
-        
+
         params = QueryBuilder.build_query_params(options)
-        
+
         async with session.get(url, params=params) as response:
             if response.status == 200:
-                return await response.json()
+                data = await response.json()
+                entities = []
+                for item in data.get('value', []):
+                    entity = DataEntityInfo(
+                        name=item.get('Name', ''),
+                        public_entity_name=item.get('PublicEntityName', ''),
+                        public_collection_name=item.get('PublicCollectionName', ''),
+                        label_id=item.get('LabelId'),
+                        data_service_enabled=item.get('DataServiceEnabled', True),
+                        data_management_enabled=item.get('DataManagementEnabled', True),
+                        entity_category=item.get('EntityCategory'),
+                        is_read_only=item.get('IsReadOnly', False)
+                    )
+                    entities.append(entity)
+                return entities
             else:
                 raise Exception(f"Failed to get data entities: {response.status} - {await response.text()}")
-    
     async def search_data_entities(self, pattern: str = "", entity_category: Optional[str] = None,
                                   data_service_enabled: Optional[bool] = None,
                                   data_management_enabled: Optional[bool] = None,
@@ -138,8 +151,8 @@ class MetadataAPIOperations:
                         public_entity_name=item.get('PublicEntityName', ''),
                         public_collection_name=item.get('PublicCollectionName', ''),
                         label_id=item.get('LabelId'),
-                        data_service_enabled=item.get('DataServiceEnabled', True),
-                        data_management_enabled=item.get('DataManagementEnabled', True),
+                        data_service_enabled=item.get('DataServiceEnabled', False),
+                        data_management_enabled=item.get('DataManagementEnabled', False),
                         entity_category=item.get('EntityCategory'),
                         is_read_only=item.get('IsReadOnly', False)
                     )
