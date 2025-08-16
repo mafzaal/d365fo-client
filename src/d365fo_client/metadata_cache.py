@@ -5,7 +5,7 @@ import json
 import sqlite3
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple, Union, TYPE_CHECKING
 from urllib.parse import urlparse
@@ -321,7 +321,7 @@ class MetadataDatabase:
             cursor = await db.execute(
                 """INSERT INTO metadata_environments (base_url, environment_name, created_at)
                    VALUES (?, ?, ?)""",
-                (base_url, self._extract_environment_name(base_url), datetime.utcnow())
+                (base_url, self._extract_environment_name(base_url), datetime.now(timezone.utc))
             )
             await db.commit()
             return cursor.lastrowid
@@ -355,7 +355,7 @@ class MetadataDatabase:
                    VALUES (?, ?, ?, ?, ?, ?, 1)""",
                 (environment_id, version_info.version_hash, version_info.application_version,
                  version_info.platform_version, json.dumps(version_info.package_info or []),
-                 datetime.utcnow())
+                 datetime.now(timezone.utc))
             )
             await db.commit()
             return cursor.lastrowid

@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Set
 import logging
 
@@ -97,7 +97,7 @@ class MetadataSyncManager:
         # In a real implementation, you'd call version APIs or check timestamps
         
         version_components = {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'entities_count': 0,  # Would be populated by actual counts
             'actions_count': 0,
             'enums_count': 0
@@ -113,7 +113,7 @@ class MetadataSyncManager:
             application_version="10.0.latest",  # Would be retrieved from API
             platform_version="10.0.latest",
             package_info=[],  # Would be populated with actual package info
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             is_active=True
         )
     
@@ -128,7 +128,7 @@ class MetadataSyncManager:
         
         # Check if cache is too old (older than 24 hours)
         if cached.created_at:
-            cache_age = datetime.utcnow() - cached.created_at
+            cache_age = datetime.now(timezone.utc) - cached.created_at
             if cache_age.total_seconds() > 86400:  # 24 hours
                 return True
         
@@ -264,7 +264,7 @@ class MetadataSyncManager:
                     (version_id, entity.name, entity.public_entity_name,
                      entity.public_collection_name, entity.label_id, entity.entity_category,
                      entity.data_service_enabled, entity.data_management_enabled,
-                     entity.is_read_only, datetime.utcnow())
+                     entity.is_read_only, datetime.now(timezone.utc))
                     for entity in entities
                 ]
             )
@@ -292,7 +292,7 @@ class MetadataSyncManager:
                             is_read_only, configuration_enabled, created_at)
                            VALUES (?, ?, ?, ?, ?, ?, ?)""",
                         (version_id, entity.name, entity.entity_set_name, entity.label_id,
-                         entity.is_read_only, entity.configuration_enabled, datetime.utcnow())
+                         entity.is_read_only, entity.configuration_enabled, datetime.now(timezone.utc))
                     )
                     entity_id = cursor.lastrowid
                     
@@ -328,7 +328,7 @@ class MetadataSyncManager:
                                VALUES (?, ?, ?, ?, ?, ?)""",
                             (entity_id, nav_prop.name, nav_prop.related_entity,
                              nav_prop.related_relation_name, nav_prop.cardinality,
-                             datetime.utcnow())
+                             datetime.now(timezone.utc))
                         )
                         nav_prop_id = nav_cursor.lastrowid
                         
@@ -369,7 +369,7 @@ class MetadataSyncManager:
                              action.return_type.type_name if action.return_type else None,
                              action.return_type.is_collection if action.return_type else False,
                              action.return_type.odata_xpp_type if action.return_type else None,
-                             datetime.utcnow())
+                             datetime.now(timezone.utc))
                         )
                         action_id = action_cursor.lastrowid
                         
@@ -446,7 +446,7 @@ class MetadataSyncManager:
                     """INSERT INTO enumerations 
                        (version_id, name, label_id, created_at)
                        VALUES (?, ?, ?, ?)""",
-                    (version_id, enum.name, enum.label_id, datetime.utcnow())
+                    (version_id, enum.name, enum.label_id, datetime.now(timezone.utc))
                 )
                 enum_id = cursor.lastrowid
                 

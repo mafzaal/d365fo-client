@@ -7,7 +7,7 @@ It's designed to be fast, reliable, and provide realistic responses for testing.
 import json
 import asyncio
 from typing import Dict, Any, Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from aiohttp import web
 from aiohttp.web import Request, Response, Application
 import logging
@@ -285,7 +285,7 @@ class D365MockServer:
             data = await request.json()
             # Add timestamp and generate ID if needed
             if 'CreatedDateTime' not in data:
-                data['CreatedDateTime'] = datetime.utcnow().isoformat() + 'Z'
+                data['CreatedDateTime'] = datetime.now(timezone.utc).isoformat() + 'Z'
             
             self.entities_data[entity].append(data)
             
