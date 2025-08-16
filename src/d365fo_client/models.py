@@ -99,8 +99,70 @@ class EntityInfo:
 
 
 @dataclass
+class ActionParameterTypeInfo:
+    """Type information for action parameters"""
+    type_name: str
+    is_collection: bool = False
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'type_name': self.type_name,
+            'is_collection': self.is_collection
+        }
+
+
+@dataclass
+class ActionParameterInfo:
+    """Information about an action parameter"""
+    name: str
+    type: ActionParameterTypeInfo
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'name': self.name,
+            'type': self.type.to_dict()
+        }
+
+
+@dataclass
+class ActionReturnTypeInfo:
+    """Return type information for actions"""
+    type_name: str
+    is_collection: bool = False
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'type_name': self.type_name,
+            'is_collection': self.is_collection
+        }
+
+
+@dataclass
+class PublicEntityActionInfo:
+    """Detailed action information from PublicEntities endpoint"""
+    name: str
+    binding_kind: str
+    parameters: List[ActionParameterInfo] = None
+    return_type: Optional[ActionReturnTypeInfo] = None
+    field_lookup: Optional[Any] = None
+    
+    def __post_init__(self):
+        if self.parameters is None:
+            self.parameters = []
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'name': self.name,
+            'binding_kind': self.binding_kind,
+            'parameters': [param.to_dict() for param in self.parameters],
+            'return_type': self.return_type.to_dict() if self.return_type else None,
+            'field_lookup': self.field_lookup
+        }
+
+
+@dataclass
 class ActionInfo:
-    """Action metadata information"""
+    """Action metadata information (legacy/OData metadata)"""
     name: str
     is_bound: bool
     entity_set_path: str
@@ -187,7 +249,7 @@ class PublicEntityInfo:
     properties: List[PublicEntityPropertyInfo] = None
     navigation_properties: List[Dict[str, Any]] = None
     property_groups: List[Dict[str, Any]] = None
-    actions: List[str] = None
+    actions: List[PublicEntityActionInfo] = None
     
     def __post_init__(self):
         if self.properties is None:
@@ -210,7 +272,7 @@ class PublicEntityInfo:
             'properties': [prop.to_dict() for prop in self.properties],
             'navigation_properties': self.navigation_properties,
             'property_groups': self.property_groups,
-            'actions': self.actions
+            'actions': [action.to_dict() for action in self.actions]
         }
 
 

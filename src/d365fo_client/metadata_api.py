@@ -5,7 +5,8 @@ import re
 
 from .models import (
     DataEntityInfo, PublicEntityInfo, EnumerationInfo, 
-    PublicEntityPropertyInfo, EnumerationMemberInfo, QueryOptions
+    PublicEntityPropertyInfo, EnumerationMemberInfo, QueryOptions,
+    PublicEntityActionInfo, ActionParameterInfo, ActionParameterTypeInfo, ActionReturnTypeInfo
 )
 from .session import SessionManager
 from .labels import LabelOperations
@@ -258,8 +259,7 @@ class MetadataAPIOperations:
                         is_read_only=item.get('IsReadOnly', False),
                         configuration_enabled=item.get('ConfigurationEnabled', True),
                         navigation_properties=item.get('NavigationProperties', []),
-                        property_groups=item.get('PropertyGroups', []),
-                        actions=item.get('Actions', [])
+                        property_groups=item.get('PropertyGroups', [])
                     )
                     
                     # Process properties
@@ -281,6 +281,38 @@ class MetadataAPIOperations:
                             dimension_type_property=prop_data.get('DimensionTypeProperty')
                         )
                         entity.properties.append(prop)
+                    
+                    # Process actions
+                    for action_data in item.get('Actions', []):
+                        action = PublicEntityActionInfo(
+                            name=action_data.get('Name', ''),
+                            binding_kind=action_data.get('BindingKind', ''),
+                            field_lookup=action_data.get('FieldLookup')
+                        )
+                        
+                        # Process parameters
+                        for param_data in action_data.get('Parameters', []):
+                            param_type_data = param_data.get('Type', {})
+                            param_type = ActionParameterTypeInfo(
+                                type_name=param_type_data.get('TypeName', ''),
+                                is_collection=param_type_data.get('IsCollection', False)
+                            )
+                            
+                            param = ActionParameterInfo(
+                                name=param_data.get('Name', ''),
+                                type=param_type
+                            )
+                            action.parameters.append(param)
+                        
+                        # Process return type
+                        return_type_data = action_data.get('ReturnType')
+                        if return_type_data:
+                            action.return_type = ActionReturnTypeInfo(
+                                type_name=return_type_data.get('TypeName', ''),
+                                is_collection=return_type_data.get('IsCollection', False)
+                            )
+                        
+                        entity.actions.append(action)
                     
                     # Resolve labels if requested
                     if resolve_labels and self.label_ops:
