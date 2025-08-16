@@ -463,6 +463,22 @@ class FOClient:
         """
         return await self.metadata_api_ops.get_public_entity_info(entity_name, resolve_labels, language)
     
+    async def get_all_public_entities_with_details(self, resolve_labels: bool = False, 
+                                                 language: str = "en-US") -> List[PublicEntityInfo]:
+        """Get all public entities with full details in a single optimized call
+        
+        This method uses an optimized approach that gets all entity details in one API call
+        instead of making individual requests for each entity.
+        
+        Args:
+            resolve_labels: Whether to resolve label IDs to text
+            language: Language for label resolution
+            
+        Returns:
+            List of PublicEntityInfo objects with complete details
+        """
+        return await self.metadata_api_ops.get_all_public_entities_with_details(resolve_labels, language)
+    
     async def get_public_enumerations(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
         """Get public enumerations from PublicEnumerations metadata endpoint
         

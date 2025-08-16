@@ -2,6 +2,7 @@
 
 from typing import Dict, List, Optional, Any, Union
 import re
+import logging
 
 from .models import (
     DataEntityInfo, PublicEntityInfo, EnumerationInfo, 
@@ -12,6 +13,9 @@ from .models import (
 from .session import SessionManager
 from .labels import LabelOperations
 from .query import QueryBuilder
+
+
+logger = logging.getLogger(__name__)
 
 
 class MetadataAPIOperations:
@@ -29,6 +33,109 @@ class MetadataAPIOperations:
         self.session_manager = session_manager
         self.metadata_url = metadata_url
         self.label_ops = label_ops
+    
+    def _parse_public_entity_from_json(self, item: Dict[str, Any]) -> PublicEntityInfo:
+        """Parse a public entity from JSON data returned by PublicEntities API
+        
+        Args:
+            item: JSON object representing a single public entity
+            
+        Returns:
+            PublicEntityInfo object with full details
+        """
+        # Create entity info
+        entity = PublicEntityInfo(
+            name=item.get('Name', ''),
+            entity_set_name=item.get('EntitySetName', ''),
+            label_id=item.get('LabelId'),
+            is_read_only=item.get('IsReadOnly', False),
+            configuration_enabled=item.get('ConfigurationEnabled', True)
+        )
+        
+        # Process properties
+        for prop_data in item.get('Properties', []):
+            prop = PublicEntityPropertyInfo(
+                name=prop_data.get('Name', ''),
+                type_name=prop_data.get('TypeName', ''),
+                data_type=prop_data.get('DataType', ''),
+                label_id=prop_data.get('LabelId'),
+                is_key=prop_data.get('IsKey', False),
+                is_mandatory=prop_data.get('IsMandatory', False),
+                configuration_enabled=prop_data.get('ConfigurationEnabled', True),
+                allow_edit=prop_data.get('AllowEdit', True),
+                allow_edit_on_create=prop_data.get('AllowEditOnCreate', True),
+                is_dimension=prop_data.get('IsDimension', False),
+                dimension_relation=prop_data.get('DimensionRelation'),
+                is_dynamic_dimension=prop_data.get('IsDynamicDimension', False),
+                dimension_legal_entity_property=prop_data.get('DimensionLegalEntityProperty'),
+                dimension_type_property=prop_data.get('DimensionTypeProperty')
+            )
+            entity.properties.append(prop)
+        
+        # Process navigation properties
+        for nav_data in item.get('NavigationProperties', []):
+            nav_prop = NavigationPropertyInfo(
+                name=nav_data.get('Name', ''),
+                related_entity=nav_data.get('RelatedEntity', ''),
+                related_relation_name=nav_data.get('RelatedRelationName'),
+                cardinality=nav_data.get('Cardinality', 'Single')
+            )
+            
+            # Process constraints
+            for constraint_data in nav_data.get('Constraints', []):
+                # Check for ReferentialConstraint type (most common)
+                odata_type = constraint_data.get('@odata.type', '')
+                if 'ReferentialConstraint' in odata_type:
+                    constraint = ReferentialConstraintInfo(
+                        constraint_type="Referential",
+                        property=constraint_data.get('Property', ''),
+                        referenced_property=constraint_data.get('ReferencedProperty', '')
+                    )
+                    nav_prop.constraints.append(constraint)
+            
+            entity.navigation_properties.append(nav_prop)
+        
+        # Process property groups
+        for group_data in item.get('PropertyGroups', []):
+            prop_group = PropertyGroupInfo(
+                name=group_data.get('Name', ''),
+                properties=group_data.get('Properties', [])
+            )
+            entity.property_groups.append(prop_group)
+        
+        # Process actions
+        for action_data in item.get('Actions', []):
+            action = PublicEntityActionInfo(
+                name=action_data.get('Name', ''),
+                binding_kind=action_data.get('BindingKind', ''),
+                field_lookup=action_data.get('FieldLookup')
+            )
+            
+            # Process parameters
+            for param_data in action_data.get('Parameters', []):
+                param_type_data = param_data.get('Type', {})
+                param_type = ActionParameterTypeInfo(
+                    type_name=param_type_data.get('TypeName', ''),
+                    is_collection=param_type_data.get('IsCollection', False)
+                )
+                
+                param = ActionParameterInfo(
+                    name=param_data.get('Name', ''),
+                    type=param_type
+                )
+                action.parameters.append(param)
+            
+            # Process return type
+            return_type_data = action_data.get('ReturnType')
+            if return_type_data:
+                action.return_type = ActionReturnTypeInfo(
+                    type_name=return_type_data.get('TypeName', ''),
+                    is_collection=return_type_data.get('IsCollection', False)
+                )
+            
+            entity.actions.append(action)
+        
+        return entity
     
     # DataEntities endpoint operations
 
@@ -181,6 +288,42 @@ class MetadataAPIOperations:
             else:
                 raise Exception(f"Failed to get public entities: {response.status} - {await response.text()}")
     
+    async def get_all_public_entities_with_details(self, resolve_labels: bool = False, 
+                                                 language: str = "en-US") -> List[PublicEntityInfo]:
+        """Get all public entities with full details in a single optimized call
+        
+        This method uses the fact that PublicEntities endpoint returns complete entity data,
+        avoiding the need for individual calls to PublicEntities('EntityName').
+        
+        Args:
+            resolve_labels: Whether to resolve label IDs to text
+            language: Language for label resolution
+            
+        Returns:
+            List of PublicEntityInfo objects with complete details
+        """
+        # Get all public entities with full details
+        entities_data = await self.get_public_entities()
+        entities = []
+        
+        for item in entities_data.get('value', []):
+            try:
+                # Parse entity using utility function
+                entity = self._parse_public_entity_from_json(item)
+                
+                # Resolve labels if requested
+                if resolve_labels and self.label_ops:
+                    await self._resolve_public_entity_labels(entity, language)
+                
+                entities.append(entity)
+                
+            except Exception as e:
+                # Log error but continue processing other entities
+                logger.warning(f"Failed to parse entity {item.get('Name', 'unknown')}: {e}")
+                continue
+        
+        return entities
+    
     async def search_public_entities(self, pattern: str = "", is_read_only: Optional[bool] = None,
                                    configuration_enabled: Optional[bool] = None) -> List[PublicEntityInfo]:
         """Search public entities with filtering
@@ -253,97 +396,8 @@ class MetadataAPIOperations:
                 if response.status == 200:
                     item = await response.json()
                     
-                    # Create entity info
-                    entity = PublicEntityInfo(
-                        name=item.get('Name', ''),
-                        entity_set_name=item.get('EntitySetName', ''),
-                        label_id=item.get('LabelId'),
-                        is_read_only=item.get('IsReadOnly', False),
-                        configuration_enabled=item.get('ConfigurationEnabled', True)
-                    )
-                    
-                    # Process properties
-                    for prop_data in item.get('Properties', []):
-                        prop = PublicEntityPropertyInfo(
-                            name=prop_data.get('Name', ''),
-                            type_name=prop_data.get('TypeName', ''),
-                            data_type=prop_data.get('DataType', ''),
-                            label_id=prop_data.get('LabelId'),
-                            is_key=prop_data.get('IsKey', False),
-                            is_mandatory=prop_data.get('IsMandatory', False),
-                            configuration_enabled=prop_data.get('ConfigurationEnabled', True),
-                            allow_edit=prop_data.get('AllowEdit', True),
-                            allow_edit_on_create=prop_data.get('AllowEditOnCreate', True),
-                            is_dimension=prop_data.get('IsDimension', False),
-                            dimension_relation=prop_data.get('DimensionRelation'),
-                            is_dynamic_dimension=prop_data.get('IsDynamicDimension', False),
-                            dimension_legal_entity_property=prop_data.get('DimensionLegalEntityProperty'),
-                            dimension_type_property=prop_data.get('DimensionTypeProperty')
-                        )
-                        entity.properties.append(prop)
-                    
-                    # Process navigation properties
-                    for nav_data in item.get('NavigationProperties', []):
-                        nav_prop = NavigationPropertyInfo(
-                            name=nav_data.get('Name', ''),
-                            related_entity=nav_data.get('RelatedEntity', ''),
-                            related_relation_name=nav_data.get('RelatedRelationName'),
-                            cardinality=nav_data.get('Cardinality', 'Single')
-                        )
-                        
-                        # Process constraints
-                        for constraint_data in nav_data.get('Constraints', []):
-                            # Check for ReferentialConstraint type (most common)
-                            odata_type = constraint_data.get('@odata.type', '')
-                            if 'ReferentialConstraint' in odata_type:
-                                constraint = ReferentialConstraintInfo(
-                                    constraint_type="Referential",
-                                    property=constraint_data.get('Property', ''),
-                                    referenced_property=constraint_data.get('ReferencedProperty', '')
-                                )
-                                nav_prop.constraints.append(constraint)
-                        
-                        entity.navigation_properties.append(nav_prop)
-                    
-                    # Process property groups
-                    for group_data in item.get('PropertyGroups', []):
-                        prop_group = PropertyGroupInfo(
-                            name=group_data.get('Name', ''),
-                            properties=group_data.get('Properties', [])
-                        )
-                        entity.property_groups.append(prop_group)
-                    
-                    # Process actions
-                    for action_data in item.get('Actions', []):
-                        action = PublicEntityActionInfo(
-                            name=action_data.get('Name', ''),
-                            binding_kind=action_data.get('BindingKind', ''),
-                            field_lookup=action_data.get('FieldLookup')
-                        )
-                        
-                        # Process parameters
-                        for param_data in action_data.get('Parameters', []):
-                            param_type_data = param_data.get('Type', {})
-                            param_type = ActionParameterTypeInfo(
-                                type_name=param_type_data.get('TypeName', ''),
-                                is_collection=param_type_data.get('IsCollection', False)
-                            )
-                            
-                            param = ActionParameterInfo(
-                                name=param_data.get('Name', ''),
-                                type=param_type
-                            )
-                            action.parameters.append(param)
-                        
-                        # Process return type
-                        return_type_data = action_data.get('ReturnType')
-                        if return_type_data:
-                            action.return_type = ActionReturnTypeInfo(
-                                type_name=return_type_data.get('TypeName', ''),
-                                is_collection=return_type_data.get('IsCollection', False)
-                            )
-                        
-                        entity.actions.append(action)
+                    # Use utility function to parse the entity
+                    entity = self._parse_public_entity_from_json(item)
                     
                     # Resolve labels if requested
                     if resolve_labels and self.label_ops:

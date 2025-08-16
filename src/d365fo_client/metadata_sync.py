@@ -205,56 +205,21 @@ class MetadataSyncManager:
             raise
     
     async def _sync_public_entities(self, version_id: int) -> int:
-        """Sync public entities with full details to database"""
+        """Sync public entities with full details to database (OPTIMIZED)"""
         logger.info("Syncing public entities")
         
         try:
-            # Get all public entities from API
-            entities_data = await self.api.get_public_entities()
+            # Use optimized method to get all entities with full details in one API call
+            entities = await self.api.get_all_public_entities_with_details(resolve_labels=False)
+            
+            # Store in database in batches
+            batch_size = 100
             count = 0
             
-            # Process entities in batches to avoid memory issues
-            batch_size = 50
-            entity_names = [item.get('Name') for item in entities_data.get('value', [])]
-            
-            for i in range(0, len(entity_names), batch_size):
-                batch = entity_names[i:i + batch_size]
-                
-                # Get detailed info for each entity in batch
-                entities = []
-                for entity_name in batch:
-                    try:
-                        entity = await self.api.get_public_entity_info(entity_name, resolve_labels=False)
-                        if entity:
-                            # Validate that we got a proper PublicEntityInfo object
-                            if (hasattr(entity, 'name') and hasattr(entity, 'entity_set_name') and 
-                                hasattr(entity, 'properties') and hasattr(entity, 'navigation_properties') and
-                                not isinstance(entity, dict)):
-                                entities.append(entity)
-                            else:
-                                logger.warning(f"Invalid entity object for {entity_name}: {type(entity)} - {entity}")
-                                # Try to create a valid object from dict if that's what we got
-                                if isinstance(entity, dict) and entity.get('Name'):
-                                    try:
-                                        from .models import PublicEntityInfo
-                                        valid_entity = PublicEntityInfo(
-                                            name=entity.get('Name', ''),
-                                            entity_set_name=entity.get('EntitySetName', ''),
-                                            label_id=entity.get('LabelId'),
-                                            is_read_only=entity.get('IsReadOnly', False),
-                                            configuration_enabled=entity.get('ConfigurationEnabled', True)
-                                        )
-                                        entities.append(valid_entity)
-                                        logger.info(f"Recovered entity {entity_name} from dict")
-                                    except Exception as convert_e:
-                                        logger.warning(f"Failed to convert dict to entity for {entity_name}: {convert_e}")
-                    except Exception as e:
-                        logger.warning(f"Failed to get details for entity {entity_name}: {e}")
-                
-                # Store batch in database
-                if entities:
-                    await self._store_public_entities(version_id, entities)
-                    count += len(entities)
+            for i in range(0, len(entities), batch_size):
+                batch = entities[i:i + batch_size]
+                await self._store_public_entities(version_id, batch)
+                count += len(batch)
             
             logger.info(f"Synced {count} public entities")
             return count
