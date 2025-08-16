@@ -1,6 +1,8 @@
 """Main module for d365fo-client package with example usage."""
 
 import asyncio
+import argparse
+import sys
 from .client import FOClient, create_client
 from .models import FOClientConfig, QueryOptions
 
@@ -107,15 +109,39 @@ async def example_usage():
 
 def main() -> None:
     """Main entry point for the d365fo-client application."""
-    print("Microsoft Dynamics 365 Finance & Operations Client")
-    print("=" * 50)
+    from . import __version__, __author__, __email__
     
-    try:
-        asyncio.run(example_usage())
-    except KeyboardInterrupt:
-        print("\n\nOperation cancelled by user")
-    except Exception as e:
-        print(f"\n\nError: {e}")
+    parser = argparse.ArgumentParser(
+        description="Microsoft Dynamics 365 Finance & Operations Client",
+        prog="d365fo-client"
+    )
+    parser.add_argument(
+        "--version", 
+        action="version", 
+        version=f"d365fo-client {__version__} by {__author__} ({__email__})"
+    )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Run the demo/example usage"
+    )
+    
+    args = parser.parse_args()
+    
+    if args.demo or len(sys.argv) == 1:
+        # Run demo if --demo specified or no arguments provided
+        print("Microsoft Dynamics 365 Finance & Operations Client")
+        print("=" * 50)
+        
+        try:
+            asyncio.run(example_usage())
+        except KeyboardInterrupt:
+            print("\n\nOperation cancelled by user")
+        except Exception as e:
+            print(f"\n\nError: {e}")
+    else:
+        # This handles cases where other arguments might be added in the future
+        parser.print_help()
 
 
 if __name__ == "__main__":

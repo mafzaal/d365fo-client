@@ -151,8 +151,42 @@ def test_main_function_basic():
     """Test that main function can be imported and called."""
     from d365fo_client.main import main
     
+    # Mock the asyncio.run to avoid actual execution and sys.argv to simulate no arguments
+    with patch('d365fo_client.main.asyncio.run') as mock_run, \
+         patch('sys.argv', ['d365fo-client']):
+        main()
+        mock_run.assert_called_once()
+
+
+def test_main_function_version():
+    """Test that main function handles --version argument."""
+    from d365fo_client.main import main
+    
+    # Test version argument - this should exit cleanly
+    with patch('sys.argv', ['d365fo-client', '--version']):
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 0  # Should exit with success code
+
+
+def test_main_function_help():
+    """Test that main function handles --help argument."""
+    from d365fo_client.main import main
+    
+    # Test help argument - this should exit cleanly
+    with patch('sys.argv', ['d365fo-client', '--help']):
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 0  # Should exit with success code
+
+
+def test_main_function_demo():
+    """Test that main function handles --demo argument."""
+    from d365fo_client.main import main
+    
     # Mock the asyncio.run to avoid actual execution
-    with patch('d365fo_client.main.asyncio.run') as mock_run:
+    with patch('d365fo_client.main.asyncio.run') as mock_run, \
+         patch('sys.argv', ['d365fo-client', '--demo']):
         main()
         mock_run.assert_called_once()
 

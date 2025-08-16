@@ -36,9 +36,108 @@ Quick Start:
     client = create_client("https://your-fo-environment.dynamics.com")
 """
 
-__version__ = "0.1.0"
-__author__ = "Muhammad Afzaal"
-__email__ = "mo@thedataguy.pro"
+import sys
+from pathlib import Path
+
+# Dynamic version, author, and email retrieval
+def _get_package_metadata():
+    """Get package metadata from installed package or pyproject.toml."""
+    package_name = "d365fo-client"
+    
+    # Try to get from installed package metadata first (works after pip install)
+    try:
+        from importlib.metadata import metadata
+        pkg_metadata = metadata(package_name)
+        
+        version = pkg_metadata["Version"]
+        authors = pkg_metadata.get("Author-email", "").split(", ")
+        
+        # Parse author and email from "Name <email>" format
+        if authors and authors[0]:
+            author_email = authors[0]
+            if "<" in author_email and ">" in author_email:
+                author = author_email.split("<")[0].strip()
+                email = author_email.split("<")[1].split(">")[0].strip()
+            else:
+                # Fallback if format is different
+                author = pkg_metadata.get("Author", "Muhammad Afzaal")
+                email = author_email if "@" in author_email else "mo@thedataguy.pro"
+        else:
+            author = pkg_metadata.get("Author", "Muhammad Afzaal")
+            email = "mo@thedataguy.pro"
+            
+        return version, author, email
+        
+    except ImportError:
+        # importlib.metadata not available (Python < 3.8)
+        pass
+    except Exception:
+        # Package not installed or other error
+        pass
+    
+    # Fallback: try to read from pyproject.toml (development mode)
+    try:
+        # Try to find pyproject.toml in package directory or parent directories
+        current_file = Path(__file__)
+        for parent in [current_file.parent, current_file.parent.parent, current_file.parent.parent.parent]:
+            pyproject_path = parent / "pyproject.toml"
+            if pyproject_path.exists():
+                # Try to use tomllib for Python 3.11+
+                tomllib = None
+                if sys.version_info >= (3, 11):
+                    try:
+                        import tomllib
+                    except ImportError:
+                        tomllib = None
+                
+                if tomllib:
+                    with open(pyproject_path, "rb") as f:
+                        data = tomllib.load(f)
+                    
+                    # Use tomllib parsed data
+                    project = data.get("project", {})
+                    version = project.get("version", "0.1.0")
+                    
+                    authors = project.get("authors", [])
+                    if authors and len(authors) > 0:
+                        author = authors[0].get("name", "Muhammad Afzaal")
+                        email = authors[0].get("email", "mo@thedataguy.pro")
+                    else:
+                        author = "Muhammad Afzaal"
+                        email = "mo@thedataguy.pro"
+                    
+                    return version, author, email
+                else:
+                    # Fallback for Python < 3.11: simple parsing
+                    import re
+                    with open(pyproject_path, "r", encoding="utf-8") as f:
+                        content = f.read()
+                    
+                    version_match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', content)
+                    author_match = re.search(r'name\s*=\s*["\']([^"\']+)["\'].*?email\s*=\s*["\']([^"\']+)["\']', content, re.DOTALL)
+                    
+                    if version_match:
+                        version = version_match.group(1)
+                    else:
+                        version = "0.1.0"
+                    
+                    if author_match:
+                        author = author_match.group(1)
+                        email = author_match.group(2)
+                    else:
+                        author = "Muhammad Afzaal"
+                        email = "mo@thedataguy.pro"
+                    
+                    return version, author, email
+                
+    except Exception:
+        # If all else fails, use fallback values
+        pass
+    
+    # Ultimate fallback
+    return "0.1.0", "Muhammad Afzaal", "mo@thedataguy.pro"
+
+__version__, __author__, __email__ = _get_package_metadata()
 
 # Import main classes and functions for public API
 from .client import FOClient, create_client
