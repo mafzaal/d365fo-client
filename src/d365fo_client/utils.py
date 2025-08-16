@@ -162,8 +162,8 @@ def get_environment_cache_dir(base_url: str, app_name: str = "d365fo-client") ->
         Path object pointing to the environment-specific cache directory
         
     Examples:
-        >>> cache_dir = get_environment_cache_dir("https://mycompany.sandbox.operations.dynamics.com")
-        >>> "mycompany.sandbox.operations.dynamics.com" in str(cache_dir)
+        >>> cache_dir = get_environment_cache_dir("https://usnconeboxax1aos.cloud.onebox.dynamics.com")
+        >>> "usnconeboxax1aos.cloud.onebox.dynamics.com" in str(cache_dir)
         True
         
         >>> cache_dir = get_environment_cache_dir("https://test.dynamics.com", "my-app")
@@ -188,8 +188,8 @@ def get_environment_cache_directory(base_url: str) -> str:
         String path to the environment-specific cache directory
         
     Examples:
-        >>> cache_dir = get_environment_cache_directory("https://test.dynamics.com")
-        >>> isinstance(cache_dir, str) and "test.dynamics.com" in cache_dir
+        >>> cache_dir = get_environment_cache_directory("https://usnconeboxax1aos.cloud.onebox.dynamics.com")
+        >>> isinstance(cache_dir, str) and "usnconeboxax1aos.cloud.onebox.dynamics.com" in cache_dir
         True
     """
     return str(get_environment_cache_dir(base_url))

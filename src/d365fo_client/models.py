@@ -109,7 +109,7 @@ class LabelInfo:
 class EntityPropertyInfo:
     """Information about an entity property with label"""
     name: str
-    type_name: str
+    type_name: ODataXppType
     label_id: Optional[str] = None
     label_text: Optional[str] = None
     is_key: bool = False
@@ -196,7 +196,7 @@ class ActionReturnTypeInfo:
 class PublicEntityActionInfo:
     """Detailed action information from PublicEntities endpoint"""
     name: str
-    binding_kind: str
+    binding_kind: ODataBindingKind
     parameters: List[ActionParameterInfo] = None
     return_type: Optional[ActionReturnTypeInfo] = None
     field_lookup: Optional[Any] = None
@@ -236,7 +236,7 @@ class DataEntityInfo:
     label_text: Optional[str] = None
     data_service_enabled: bool = True
     data_management_enabled: bool = True
-    entity_category: Optional[str] = None
+    entity_category: Optional[EntityCategory] = None
     is_read_only: bool = False
     
     def to_dict(self) -> Dict[str, Any]:
@@ -442,7 +442,7 @@ class NavigationPropertyInfo:
     name: str
     related_entity: str
     related_relation_name: Optional[str] = None
-    cardinality: str = "Single"  # Single|Multiple
+    cardinality: Cardinality = Cardinality.SINGLE
     constraints: List['RelationConstraintInfo'] = field(default_factory=list)
     
     def to_dict(self) -> Dict[str, Any]:
