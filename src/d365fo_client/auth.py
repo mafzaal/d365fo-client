@@ -44,6 +44,10 @@ class AuthenticationManager:
         Returns:
             Bearer token string
         """
+        # Skip authentication for localhost/mock server
+        if self._is_localhost():
+            return "mock-token-for-localhost"
+        
         if (self._token and 
             self._token_expires and 
             datetime.now().timestamp() < self._token_expires):
@@ -68,6 +72,17 @@ class AuthenticationManager:
                 continue
         
         raise Exception("Failed to get authentication token")
+    
+    def _is_localhost(self) -> bool:
+        """Check if the base URL is localhost (for mock testing)
+        
+        Returns:
+            True if base URL is localhost/127.0.0.1
+        """
+        base_url = self.config.base_url.lower()
+        return any(host in base_url for host in [
+            'localhost', '127.0.0.1', '::1'
+        ])
     
     def invalidate_token(self):
         """Invalidate cached token to force refresh"""
