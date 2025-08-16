@@ -16,6 +16,7 @@ To run this example:
 
 import asyncio
 import logging
+import os
 from d365fo_client import (
     FOClient, FOClientConfig, QueryOptions, FOClientError,
     get_user_cache_dir, get_default_cache_directory
@@ -77,9 +78,11 @@ async def basic_crud_example():
     print("BASIC CRUD OPERATIONS EXAMPLE")
     print("="*50)
     
+    base_url = os.getenv('D365FO_BASE_URL', 'https://usnconeboxax1aos.cloud.onebox.dynamics.com')
+    
     # Configure the client
     config = FOClientConfig(
-        base_url="https://your-fo-environment.dynamics.com",
+        base_url=base_url,
         use_default_credentials=True,  # Use Azure Default Credential
         verify_ssl=False,  # Set to True for production
         timeout=30,

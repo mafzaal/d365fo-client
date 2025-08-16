@@ -560,6 +560,98 @@ class FOClient:
             Dictionary with metadata information
         """
         return self.metadata_manager.get_cache_info()
+    
+    # Application Version Operations
+    
+    async def get_application_version(self) -> str:
+        """Get the current application version of the D365 F&O environment
+        
+        This method calls the GetApplicationVersion action bound to the DataManagementEntities
+        collection to retrieve the application version information.
+        
+        Returns:
+            str: The application version string
+            
+        Raises:
+            FOClientError: If the action call fails
+        """
+        try:
+            result = await self.call_action(
+                "GetApplicationVersion", 
+                parameters=None,
+                entity_name="DataManagementEntities"
+            )
+            
+            # The action returns a simple string value
+            if isinstance(result, str):
+                return result
+            elif isinstance(result, dict) and 'value' in result:
+                return str(result['value'])
+            else:
+                return str(result) if result is not None else ""
+                
+        except Exception as e:
+            raise FOClientError(f"Failed to get application version: {e}")
+
+    async def get_platform_build_version(self) -> str:
+        """Get the current platform build version of the D365 F&O environment
+        
+        This method calls the GetPlatformBuildVersion action bound to the DataManagementEntities
+        collection to retrieve the platform build version information.
+        
+        Returns:
+            str: The platform build version string
+            
+        Raises:
+            FOClientError: If the action call fails
+        """
+        try:
+            result = await self.call_action(
+                "GetPlatformBuildVersion", 
+                parameters=None,
+                entity_name="DataManagementEntities"
+            )
+            
+            # The action returns a simple string value
+            if isinstance(result, str):
+                return result
+            elif isinstance(result, dict) and 'value' in result:
+                return str(result['value'])
+            else:
+                return str(result) if result is not None else ""
+                
+        except Exception as e:
+            raise FOClientError(f"Failed to get platform build version: {e}")
+
+    async def get_application_build_version(self) -> str:
+        """Get the current application build version of the D365 F&O environment
+        
+        This method calls the GetApplicationBuildVersion action bound to the DataManagementEntities
+        collection to retrieve the application build version information.
+        
+        Returns:
+            str: The application build version string
+            
+        Raises:
+            FOClientError: If the action call fails
+        """
+        try:
+            result = await self.call_action(
+                "GetApplicationBuildVersion", 
+                parameters=None,
+                entity_name="DataManagementEntities"
+            )
+            
+            # The action returns a simple string value
+            if isinstance(result, str):
+                return result
+            elif isinstance(result, dict) and 'value' in result:
+                return str(result['value'])
+            else:
+                return str(result) if result is not None else ""
+                
+        except Exception as e:
+            raise FOClientError(f"Failed to get application build version: {e}")
 
 
 # Convenience function for creating client

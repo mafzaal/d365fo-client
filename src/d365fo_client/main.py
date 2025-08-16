@@ -91,13 +91,30 @@ async def example_usage():
             print(f"  - {action}")
 
         print("\n🔧 Calling actions...")
-        entity_actions = { "DataManagementEntities": [
-                    "GetApplicationVersion",
-                    "GetPlatformBuildVersion", 
-                    "GetApplicationBuildVersion"
-                    ],
+        
+        # Use the new dedicated methods for version information
+        print("Getting version information using dedicated methods...")
+        try:
+            app_version = await client.get_application_version()
+            print(f"Application Version: {app_version}")
+        except Exception as e:
+            print(f"Error getting application version: {e}")
+        
+        try:
+            platform_build_version = await client.get_platform_build_version()
+            print(f"Platform Build Version: {platform_build_version}")
+        except Exception as e:
+            print(f"Error getting platform build version: {e}")
+            
+        try:
+            app_build_version = await client.get_application_build_version()
+            print(f"Application Build Version: {app_build_version}")
+        except Exception as e:
+            print(f"Error getting application build version: {e}")
+        
+        # Call other actions using generic call_action
+        entity_actions = { 
                     "DocumentRoutingClientApps": ["GetPlatformVersion"],
-                    
                 }
 
         for entity in entity_actions:
