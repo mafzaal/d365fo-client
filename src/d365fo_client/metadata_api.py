@@ -30,8 +30,8 @@ class MetadataAPIOperations:
         self.label_ops = label_ops
     
     # DataEntities endpoint operations
-    
-    async def get_data_entities(self, options: Optional[QueryOptions] = None) -> List[DataEntityInfo]:
+
+    async def get_data_entities(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
         """Get data entities from DataEntities endpoint
 
         Args:
@@ -48,22 +48,10 @@ class MetadataAPIOperations:
         async with session.get(url, params=params) as response:
             if response.status == 200:
                 data = await response.json()
-                entities = []
-                for item in data.get('value', []):
-                    entity = DataEntityInfo(
-                        name=item.get('Name', ''),
-                        public_entity_name=item.get('PublicEntityName', ''),
-                        public_collection_name=item.get('PublicCollectionName', ''),
-                        label_id=item.get('LabelId'),
-                        data_service_enabled=item.get('DataServiceEnabled', True),
-                        data_management_enabled=item.get('DataManagementEnabled', True),
-                        entity_category=item.get('EntityCategory'),
-                        is_read_only=item.get('IsReadOnly', False)
-                    )
-                    entities.append(entity)
-                return entities
+                return data
             else:
                 raise Exception(f"Failed to get data entities: {response.status} - {await response.text()}")
+    
     async def search_data_entities(self, pattern: str = "", entity_category: Optional[str] = None,
                                   data_service_enabled: Optional[bool] = None,
                                   data_management_enabled: Optional[bool] = None,
