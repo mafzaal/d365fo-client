@@ -4,6 +4,8 @@ from typing import Dict, List, Optional, Any, Union
 import re
 import logging
 
+from d365fo_client.crud import CrudOperations
+
 from .models import (
     DataEntityInfo, PublicEntityInfo, EnumerationInfo, 
     PublicEntityPropertyInfo, EnumerationMemberInfo, QueryOptions,
@@ -33,7 +35,8 @@ class MetadataAPIOperations:
         self.session_manager = session_manager
         self.metadata_url = metadata_url
         self.label_ops = label_ops
-    
+        self.crud_ops = CrudOperations(self.session_manager, self.session_manager.config.base_url)
+
     def _parse_public_entity_from_json(self, item: Dict[str, Any]) -> PublicEntityInfo:
         """Parse a public entity from JSON data returned by PublicEntities API
         
@@ -616,3 +619,51 @@ class MetadataAPIOperations:
             for member in enum.members:
                 if member.label_id:
                     member.label_text = labels.get(member.label_id)
+    
+    # Version Information Methods
+    
+    async def get_application_version(self) -> str:
+        """Get the current application version of the D365 F&O environment
+        
+        Returns:
+            str: The application version string
+            
+        Raises:
+            Exception: If the action call fails
+        """
+        try:
+            result = await self.crud_ops.call_action("GetApplicationVersion", {}, "DataManagementEntities", None)
+            # The action returns a simple string value
+            if isinstance(result, str):
+                return result
+            elif isinstance(result, dict) and 'value' in result:
+                return str(result['value'])
+            else:
+                return str(result) if result is not None else ""
+                    
+        except Exception as e:
+            logger.error(f"Failed to get application version: {e}")
+            raise
+
+    async def get_platform_build_version(self) -> str:
+        """Get the current platform build version of the D365 F&O environment
+        
+        Returns:
+            str: The platform build version string
+            
+        Raises:
+            Exception: If the action call fails
+        """
+        try:
+            result = await self.crud_ops.call_action("GetPlatformBuildVersion", {}, "DataManagementEntities", None)
+            # The action returns a simple string value
+            if isinstance(result, str):
+                return result
+            elif isinstance(result, dict) and 'value' in result:
+                return str(result['value'])
+            else:
+                return str(result) if result is not None else ""
+                    
+        except Exception as e:
+            logger.error(f"Failed to get platform build version: {e}")
+            raise

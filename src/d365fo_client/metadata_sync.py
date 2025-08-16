@@ -90,17 +90,23 @@ class MetadataSyncManager:
     
     async def _get_current_version(self) -> MetadataVersionInfo:
         """Get current environment version information"""
-        # Get version information from D365 F&O
-        # This would typically include application version, platform version, and package information
+        # Get version information from D365 F&O using API calls
+        try:
+            application_version = await self.api.get_application_version()
+        except Exception as e:
+            logger.warning(f"Failed to get application version: {e}, using fallback")
+            application_version = "10.0.latest"
         
-        # For now, create a simple version hash based on available metadata
-        # In a real implementation, you'd call version APIs or check timestamps
+        try:
+            platform_version = await self.api.get_platform_build_version()
+        except Exception as e:
+            logger.warning(f"Failed to get platform version: {e}, using fallback")
+            platform_version = "10.0.latest"
         
+        # Create a version hash based on the actual version information
         version_components = {
-            'timestamp': datetime.now(timezone.utc).isoformat(),
-            'entities_count': 0,  # Would be populated by actual counts
-            'actions_count': 0,
-            'enums_count': 0
+            'application_version': application_version,
+            'platform_version': platform_version,
         }
         
         # Create version hash
@@ -110,8 +116,8 @@ class MetadataSyncManager:
         return MetadataVersionInfo(
             environment_id=self.cache._environment_id,
             version_hash=version_hash,
-            application_version="10.0.latest",  # Would be retrieved from API
-            platform_version="10.0.latest",
+            application_version=application_version,
+            platform_version=platform_version,
             package_info=[],  # Would be populated with actual package info
             created_at=datetime.now(timezone.utc),
             is_active=True

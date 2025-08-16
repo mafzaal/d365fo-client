@@ -598,19 +598,7 @@ class FOClient:
             FOClientError: If the action call fails
         """
         try:
-            result = await self.call_action(
-                "GetApplicationVersion", 
-                parameters=None,
-                entity_name="DataManagementEntities"
-            )
-            
-            # The action returns a simple string value
-            if isinstance(result, str):
-                return result
-            elif isinstance(result, dict) and 'value' in result:
-                return str(result['value'])
-            else:
-                return str(result) if result is not None else ""
+           return await self.metadata_api_ops.get_application_version()
                 
         except Exception as e:
             raise FOClientError(f"Failed to get application version: {e}")
@@ -628,19 +616,7 @@ class FOClient:
             FOClientError: If the action call fails
         """
         try:
-            result = await self.call_action(
-                "GetPlatformBuildVersion", 
-                parameters=None,
-                entity_name="DataManagementEntities"
-            )
-            
-            # The action returns a simple string value
-            if isinstance(result, str):
-                return result
-            elif isinstance(result, dict) and 'value' in result:
-                return str(result['value'])
-            else:
-                return str(result) if result is not None else ""
+            return await self.metadata_api_ops.get_platform_build_version()
                 
         except Exception as e:
             raise FOClientError(f"Failed to get platform build version: {e}")
