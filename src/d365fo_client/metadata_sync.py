@@ -229,24 +229,12 @@ class MetadataSyncManager:
             raise
     
     async def _sync_enumerations(self, version_id: int) -> int:
-        """Sync enumerations to database"""
+        """Sync enumerations to database (OPTIMIZED)"""
         logger.info("Syncing enumerations")
         
         try:
-            # Get all enumerations from API
-            enums_data = await self.api.get_public_enumerations()
-            enumerations = []
-            
-            for item in enums_data.get('value', []):
-                # Get detailed enumeration info
-                enum_name = item.get('Name')
-                if enum_name:
-                    try:
-                        enum_info = await self.api.get_public_enumeration_info(enum_name, resolve_labels=False)
-                        if enum_info:
-                            enumerations.append(enum_info)
-                    except Exception as e:
-                        logger.warning(f"Failed to get details for enumeration {enum_name}: {e}")
+            # Use optimized method to get all enumerations with full details in one API call
+            enumerations = await self.api.get_all_public_enumerations_with_details(resolve_labels=False)
             
             # Store in database
             await self._store_enumerations(version_id, enumerations)

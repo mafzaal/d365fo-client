@@ -515,6 +515,22 @@ class FOClient:
         """
         return await self.metadata_api_ops.get_public_enumeration_info(enumeration_name, resolve_labels, language)
     
+    async def get_all_public_enumerations_with_details(self, resolve_labels: bool = False, 
+                                                     language: str = "en-US") -> List[EnumerationInfo]:
+        """Get all public enumerations with full details in a single optimized call
+        
+        This method uses an optimized approach that gets all enumeration details in one API call
+        instead of making individual requests for each enumeration.
+        
+        Args:
+            resolve_labels: Whether to resolve label IDs to text
+            language: Language for label resolution
+            
+        Returns:
+            List of EnumerationInfo objects with complete details
+        """
+        return await self.metadata_api_ops.get_all_public_enumerations_with_details(resolve_labels, language)
+    
     # Utility Methods
     
     def get_label_cache_info(self) -> Dict[str, Any]:

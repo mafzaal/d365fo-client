@@ -137,6 +137,33 @@ class MetadataAPIOperations:
         
         return entity
     
+    def _parse_public_enumeration_from_json(self, item: Dict[str, Any]) -> EnumerationInfo:
+        """Parse a public enumeration from JSON data returned by PublicEnumerations API
+        
+        Args:
+            item: JSON object representing a single public enumeration
+            
+        Returns:
+            EnumerationInfo object with full details
+        """
+        # Create enumeration info
+        enum = EnumerationInfo(
+            name=item.get('Name', ''),
+            label_id=item.get('LabelId')
+        )
+        
+        # Process members
+        for member_data in item.get('Members', []):
+            member = EnumerationMemberInfo(
+                name=member_data.get('Name', ''),
+                value=member_data.get('Value', 0),
+                label_id=member_data.get('LabelId'),
+                configuration_enabled=member_data.get('ConfigurationEnabled', True)
+            )
+            enum.members.append(member)
+        
+        return enum
+    
     # DataEntities endpoint operations
 
     async def get_data_entities(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
@@ -434,6 +461,42 @@ class MetadataAPIOperations:
             else:
                 raise Exception(f"Failed to get public enumerations: {response.status} - {await response.text()}")
     
+    async def get_all_public_enumerations_with_details(self, resolve_labels: bool = False, 
+                                                     language: str = "en-US") -> List[EnumerationInfo]:
+        """Get all public enumerations with full details in a single optimized call
+        
+        This method uses the fact that PublicEnumerations endpoint returns complete enumeration data,
+        avoiding the need for individual calls to PublicEnumerations('EnumName').
+        
+        Args:
+            resolve_labels: Whether to resolve label IDs to text
+            language: Language for label resolution
+            
+        Returns:
+            List of EnumerationInfo objects with complete details
+        """
+        # Get all public enumerations with full details
+        enums_data = await self.get_public_enumerations()
+        enumerations = []
+        
+        for item in enums_data.get('value', []):
+            try:
+                # Parse enumeration using utility function
+                enum = self._parse_public_enumeration_from_json(item)
+                
+                # Resolve labels if requested
+                if resolve_labels and self.label_ops:
+                    await self._resolve_enumeration_labels(enum, language)
+                
+                enumerations.append(enum)
+                
+            except Exception as e:
+                # Log error but continue processing other enumerations
+                logger.warning(f"Failed to parse enumeration {item.get('Name', 'unknown')}: {e}")
+                continue
+        
+        return enumerations
+    
     async def search_public_enumerations(self, pattern: str = "") -> List[EnumerationInfo]:
         """Search public enumerations with filtering
         
@@ -488,21 +551,8 @@ class MetadataAPIOperations:
                 if response.status == 200:
                     item = await response.json()
                     
-                    # Create enumeration info
-                    enum = EnumerationInfo(
-                        name=item.get('Name', ''),
-                        label_id=item.get('LabelId')
-                    )
-                    
-                    # Process members
-                    for member_data in item.get('Members', []):
-                        member = EnumerationMemberInfo(
-                            name=member_data.get('Name', ''),
-                            value=member_data.get('Value', 0),
-                            label_id=member_data.get('LabelId'),
-                            configuration_enabled=member_data.get('ConfigurationEnabled', True)
-                        )
-                        enum.members.append(member)
+                    # Use utility function to parse the enumeration
+                    enum = self._parse_public_enumeration_from_json(item)
                     
                     # Resolve labels if requested
                     if resolve_labels and self.label_ops:
