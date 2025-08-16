@@ -107,16 +107,6 @@ class FOClient:
                 if response.status == 200:
                     return True
             
-            # Fallback: try Labels with a specific filter
-            url = f"{self.metadata_url}/Labels"
-            params = {
-                "$filter": "startswith(Id, '@SYS') and Language eq 'en-US'",
-                "$top": 1
-            }
-            
-            async with session.get(url, params=params) as response:
-                return response.status == 200
-                
         except Exception as e:
             print(f"Metadata connection test failed: {e}")
             return False
