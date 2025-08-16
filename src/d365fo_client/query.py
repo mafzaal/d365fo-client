@@ -22,6 +22,25 @@ class QueryBuilder:
         if not options:
             return ""
         
+        params = QueryBuilder.build_query_params(options)
+        
+        if params:
+            return '?' + urlencode(params, quote_via=quote)
+        return ""
+    
+    @staticmethod
+    def build_query_params(options: Optional[QueryOptions] = None) -> dict:
+        """Build OData query parameters dict from options
+        
+        Args:
+            options: Query options to convert
+            
+        Returns:
+            Dictionary of query parameters
+        """
+        if not options:
+            return {}
+        
         params = {}
         
         if options.select:
@@ -48,9 +67,7 @@ class QueryBuilder:
         if options.search:
             params['$search'] = options.search
         
-        if params:
-            return '?' + urlencode(params, quote_via=quote)
-        return ""
+        return params
     
     @staticmethod
     def encode_key(key: str) -> str:

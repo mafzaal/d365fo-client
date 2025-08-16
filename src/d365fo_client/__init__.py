@@ -143,7 +143,9 @@ __version__, __author__, __email__ = _get_package_metadata()
 from .client import FOClient, create_client
 from .models import (
     FOClientConfig, QueryOptions, LabelInfo, 
-    EntityInfo, EntityPropertyInfo, ActionInfo
+    EntityInfo, EntityPropertyInfo, ActionInfo,
+    DataEntityInfo, PublicEntityInfo, EnumerationInfo,
+    PublicEntityPropertyInfo, EnumerationMemberInfo
 )
 from .exceptions import (
     FOClientError, AuthenticationError, MetadataError,
@@ -168,6 +170,11 @@ __all__ = [
     "EntityInfo", 
     "EntityPropertyInfo",
     "ActionInfo",
+    "DataEntityInfo",
+    "PublicEntityInfo", 
+    "EnumerationInfo",
+    "PublicEntityPropertyInfo",
+    "EnumerationMemberInfo",
     
     # Exceptions
     "FOClientError",

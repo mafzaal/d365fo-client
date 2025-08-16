@@ -4,11 +4,13 @@ import os
 from typing import Dict, List, Optional, Any, Union
 
 from .models import (
-    FOClientConfig, QueryOptions, LabelInfo, EntityInfo, ActionInfo, EntityPropertyInfo
+    FOClientConfig, QueryOptions, LabelInfo, EntityInfo, ActionInfo, EntityPropertyInfo,
+    DataEntityInfo, PublicEntityInfo, EnumerationInfo
 )
 from .auth import AuthenticationManager
 from .session import SessionManager
 from .metadata import MetadataManager
+from .metadata_api import MetadataAPIOperations
 from .cache import LabelCache
 from .crud import CrudOperations
 from .labels import LabelOperations
@@ -56,6 +58,7 @@ class FOClient:
         self.metadata_url = f"{config.base_url.rstrip('/')}/Metadata"
         self.crud_ops = CrudOperations(self.session_manager, config.base_url)
         self.label_ops = LabelOperations(self.session_manager, self.metadata_url, self.label_cache)
+        self.metadata_api_ops = MetadataAPIOperations(self.session_manager, self.metadata_url, self.label_ops)
     
     async def close(self):
         """Close the client session"""
@@ -382,6 +385,129 @@ class FOClient:
             print(f"Exception fetching entity metadata: {e}")
         
         return None
+    
+    # Metadata API Operations
+    
+    async def get_data_entities(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
+        """Get data entities from DataEntities metadata endpoint
+        
+        Args:
+            options: OData query options
+            
+        Returns:
+            Response containing data entities
+        """
+        return await self.metadata_api_ops.get_data_entities(options)
+    
+    async def search_data_entities(self, pattern: str = "", entity_category: Optional[str] = None,
+                                  data_service_enabled: Optional[bool] = None,
+                                  data_management_enabled: Optional[bool] = None,
+                                  is_read_only: Optional[bool] = None) -> List[DataEntityInfo]:
+        """Search data entities with filtering
+        
+        Args:
+            pattern: Search pattern for entity name (regex supported)
+            entity_category: Filter by entity category (e.g., 'Master', 'Transaction')
+            data_service_enabled: Filter by data service enabled status
+            data_management_enabled: Filter by data management enabled status
+            is_read_only: Filter by read-only status
+            
+        Returns:
+            List of matching data entities
+        """
+        return await self.metadata_api_ops.search_data_entities(
+            pattern, entity_category, data_service_enabled, 
+            data_management_enabled, is_read_only
+        )
+    
+    async def get_data_entity_info(self, entity_name: str, resolve_labels: bool = True,
+                                  language: str = "en-US") -> Optional[DataEntityInfo]:
+        """Get detailed information about a specific data entity
+        
+        Args:
+            entity_name: Name of the data entity
+            resolve_labels: Whether to resolve label IDs to text
+            language: Language for label resolution
+            
+        Returns:
+            DataEntityInfo object or None if not found
+        """
+        return await self.metadata_api_ops.get_data_entity_info(entity_name, resolve_labels, language)
+    
+    async def get_public_entities(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
+        """Get public entities from PublicEntities metadata endpoint
+        
+        Args:
+            options: OData query options
+            
+        Returns:
+            Response containing public entities
+        """
+        return await self.metadata_api_ops.get_public_entities(options)
+    
+    async def search_public_entities(self, pattern: str = "", is_read_only: Optional[bool] = None,
+                                   configuration_enabled: Optional[bool] = None) -> List[PublicEntityInfo]:
+        """Search public entities with filtering
+        
+        Args:
+            pattern: Search pattern for entity name (regex supported)
+            is_read_only: Filter by read-only status
+            configuration_enabled: Filter by configuration enabled status
+            
+        Returns:
+            List of matching public entities (without detailed properties)
+        """
+        return await self.metadata_api_ops.search_public_entities(pattern, is_read_only, configuration_enabled)
+    
+    async def get_public_entity_info(self, entity_name: str, resolve_labels: bool = True,
+                                   language: str = "en-US") -> Optional[PublicEntityInfo]:
+        """Get detailed information about a specific public entity
+        
+        Args:
+            entity_name: Name of the public entity
+            resolve_labels: Whether to resolve label IDs to text
+            language: Language for label resolution
+            
+        Returns:
+            PublicEntityInfo object with full details or None if not found
+        """
+        return await self.metadata_api_ops.get_public_entity_info(entity_name, resolve_labels, language)
+    
+    async def get_public_enumerations(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
+        """Get public enumerations from PublicEnumerations metadata endpoint
+        
+        Args:
+            options: OData query options
+            
+        Returns:
+            Response containing public enumerations
+        """
+        return await self.metadata_api_ops.get_public_enumerations(options)
+    
+    async def search_public_enumerations(self, pattern: str = "") -> List[EnumerationInfo]:
+        """Search public enumerations with filtering
+        
+        Args:
+            pattern: Search pattern for enumeration name (regex supported)
+            
+        Returns:
+            List of matching enumerations (without detailed members)
+        """
+        return await self.metadata_api_ops.search_public_enumerations(pattern)
+    
+    async def get_public_enumeration_info(self, enumeration_name: str, resolve_labels: bool = True,
+                                        language: str = "en-US") -> Optional[EnumerationInfo]:
+        """Get detailed information about a specific public enumeration
+        
+        Args:
+            enumeration_name: Name of the enumeration
+            resolve_labels: Whether to resolve label IDs to text
+            language: Language for label resolution
+            
+        Returns:
+            EnumerationInfo object with full details or None if not found
+        """
+        return await self.metadata_api_ops.get_public_enumeration_info(enumeration_name, resolve_labels, language)
     
     # Utility Methods
     

@@ -1,0 +1,451 @@
+"""Metadata API operations for D365 F&O client."""
+
+from typing import Dict, List, Optional, Any, Union
+import re
+
+from .models import (
+    DataEntityInfo, PublicEntityInfo, EnumerationInfo, 
+    PublicEntityPropertyInfo, EnumerationMemberInfo, QueryOptions
+)
+from .session import SessionManager
+from .labels import LabelOperations
+from .query import QueryBuilder
+
+
+class MetadataAPIOperations:
+    """Operations for metadata API endpoints"""
+    
+    def __init__(self, session_manager: SessionManager, metadata_url: str, 
+                 label_ops: Optional[LabelOperations] = None):
+        """Initialize metadata API operations
+        
+        Args:
+            session_manager: Session manager for HTTP requests
+            metadata_url: Base metadata URL
+            label_ops: Label operations for resolving labels
+        """
+        self.session_manager = session_manager
+        self.metadata_url = metadata_url
+        self.label_ops = label_ops
+    
+    # DataEntities endpoint operations
+    
+    async def get_data_entities(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
+        """Get data entities from DataEntities endpoint
+        
+        Args:
+            options: OData query options
+            
+        Returns:
+            Response containing data entities
+        """
+        session = await self.session_manager.get_session()
+        url = f"{self.metadata_url}/DataEntities"
+        
+        params = QueryBuilder.build_query_params(options)
+        
+        async with session.get(url, params=params) as response:
+            if response.status == 200:
+                return await response.json()
+            else:
+                raise Exception(f"Failed to get data entities: {response.status} - {await response.text()}")
+    
+    async def search_data_entities(self, pattern: str = "", entity_category: Optional[str] = None,
+                                  data_service_enabled: Optional[bool] = None,
+                                  data_management_enabled: Optional[bool] = None,
+                                  is_read_only: Optional[bool] = None) -> List[DataEntityInfo]:
+        """Search data entities with filtering
+        
+        Args:
+            pattern: Search pattern for entity name (regex supported)
+            entity_category: Filter by entity category (e.g., 'Master', 'Transaction')
+            data_service_enabled: Filter by data service enabled status
+            data_management_enabled: Filter by data management enabled status
+            is_read_only: Filter by read-only status
+            
+        Returns:
+            List of matching data entities
+        """
+        # Build OData filter
+        filters = []
+        
+        if pattern:
+            # Use contains for pattern matching
+            filters.append(f"contains(tolower(Name), '{pattern.lower()}')")
+        
+        if entity_category is not None:
+            # EntityCategory is an enum, use the correct enum syntax
+            filters.append(f"EntityCategory eq Microsoft.Dynamics.Metadata.EntityCategory'{entity_category}'")
+        
+        if data_service_enabled is not None:
+            filters.append(f"DataServiceEnabled eq {str(data_service_enabled).lower()}")
+        
+        if data_management_enabled is not None:
+            filters.append(f"DataManagementEnabled eq {str(data_management_enabled).lower()}")
+        
+        if is_read_only is not None:
+            filters.append(f"IsReadOnly eq {str(is_read_only).lower()}")
+        
+        options = QueryOptions()
+        if filters:
+            options.filter = " and ".join(filters)
+        
+        data = await self.get_data_entities(options)
+        
+        entities = []
+        for item in data.get('value', []):
+            entity = DataEntityInfo(
+                name=item.get('Name', ''),
+                public_entity_name=item.get('PublicEntityName', ''),
+                public_collection_name=item.get('PublicCollectionName', ''),
+                label_id=item.get('LabelId'),
+                data_service_enabled=item.get('DataServiceEnabled', True),
+                data_management_enabled=item.get('DataManagementEnabled', True),
+                entity_category=item.get('EntityCategory'),
+                is_read_only=item.get('IsReadOnly', False)
+            )
+            entities.append(entity)
+        
+        # Apply regex pattern matching if provided
+        if pattern and re.search(r'[.*+?^${}()|[\]\\]', pattern):
+            flags = re.IGNORECASE
+            entities = [e for e in entities if re.search(pattern, e.name, flags)]
+        
+        return entities
+    
+    async def get_data_entity_info(self, entity_name: str, resolve_labels: bool = True,
+                                  language: str = "en-US") -> Optional[DataEntityInfo]:
+        """Get detailed information about a specific data entity
+        
+        Args:
+            entity_name: Name of the data entity
+            resolve_labels: Whether to resolve label IDs to text
+            language: Language for label resolution
+            
+        Returns:
+            DataEntityInfo object or None if not found
+        """
+        try:
+            session = await self.session_manager.get_session()
+            url = f"{self.metadata_url}/DataEntities('{entity_name}')"
+            
+            async with session.get(url) as response:
+                if response.status == 200:
+                    item = await response.json()
+                    entity = DataEntityInfo(
+                        name=item.get('Name', ''),
+                        public_entity_name=item.get('PublicEntityName', ''),
+                        public_collection_name=item.get('PublicCollectionName', ''),
+                        label_id=item.get('LabelId'),
+                        data_service_enabled=item.get('DataServiceEnabled', True),
+                        data_management_enabled=item.get('DataManagementEnabled', True),
+                        entity_category=item.get('EntityCategory'),
+                        is_read_only=item.get('IsReadOnly', False)
+                    )
+                    
+                    # Resolve labels if requested
+                    if resolve_labels and self.label_ops and entity.label_id:
+                        entity.label_text = await self.label_ops.get_label_text(entity.label_id, language)
+                    
+                    return entity
+                elif response.status == 404:
+                    return None
+                else:
+                    raise Exception(f"Failed to get data entity: {response.status} - {await response.text()}")
+                    
+        except Exception as e:
+            raise Exception(f"Error getting data entity '{entity_name}': {e}")
+    
+    # PublicEntities endpoint operations
+    
+    async def get_public_entities(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
+        """Get public entities from PublicEntities endpoint
+        
+        Args:
+            options: OData query options
+            
+        Returns:
+            Response containing public entities
+        """
+        session = await self.session_manager.get_session()
+        url = f"{self.metadata_url}/PublicEntities"
+        
+        params = QueryBuilder.build_query_params(options)
+        
+        async with session.get(url, params=params) as response:
+            if response.status == 200:
+                return await response.json()
+            else:
+                raise Exception(f"Failed to get public entities: {response.status} - {await response.text()}")
+    
+    async def search_public_entities(self, pattern: str = "", is_read_only: Optional[bool] = None,
+                                   configuration_enabled: Optional[bool] = None) -> List[PublicEntityInfo]:
+        """Search public entities with filtering
+        
+        Args:
+            pattern: Search pattern for entity name (regex supported)
+            is_read_only: Filter by read-only status
+            configuration_enabled: Filter by configuration enabled status
+            
+        Returns:
+            List of matching public entities (without detailed properties)
+        """
+        # Build OData filter
+        filters = []
+        
+        if pattern:
+            # Use contains for pattern matching
+            filters.append(f"contains(tolower(Name), '{pattern.lower()}')")
+        
+        if is_read_only is not None:
+            filters.append(f"IsReadOnly eq {str(is_read_only).lower()}")
+        
+        if configuration_enabled is not None:
+            filters.append(f"ConfigurationEnabled eq {str(configuration_enabled).lower()}")
+        
+        options = QueryOptions()
+        if filters:
+            options.filter = " and ".join(filters)
+        
+        # Only select basic fields for search to improve performance
+        options.select = ['Name', 'EntitySetName', 'LabelId', 'IsReadOnly', 'ConfigurationEnabled']
+        
+        data = await self.get_public_entities(options)
+        
+        entities = []
+        for item in data.get('value', []):
+            entity = PublicEntityInfo(
+                name=item.get('Name', ''),
+                entity_set_name=item.get('EntitySetName', ''),
+                label_id=item.get('LabelId'),
+                is_read_only=item.get('IsReadOnly', False),
+                configuration_enabled=item.get('ConfigurationEnabled', True)
+            )
+            entities.append(entity)
+        
+        # Apply regex pattern matching if provided
+        if pattern and re.search(r'[.*+?^${}()|[\]\\]', pattern):
+            flags = re.IGNORECASE
+            entities = [e for e in entities if re.search(pattern, e.name, flags)]
+        
+        return entities
+    
+    async def get_public_entity_info(self, entity_name: str, resolve_labels: bool = True,
+                                   language: str = "en-US") -> Optional[PublicEntityInfo]:
+        """Get detailed information about a specific public entity
+        
+        Args:
+            entity_name: Name of the public entity
+            resolve_labels: Whether to resolve label IDs to text
+            language: Language for label resolution
+            
+        Returns:
+            PublicEntityInfo object with full details or None if not found
+        """
+        try:
+            session = await self.session_manager.get_session()
+            url = f"{self.metadata_url}/PublicEntities('{entity_name}')"
+            
+            async with session.get(url) as response:
+                if response.status == 200:
+                    item = await response.json()
+                    
+                    # Create entity info
+                    entity = PublicEntityInfo(
+                        name=item.get('Name', ''),
+                        entity_set_name=item.get('EntitySetName', ''),
+                        label_id=item.get('LabelId'),
+                        is_read_only=item.get('IsReadOnly', False),
+                        configuration_enabled=item.get('ConfigurationEnabled', True),
+                        navigation_properties=item.get('NavigationProperties', []),
+                        property_groups=item.get('PropertyGroups', []),
+                        actions=item.get('Actions', [])
+                    )
+                    
+                    # Process properties
+                    for prop_data in item.get('Properties', []):
+                        prop = PublicEntityPropertyInfo(
+                            name=prop_data.get('Name', ''),
+                            type_name=prop_data.get('TypeName', ''),
+                            data_type=prop_data.get('DataType', ''),
+                            label_id=prop_data.get('LabelId'),
+                            is_key=prop_data.get('IsKey', False),
+                            is_mandatory=prop_data.get('IsMandatory', False),
+                            configuration_enabled=prop_data.get('ConfigurationEnabled', True),
+                            allow_edit=prop_data.get('AllowEdit', True),
+                            allow_edit_on_create=prop_data.get('AllowEditOnCreate', True),
+                            is_dimension=prop_data.get('IsDimension', False),
+                            dimension_relation=prop_data.get('DimensionRelation'),
+                            is_dynamic_dimension=prop_data.get('IsDynamicDimension', False),
+                            dimension_legal_entity_property=prop_data.get('DimensionLegalEntityProperty'),
+                            dimension_type_property=prop_data.get('DimensionTypeProperty')
+                        )
+                        entity.properties.append(prop)
+                    
+                    # Resolve labels if requested
+                    if resolve_labels and self.label_ops:
+                        await self._resolve_public_entity_labels(entity, language)
+                    
+                    return entity
+                elif response.status == 404:
+                    return None
+                else:
+                    raise Exception(f"Failed to get public entity: {response.status} - {await response.text()}")
+                    
+        except Exception as e:
+            raise Exception(f"Error getting public entity '{entity_name}': {e}")
+    
+    # PublicEnumerations endpoint operations
+    
+    async def get_public_enumerations(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
+        """Get public enumerations from PublicEnumerations endpoint
+        
+        Args:
+            options: OData query options
+            
+        Returns:
+            Response containing public enumerations
+        """
+        session = await self.session_manager.get_session()
+        url = f"{self.metadata_url}/PublicEnumerations"
+        
+        params = QueryBuilder.build_query_params(options)
+        
+        async with session.get(url, params=params) as response:
+            if response.status == 200:
+                return await response.json()
+            else:
+                raise Exception(f"Failed to get public enumerations: {response.status} - {await response.text()}")
+    
+    async def search_public_enumerations(self, pattern: str = "") -> List[EnumerationInfo]:
+        """Search public enumerations with filtering
+        
+        Args:
+            pattern: Search pattern for enumeration name (regex supported)
+            
+        Returns:
+            List of matching enumerations (without detailed members)
+        """
+        # Build OData filter
+        options = QueryOptions()
+        if pattern:
+            options.filter = f"contains(tolower(Name), '{pattern.lower()}')"
+        
+        # Only select basic fields for search to improve performance
+        options.select = ['Name', 'LabelId']
+        
+        data = await self.get_public_enumerations(options)
+        
+        enumerations = []
+        for item in data.get('value', []):
+            enum = EnumerationInfo(
+                name=item.get('Name', ''),
+                label_id=item.get('LabelId')
+            )
+            enumerations.append(enum)
+        
+        # Apply regex pattern matching if provided
+        if pattern and re.search(r'[.*+?^${}()|[\]\\]', pattern):
+            flags = re.IGNORECASE
+            enumerations = [e for e in enumerations if re.search(pattern, e.name, flags)]
+        
+        return enumerations
+    
+    async def get_public_enumeration_info(self, enumeration_name: str, resolve_labels: bool = True,
+                                        language: str = "en-US") -> Optional[EnumerationInfo]:
+        """Get detailed information about a specific public enumeration
+        
+        Args:
+            enumeration_name: Name of the enumeration
+            resolve_labels: Whether to resolve label IDs to text
+            language: Language for label resolution
+            
+        Returns:
+            EnumerationInfo object with full details or None if not found
+        """
+        try:
+            session = await self.session_manager.get_session()
+            url = f"{self.metadata_url}/PublicEnumerations('{enumeration_name}')"
+            
+            async with session.get(url) as response:
+                if response.status == 200:
+                    item = await response.json()
+                    
+                    # Create enumeration info
+                    enum = EnumerationInfo(
+                        name=item.get('Name', ''),
+                        label_id=item.get('LabelId')
+                    )
+                    
+                    # Process members
+                    for member_data in item.get('Members', []):
+                        member = EnumerationMemberInfo(
+                            name=member_data.get('Name', ''),
+                            value=member_data.get('Value', 0),
+                            label_id=member_data.get('LabelId'),
+                            configuration_enabled=member_data.get('ConfigurationEnabled', True)
+                        )
+                        enum.members.append(member)
+                    
+                    # Resolve labels if requested
+                    if resolve_labels and self.label_ops:
+                        await self._resolve_enumeration_labels(enum, language)
+                    
+                    return enum
+                elif response.status == 404:
+                    return None
+                else:
+                    raise Exception(f"Failed to get public enumeration: {response.status} - {await response.text()}")
+                    
+        except Exception as e:
+            raise Exception(f"Error getting public enumeration '{enumeration_name}': {e}")
+    
+    # Helper methods for label resolution
+    
+    async def _resolve_public_entity_labels(self, entity: PublicEntityInfo, language: str) -> None:
+        """Resolve labels for a public entity"""
+        # Collect all label IDs
+        label_ids = []
+        
+        if entity.label_id:
+            label_ids.append(entity.label_id)
+        
+        for prop in entity.properties:
+            if prop.label_id:
+                label_ids.append(prop.label_id)
+        
+        # Resolve labels in batch
+        if label_ids:
+            labels = await self.label_ops.get_labels_batch(label_ids, language)
+            
+            # Apply resolved labels
+            if entity.label_id:
+                entity.label_text = labels.get(entity.label_id)
+            
+            for prop in entity.properties:
+                if prop.label_id:
+                    prop.label_text = labels.get(prop.label_id)
+    
+    async def _resolve_enumeration_labels(self, enum: EnumerationInfo, language: str) -> None:
+        """Resolve labels for an enumeration"""
+        # Collect all label IDs
+        label_ids = []
+        
+        if enum.label_id:
+            label_ids.append(enum.label_id)
+        
+        for member in enum.members:
+            if member.label_id:
+                label_ids.append(member.label_id)
+        
+        # Resolve labels in batch
+        if label_ids:
+            labels = await self.label_ops.get_labels_batch(label_ids, language)
+            
+            # Apply resolved labels
+            if enum.label_id:
+                enum.label_text = labels.get(enum.label_id)
+            
+            for member in enum.members:
+                if member.label_id:
+                    member.label_text = labels.get(member.label_id)

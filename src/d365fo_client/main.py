@@ -105,6 +105,44 @@ async def example_usage():
                 print(f"Calling action '{action}' on entity '{entity}'...")
                 result = await client.call_action(action, entity_name=entity)
                 print(f"Action '{action}' result: {result}")
+        
+        # New Metadata APIs demonstration
+        print("\n🆕 New Metadata APIs:")
+        
+        # Data Entities API
+        print("\n📊 Data Entities API:")
+        data_entities = await client.search_data_entities("customer", entity_category="Master")
+        print(f"Found {len(data_entities)} customer Master data entities")
+        if data_entities:
+            entity = data_entities[0]
+            print(f"  Example: {entity.name} -> {entity.public_collection_name}")
+            print(f"    Category: {entity.entity_category}")
+            print(f"    Label: {entity.label_text or entity.label_id}")
+        
+        # Public Entities API
+        print("\n📋 Public Entities API:")
+        public_entities = await client.search_public_entities("customer")
+        print(f"Found {len(public_entities)} customer public entities")
+        if public_entities:
+            # Get detailed info for first entity
+            entity_detail = await client.get_public_entity_info(public_entities[0].name)
+            if entity_detail:
+                print(f"  {entity_detail.name}: {len(entity_detail.properties)} properties")
+                key_props = [p.name for p in entity_detail.properties if p.is_key]
+                print(f"    Keys: {', '.join(key_props)}")
+        
+        # Public Enumerations API
+        print("\n🔢 Public Enumerations API:")
+        enumerations = await client.search_public_enumerations("payment")
+        print(f"Found {len(enumerations)} payment-related enumerations")
+        if enumerations:
+            # Get detailed info for first enumeration
+            enum_detail = await client.get_public_enumeration_info(enumerations[0].name)
+            if enum_detail:
+                print(f"  {enum_detail.name}: {len(enum_detail.members)} values")
+                print(f"    Label: {enum_detail.label_text or enum_detail.label_id}")
+                if enum_detail.members:
+                    print(f"    Sample values: {', '.join([f'{m.name}={m.value}' for m in enum_detail.members[:3]])}")
 
 
 def main() -> None:
