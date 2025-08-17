@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: 
       name: ${{ github.event.inputs.test_pypi == 'true' && 'testpypi' || 'pypi' }}
-      url: ${{ github.event.inputs.test_pypi == 'true' && 'https://test.pypi.org/p/azuredevops-tools' || 'https://pypi.org/p/azuredevops-tools' }}
+      url: ${{ github.event.inputs.test_pypi == 'true' && 'https://test.pypi.org/p/d365fo-client' || 'https://pypi.org/p/d365fo-client' }}
     
     steps:
     - name: Download build artifacts
