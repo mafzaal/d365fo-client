@@ -7,7 +7,7 @@ Provides centralized client management with session reuse and error handling.
 import asyncio
 import logging
 from typing import Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..client import FOClient
 from ..models import FOClientConfig
@@ -104,7 +104,7 @@ class D365FOClientManager:
             connectivity = await self._test_client_connection(client)
             
             # Get comprehensive metadata and cache information using FOClient's method
-            metadata_info = client.get_metadata_info()
+            metadata_info = await client.get_metadata_info()
             
             return {
                 "base_url": client.config.base_url,
@@ -220,7 +220,8 @@ class D365FOClientManager:
             timeout=config.get("timeout", 60),
             verify_ssl=config.get("verify_ssl", True),
             use_label_cache=config.get("use_label_cache", True),
-            metadata_cache_dir=config.get("metadata_cache_dir")
+            metadata_cache_dir=config.get("metadata_cache_dir"),
+            use_cache_first=config.get("use_cache_first", True)
         )
     
     async def _test_client_connection(self, client: FOClient) -> bool:
@@ -253,14 +254,14 @@ class D365FOClientManager:
                     is_healthy = await self._test_client_connection(client)
                     results[profile] = {
                         "healthy": is_healthy,
-                        "last_checked": datetime.utcnow().isoformat()
+                        "last_checked":  datetime.now(timezone.utc)
                     }
                 except Exception as e:
                     results[profile] = {
                         "healthy": False,
                         "error": str(e),
-                        "last_checked": datetime.utcnow().isoformat()
+                        "last_checked":  datetime.now(timezone.utc)
                     }
         
-        self._last_health_check = datetime.utcnow()
+        self._last_health_check =  datetime.now(timezone.utc)
         return results

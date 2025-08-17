@@ -159,11 +159,6 @@ class ConnectionTools:
                 "versions": env_info["versions"],
                 "connectivity": env_info["connectivity"],
                 "metadataInfo": env_info["metadata_info"],
-                "statistics": {
-                    "entityCount": 0,  # TODO: Get actual counts
-                    "actionCount": 0,
-                    "labelCount": 0
-                }
             }
             
             return [TextContent(

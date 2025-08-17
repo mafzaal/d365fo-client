@@ -491,6 +491,145 @@ class MetadataDatabase:
                 logger.info("FTS5 search index rebuilt successfully")
             else:
                 logger.warning("Could not find active version ID for FTS index rebuild")
+    
+    async def get_statistics(self, environment_id: Optional[int] = None) -> Dict[str, Any]:
+        """Get statistics about database contents
+        
+        Args:
+            environment_id: Optional environment ID to filter by
+            
+        Returns:
+            Dictionary with table counts and metadata information
+        """
+        async with aiosqlite.connect(self.db_path) as db:
+            stats = {}
+            
+            # Basic table counts
+            tables = [
+                'metadata_environments',
+                'metadata_versions', 
+                'data_entities',
+                'public_entities',
+                'entity_properties',
+                'navigation_properties',
+                'relation_constraints',
+                'property_groups',
+                'property_group_members',
+                'entity_actions',
+                'action_parameters',
+                'enumerations',
+                'enumeration_members',
+                'labels_cache'
+            ]
+            
+            for table in tables:
+                cursor = await db.execute(f"SELECT COUNT(*) FROM {table}")
+                count = (await cursor.fetchone())[0]
+                stats[f"{table}_count"] = count
+            
+            # FTS5 search index count (handle potential errors)
+            try:
+                cursor = await db.execute("SELECT COUNT(*) FROM metadata_search")
+                count = (await cursor.fetchone())[0]
+                stats["metadata_search_count"] = count
+            except Exception as e:
+                stats["metadata_search_count"] = f"Error: {str(e)}"
+            
+            # Environment-specific statistics
+            if environment_id:
+                # Active version info
+                version_info = await self.get_active_version(environment_id)
+                if version_info:
+                    stats["active_version"] = {
+                        "version_hash": version_info.version_hash,
+                        "application_version": version_info.application_version,
+                        "platform_version": version_info.platform_version,
+                        "created_at": version_info.created_at.isoformat() if version_info.created_at else None
+                    }
+                    
+                    # Get version-specific counts
+                    cursor = await db.execute(
+                        "SELECT id FROM metadata_versions WHERE environment_id = ? AND is_active = 1",
+                        (environment_id,)
+                    )
+                    version_row = await cursor.fetchone()
+                    
+                    if version_row:
+                        version_id = version_row[0]
+                        
+                        # Count entities for this version
+                        cursor = await db.execute(
+                            "SELECT COUNT(*) FROM data_entities WHERE version_id = ?",
+                            (version_id,)
+                        )
+                        stats["active_version_data_entities"] = (await cursor.fetchone())[0]
+                        
+                        cursor = await db.execute(
+                            "SELECT COUNT(*) FROM public_entities WHERE version_id = ?",
+                            (version_id,)
+                        )
+                        stats["active_version_public_entities"] = (await cursor.fetchone())[0]
+                        
+                        cursor = await db.execute(
+                            "SELECT COUNT(*) FROM enumerations WHERE version_id = ?",
+                            (version_id,)
+                        )
+                        stats["active_version_enumerations"] = (await cursor.fetchone())[0]
+                        
+                        # Count properties for active version entities
+                        cursor = await db.execute(
+                            """SELECT COUNT(*) FROM entity_properties ep
+                               JOIN public_entities pe ON ep.entity_id = pe.id
+                               WHERE pe.version_id = ?""",
+                            (version_id,)
+                        )
+                        stats["active_version_properties"] = (await cursor.fetchone())[0]
+                        
+                        # Count actions for active version entities
+                        cursor = await db.execute(
+                            """SELECT COUNT(*) FROM entity_actions ea
+                               JOIN public_entities pe ON ea.entity_id = pe.id
+                               WHERE pe.version_id = ?""",
+                            (version_id,)
+                        )
+                        stats["active_version_actions"] = (await cursor.fetchone())[0]
+                else:
+                    stats["active_version"] = None
+            
+            # Database file size
+            try:
+                db_size = self.db_path.stat().st_size
+                stats["database_size_bytes"] = db_size
+                stats["database_size_mb"] = round(db_size / (1024 * 1024), 2)
+            except Exception:
+                stats["database_size_bytes"] = None
+                stats["database_size_mb"] = None
+            
+            # Environment summary
+            cursor = await db.execute(
+                """SELECT me.base_url, me.environment_name, 
+                          COUNT(mv.id) as version_count,
+                          MAX(mv.created_at) as latest_version
+                   FROM metadata_environments me
+                   LEFT JOIN metadata_versions mv ON me.id = mv.environment_id
+                   GROUP BY me.id, me.base_url, me.environment_name
+                   ORDER BY me.id"""
+            )
+            
+            environments = []
+            async for row in cursor:
+                env_info = {
+                    "base_url": row[0],
+                    "environment_name": row[1],
+                    "version_count": row[2],
+                    "latest_version": row[3]
+                }
+                environments.append(env_info)
+            
+            stats["environments"] = environments
+            stats["total_environments"] = len(environments)
+            
+            return stats
 
 
 class MetadataCache:
@@ -873,6 +1012,17 @@ class MetadataCache:
             parameters.append(param)
         
         return parameters
+    
+    async def get_statistics(self) -> Dict[str, Any]:
+        """Get metadata cache statistics
+        
+        Returns:
+            Dictionary with cache statistics and database information
+        """
+        if self._environment_id is None:
+            await self.initialize()
+        
+        return await self._database.get_statistics(self._environment_id)
 
 
 class MetadataSearchEngine:

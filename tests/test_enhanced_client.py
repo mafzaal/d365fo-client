@@ -203,7 +203,7 @@ class TestCacheFirstFunctionality:
         with patch('d365fo_client.auth.DefaultAzureCredential'):
             client = FOClient(config)
             
-            info = client.get_metadata_info()
+            info = await client.get_metadata_info()
             
             # Should include new metadata cache info
             assert "advanced_cache_enabled" in info

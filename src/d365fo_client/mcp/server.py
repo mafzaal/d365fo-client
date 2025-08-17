@@ -278,6 +278,7 @@ class D365FOMCPServer:
             "default_environment": {
                 "base_url": os.getenv("D365FO_BASE_URL", "https://usnconeboxax1aos.cloud.onebox.dynamics.com"),
                 "use_default_credentials": True,
+                "use_cache_first": True,
                 "timeout": 60,
                 "verify_ssl": True,
                 "use_label_cache": True

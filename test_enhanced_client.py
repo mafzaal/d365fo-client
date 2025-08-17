@@ -76,7 +76,7 @@ async def test_enhanced_client():
         
         # Get metadata info
         print("\n📊 Metadata cache information:")
-        info = client.get_metadata_info()
+        info = await client.get_metadata_info()
         for key, value in info.items():
             print(f"   {key}: {value}")
         

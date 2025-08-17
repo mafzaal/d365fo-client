@@ -3,6 +3,7 @@
 import json
 import logging
 from datetime import datetime
+from time import timezone
 from typing import List
 from mcp.types import Resource
 
@@ -76,7 +77,7 @@ class EnvironmentResourceHandler:
             error_content = {
                 "error": str(e),
                 "uri": uri,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc)
             }
             return json.dumps(error_content, indent=2)
     
@@ -90,7 +91,7 @@ class EnvironmentResourceHandler:
                 "baseUrl": env_info["base_url"],
                 "connectivity": env_info["connectivity"],
                 "healthCheck": health_check,
-                "lastUpdated": datetime.utcnow().isoformat()
+                "lastUpdated": datetime.now(timezone.utc)
             }
             
             return json.dumps(status_content, indent=2)
@@ -106,7 +107,7 @@ class EnvironmentResourceHandler:
             version_content = {
                 "baseUrl": env_info["base_url"],
                 "versions": env_info["versions"],
-                "lastUpdated": datetime.utcnow().isoformat()
+                "lastUpdated": datetime.now(timezone.utc)
             }
             
             return json.dumps(version_content, indent=2)
@@ -122,7 +123,7 @@ class EnvironmentResourceHandler:
             cache_content = {
                 "baseUrl": env_info["base_url"],
                 "cacheStatus": env_info["cache_status"],
-                "lastUpdated": datetime.utcnow().isoformat()
+                "lastUpdated": datetime.now(timezone.utc)
             }
             
             return json.dumps(cache_content, indent=2)

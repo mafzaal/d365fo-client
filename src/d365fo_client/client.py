@@ -880,7 +880,7 @@ class FOClient:
             self.config.base_url, action_name, entity_name, entity_key
         )
     
-    def get_metadata_info(self) -> Dict[str, Any]:
+    async def get_metadata_info(self) -> Dict[str, Any]:
         """Get metadata cache information
         
         Returns:
@@ -891,12 +891,14 @@ class FOClient:
             "metadata_file_exists": False,
             "entities_cache_exists": False, 
             "actions_cache_exists": False,
-            "cache_directory": self.config.metadata_cache_dir
+            "cache_directory": self.config.metadata_cache_dir,
+            "statistics": None
         }
-        
+        self._ensure_metadata_initialized()
         # Add new metadata cache info if available
         if self.metadata_cache:
             try:
+                stats = await self.metadata_cache.get_statistics()
                 cache_info = {
                     "advanced_cache_enabled": True,
                     "cache_initialized": self._metadata_initialized,
@@ -904,7 +906,8 @@ class FOClient:
                     "background_sync_running": (
                         self._background_sync_task and 
                         not self._background_sync_task.done()
-                    ) if self._background_sync_task else False
+                    ) if self._background_sync_task else False,
+                    "statistics": stats
                 }
                 info.update(cache_info)
             except Exception as e:

@@ -72,6 +72,9 @@ async def async_main() -> None:
     try:
         # Load configuration
         config = load_config()
+        #log config banner
+        logging.info(f"Loaded D365FO MCP Server configuration: {config}")
+    
         
         # Create and run the MCP server
         server = D365FOMCPServer(config)
