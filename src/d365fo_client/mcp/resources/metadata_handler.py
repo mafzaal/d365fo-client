@@ -94,21 +94,32 @@ class MetadataResourceHandler:
             client = await self.client_manager.get_client()
             
             # Get all entities
-            entities = client.search_entities("")
+            entities = await client.search_entities("")
             
             # Get detailed info for first 50 entities (performance limit)
             detailed_entities = []
             for entity_name in entities[:50]:
-                entity_info = client.get_entity_info(entity_name)
+                entity_info = await client.get_entity_info(entity_name)
                 if entity_info:
-                    detailed_entities.append({
-                        "name": entity_info.name,
-                        "entitySetName": entity_info.entity_set_name,
-                        "keys": entity_info.keys,
-                        "propertyCount": len(entity_info.properties),
-                        "isReadOnly": entity_info.is_read_only,
-                        "labelText": entity_info.label_text
-                    })
+                    # Handle both object and dictionary return types
+                    if isinstance(entity_info, dict):
+                        detailed_entities.append({
+                            "name": entity_info.get("name", entity_name),
+                            "entitySetName": entity_info.get("entity_set_name", ""),
+                            "keys": entity_info.get("keys", []),
+                            "propertyCount": len(entity_info.get("properties", [])),
+                            "isReadOnly": entity_info.get("is_read_only", False),
+                            "labelText": entity_info.get("label_text", "")
+                        })
+                    else:
+                        detailed_entities.append({
+                            "name": getattr(entity_info, 'name', entity_name),
+                            "entitySetName": getattr(entity_info, 'entity_set_name', ''),
+                            "keys": getattr(entity_info, 'keys', []),
+                            "propertyCount": len(getattr(entity_info, 'properties', [])),
+                            "isReadOnly": getattr(entity_info, 'is_read_only', False),
+                            "labelText": getattr(entity_info, 'label_text', '')
+                        })
             
             metadata_content = {
                 "type": "entities",
@@ -133,20 +144,30 @@ class MetadataResourceHandler:
             client = await self.client_manager.get_client()
             
             # Get all actions
-            actions = client.search_actions("")
+            actions = await client.search_actions("")
             
             # Get detailed info for first 50 actions (performance limit)
             detailed_actions = []
             for action_name in actions[:50]:
-                action_info = client.get_action_info(action_name)
+                action_info = await client.get_action_info(action_name)
                 if action_info:
-                    detailed_actions.append({
-                        "name": action_info.name,
-                        "isFunction": getattr(action_info, 'is_function', False),
-                        "isBound": getattr(action_info, 'is_bound', False),
-                        "parameterCount": len(getattr(action_info, 'parameters', [])),
-                        "returnType": getattr(action_info, 'return_type', 'void')
-                    })
+                    # Handle both object and dictionary return types
+                    if isinstance(action_info, dict):
+                        detailed_actions.append({
+                            "name": action_info.get("name", action_name),
+                            "isFunction": action_info.get("is_function", False),
+                            "isBound": action_info.get("is_bound", False),
+                            "parameterCount": len(action_info.get("parameters", [])),
+                            "returnType": action_info.get("return_type", "void")
+                        })
+                    else:
+                        detailed_actions.append({
+                            "name": getattr(action_info, 'name', action_name),
+                            "isFunction": getattr(action_info, 'is_function', False),
+                            "isBound": getattr(action_info, 'is_bound', False),
+                            "parameterCount": len(getattr(action_info, 'parameters', [])),
+                            "returnType": getattr(action_info, 'return_type', 'void')
+                        })
             
             metadata_content = {
                 "type": "actions",
@@ -177,11 +198,19 @@ class MetadataResourceHandler:
                 detailed_enums = []
                 
                 for enum_info in enumerations[:50]:  # Limit for performance
-                    detailed_enums.append({
-                        "name": enum_info.name,
-                        "valueCount": len(enum_info.members) if hasattr(enum_info, 'members') else 0,
-                        "description": getattr(enum_info, 'description', '')
-                    })
+                    # Handle both object and dictionary return types
+                    if isinstance(enum_info, dict):
+                        detailed_enums.append({
+                            "name": enum_info.get("name", "Unknown"),
+                            "valueCount": len(enum_info.get("members", [])),
+                            "description": enum_info.get("description", "")
+                        })
+                    else:
+                        detailed_enums.append({
+                            "name": getattr(enum_info, 'name', 'Unknown'),
+                            "valueCount": len(getattr(enum_info, 'members', [])),
+                            "description": getattr(enum_info, 'description', '')
+                        })
             except Exception:
                 # Fallback if public enumerations not available
                 detailed_enums = []

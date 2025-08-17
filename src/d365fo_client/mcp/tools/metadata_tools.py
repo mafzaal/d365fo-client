@@ -150,7 +150,7 @@ class MetadataTools:
             client = await self.client_manager.get_client()
             
             start_time = time.time()
-            entities = client.search_entities(arguments["pattern"])
+            entities = await client.search_entities(arguments["pattern"])
             
             # Apply filters if provided
             limit = arguments.get("limit", 100)
@@ -159,17 +159,29 @@ class MetadataTools:
             # Get detailed info for entities
             detailed_entities = []
             for entity_name in filtered_entities:
-                entity_info = client.get_entity_info(entity_name)
+                entity_info = await client.get_entity_info(entity_name)
                 if entity_info:
-                    detailed_entities.append({
-                        "name": entity_info.name,
-                        "entitySetName": entity_info.entity_set_name,
-                        "keys": entity_info.keys,
-                        "propertyCount": len(entity_info.properties),
-                        "isReadOnly": entity_info.is_read_only,
-                        "labelText": entity_info.label_text,
-                        "entityCategory": getattr(entity_info, 'entity_category', 'Unknown')
-                    })
+                    # Handle both object and dictionary return types
+                    if isinstance(entity_info, dict):
+                        detailed_entities.append({
+                            "name": entity_info.get("name", entity_name),
+                            "entitySetName": entity_info.get("entity_set_name", ""),
+                            "keys": entity_info.get("keys", []),
+                            "propertyCount": len(entity_info.get("properties", [])),
+                            "isReadOnly": entity_info.get("is_read_only", False),
+                            "labelText": entity_info.get("label_text", ""),
+                            "entityCategory": entity_info.get("entity_category", "Unknown")
+                        })
+                    else:
+                        detailed_entities.append({
+                            "name": getattr(entity_info, 'name', entity_name),
+                            "entitySetName": getattr(entity_info, 'entity_set_name', ''),
+                            "keys": getattr(entity_info, 'keys', []),
+                            "propertyCount": len(getattr(entity_info, 'properties', [])),
+                            "isReadOnly": getattr(entity_info, 'is_read_only', False),
+                            "labelText": getattr(entity_info, 'label_text', ''),
+                            "entityCategory": getattr(entity_info, 'entity_category', 'Unknown')
+                        })
             
             search_time = time.time() - start_time
             
@@ -211,32 +223,56 @@ class MetadataTools:
             client = await self.client_manager.get_client()
             
             entity_name = arguments["entityName"]
-            entity_info = client.get_entity_info(entity_name)
+            entity_info = await client.get_entity_info(entity_name)
             
             if not entity_info:
                 raise ValueError(f"Entity not found: {entity_name}")
             
-            # Build detailed schema response
-            response = {
-                "entity": {
-                    "name": entity_info.name,
-                    "entitySetName": entity_info.entity_set_name,
-                    "labelText": entity_info.label_text,
-                    "isReadOnly": entity_info.is_read_only,
-                    "entityCategory": getattr(entity_info, 'entity_category', 'Unknown')
-                },
-                "properties": [
-                    {
-                        "name": prop.name,
-                        "type": prop.type,
-                        "isKey": prop.name in entity_info.keys,
-                        "maxLength": getattr(prop, 'max_length', None),
-                        "labelText": getattr(prop, 'label_text', None) if arguments.get("resolveLabels", True) else None
-                    } for prop in entity_info.properties
-                ] if arguments.get("includeProperties", True) else [],
-                "keys": entity_info.keys,
-                "propertyCount": len(entity_info.properties)
-            }
+            # Handle both object and dictionary return types
+            if isinstance(entity_info, dict):
+                # Handle dictionary format
+                response = {
+                    "entity": {
+                        "name": entity_info.get("name", entity_name),
+                        "entitySetName": entity_info.get("entity_set_name", ""),
+                        "labelText": entity_info.get("label_text", ""),
+                        "isReadOnly": entity_info.get("is_read_only", False),
+                        "entityCategory": entity_info.get("entity_category", "Unknown")
+                    },
+                    "properties": [
+                        {
+                            "name": prop.get("name", "") if isinstance(prop, dict) else prop.name,
+                            "type": prop.get("type", "") if isinstance(prop, dict) else getattr(prop, 'type', ''),
+                            "isKey": (prop.get("name", "") if isinstance(prop, dict) else prop.name) in entity_info.get("keys", []),
+                            "maxLength": prop.get("max_length") if isinstance(prop, dict) else getattr(prop, 'max_length', None),
+                            "labelText": prop.get("label_text") if isinstance(prop, dict) and arguments.get("resolveLabels", True) else (getattr(prop, 'label_text', None) if arguments.get("resolveLabels", True) else None)
+                        } for prop in entity_info.get("properties", [])
+                    ] if arguments.get("includeProperties", True) else [],
+                    "keys": entity_info.get("keys", []),
+                    "propertyCount": len(entity_info.get("properties", []))
+                }
+            else:
+                # Handle object format (EntityInfo, PublicEntityInfo, etc.)
+                response = {
+                    "entity": {
+                        "name": getattr(entity_info, 'name', entity_name),
+                        "entitySetName": getattr(entity_info, 'entity_set_name', ''),
+                        "labelText": getattr(entity_info, 'label_text', ''),
+                        "isReadOnly": getattr(entity_info, 'is_read_only', False),
+                        "entityCategory": getattr(entity_info, 'entity_category', 'Unknown')
+                    },
+                    "properties": [
+                        {
+                            "name": getattr(prop, 'name', ''),
+                            "type": getattr(prop, 'type', '') or getattr(prop, 'type_name', ''),
+                            "isKey": getattr(prop, 'name', '') in getattr(entity_info, 'keys', []),
+                            "maxLength": getattr(prop, 'max_length', None),
+                            "labelText": getattr(prop, 'label_text', None) if arguments.get("resolveLabels", True) else None
+                        } for prop in getattr(entity_info, 'properties', [])
+                    ] if arguments.get("includeProperties", True) else [],
+                    "keys": getattr(entity_info, 'keys', []),
+                    "propertyCount": len(getattr(entity_info, 'properties', []))
+                }
             
             return [TextContent(
                 type="text",
@@ -268,7 +304,7 @@ class MetadataTools:
             client = await self.client_manager.get_client()
             
             start_time = time.time()
-            actions = client.search_actions(arguments["pattern"])
+            actions = await client.search_actions(arguments["pattern"])
             
             # Apply limit
             limit = arguments.get("limit", 100)
@@ -277,7 +313,7 @@ class MetadataTools:
             # Get detailed info for actions
             detailed_actions = []
             for action_name in filtered_actions:
-                action_info = client.get_action_info(action_name)
+                action_info = await client.get_action_info(action_name)
                 if action_info:
                     detailed_actions.append({
                         "name": action_info.name,

@@ -31,7 +31,7 @@ class EntityResourceHandler:
         """
         try:
             client = await self.client_manager.get_client()
-            entities = client.search_entities("")
+            entities = await client.search_entities("")
             
             resources = []
             for entity_name in entities[:100]:  # Limit to first 100 for performance
@@ -62,7 +62,7 @@ class EntityResourceHandler:
         
         try:
             # Get entity metadata
-            entity_info = client.get_entity_info(entity_name)
+            entity_info = await client.get_entity_info(entity_name)
             
             # Get sample data (limited to 5 records)
             from ...models import QueryOptions
@@ -72,23 +72,46 @@ class EntityResourceHandler:
             )
             
             # Build resource content
+            metadata = None
+            if entity_info:
+                # Handle both object and dictionary return types
+                if isinstance(entity_info, dict):
+                    metadata = {
+                        "name": entity_info.get("name", entity_name),
+                        "entitySetName": entity_info.get("entity_set_name", entity_name),
+                        "keys": entity_info.get("keys", []),
+                        "properties": [
+                            {
+                                "name": prop.get("name", "") if isinstance(prop, dict) else prop.name,
+                                "type": prop.get("type", "") if isinstance(prop, dict) else getattr(prop, 'type', ''),
+                                "isKey": (prop.get("name", "") if isinstance(prop, dict) else prop.name) in entity_info.get("keys", []),
+                                "maxLength": prop.get("max_length") if isinstance(prop, dict) else getattr(prop, 'max_length', None),
+                                "label": prop.get("label_text") if isinstance(prop, dict) else getattr(prop, 'label_text', None)
+                            } for prop in entity_info.get("properties", [])
+                        ],
+                        "isReadOnly": entity_info.get("is_read_only", False),
+                        "labelText": entity_info.get("label_text", None)
+                    }
+                else:
+                    metadata = {
+                        "name": getattr(entity_info, 'name', entity_name),
+                        "entitySetName": getattr(entity_info, 'entity_set_name', entity_name),
+                        "keys": getattr(entity_info, 'keys', []),
+                        "properties": [
+                            {
+                                "name": getattr(prop, 'name', ''),
+                                "type": getattr(prop, 'type', '') or getattr(prop, 'type_name', ''),
+                                "isKey": getattr(prop, 'name', '') in getattr(entity_info, 'keys', []),
+                                "maxLength": getattr(prop, 'max_length', None),
+                                "label": getattr(prop, 'label_text', None)
+                            } for prop in getattr(entity_info, 'properties', [])
+                        ],
+                        "isReadOnly": getattr(entity_info, 'is_read_only', False),
+                        "labelText": getattr(entity_info, 'label_text', None)
+                    }
+                    
             resource_content = {
-                "metadata": {
-                    "name": entity_info.name if entity_info else entity_name,
-                    "entitySetName": entity_info.entity_set_name if entity_info else entity_name,
-                    "keys": entity_info.keys if entity_info else [],
-                    "properties": [
-                        {
-                            "name": prop.name,
-                            "type": prop.type,
-                            "isKey": prop.name in (entity_info.keys if entity_info else []),
-                            "maxLength": getattr(prop, 'max_length', None),
-                            "label": getattr(prop, 'label_text', None)
-                        } for prop in (entity_info.properties if entity_info else [])
-                    ],
-                    "isReadOnly": entity_info.is_read_only if entity_info else False,
-                    "labelText": entity_info.label_text if entity_info else None
-                } if entity_info else None,
+                "metadata": metadata,
                 "sampleData": sample_data.get("value", []) if sample_data else [],
                 "recordCount": sample_data.get("@odata.count") if sample_data else None,
                 "lastUpdated": datetime.utcnow().isoformat()
