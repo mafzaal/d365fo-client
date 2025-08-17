@@ -89,8 +89,8 @@ class TestSandboxMetadataOperations:
         # Download metadata first
         await sandbox_client.download_metadata()
         
-        # Search for common entities
-        entities = sandbox_client.search_entities("Customer")
+        # Search for common entities (now async)
+        entities = await sandbox_client.search_entities("Customer")
         assert isinstance(entities, list)
         assert len(entities) > 0
         

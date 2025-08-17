@@ -1,6 +1,7 @@
 """Tests for the main module and core functionality."""
 
 import pytest
+import pytest_asyncio
 from unittest.mock import patch, AsyncMock, MagicMock
 from d365fo_client import FOClient, FOClientConfig, create_client
 from d365fo_client.models import QueryOptions, LabelInfo, EntityInfo
@@ -33,6 +34,21 @@ def test_config_from_dict():
         assert client.config.base_url == "https://test.dynamics.com"
         assert client.config.timeout == 60
         assert client.config.verify_ssl is True
+
+
+def test_config_cache_first_default():
+    """Test that cache-first is enabled by default."""
+    config = FOClientConfig(base_url="https://test.dynamics.com")
+    assert config.use_cache_first is True
+
+
+def test_config_cache_first_override():
+    """Test that cache-first can be disabled."""
+    config = FOClientConfig(
+        base_url="https://test.dynamics.com",
+        use_cache_first=False
+    )
+    assert config.use_cache_first is False
 
 
 def test_query_options():
@@ -208,3 +224,139 @@ def test_metadata_manager():
         
         # Test that directory was created
         assert os.path.exists(temp_dir)
+
+
+class TestEnhancedFOClient:
+    """Test enhanced FOClient functionality."""
+    
+    @pytest.mark.asyncio
+    async def test_async_search_entities_fallback(self):
+        """Test that search_entities works with fallback when cache disabled."""
+        config = FOClientConfig(
+            base_url="https://test.dynamics.com",
+            enable_metadata_cache=False,
+            use_cache_first=False
+        )
+        
+        with patch('d365fo_client.auth.DefaultAzureCredential'), \
+             patch.object(FOClient, '_ensure_metadata_initialized'), \
+             patch.object(FOClient, '_get_from_cache_first') as mock_cache_first:
+            
+            # Mock the cache-first method to return test data
+            mock_cache_first.return_value = ["TestEntity1", "TestEntity2"]
+            
+            async with FOClient(config) as client:
+                entities = await client.search_entities("Test")
+                assert isinstance(entities, list)
+                mock_cache_first.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_async_get_entity_info_fallback(self):
+        """Test that get_entity_info works with fallback when cache disabled."""
+        config = FOClientConfig(
+            base_url="https://test.dynamics.com",
+            enable_metadata_cache=False,
+            use_cache_first=False
+        )
+        
+        mock_entity = EntityInfo(
+            name="TestEntity",
+            keys=["Id"],
+            properties=[{"name": "Id", "type": "Edm.String"}],
+            actions=[]
+        )
+        
+        with patch('d365fo_client.auth.DefaultAzureCredential'), \
+             patch.object(FOClient, '_ensure_metadata_initialized'), \
+             patch.object(FOClient, '_get_from_cache_first') as mock_cache_first:
+            
+            mock_cache_first.return_value = mock_entity
+            
+            async with FOClient(config) as client:
+                entity_info = await client.get_entity_info("TestEntity")
+                assert entity_info is not None
+                assert entity_info.name == "TestEntity"
+                mock_cache_first.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_metadata_initialization_flag(self):
+        """Test that metadata initialization tracking works."""
+        config = FOClientConfig(
+            base_url="https://test.dynamics.com",
+            enable_metadata_cache=True
+        )
+        
+        with patch('d365fo_client.auth.DefaultAzureCredential'):
+            async with FOClient(config) as client:
+                # Initially not initialized
+                assert client._metadata_initialized is False
+                
+                # Mock successful initialization
+                with patch.object(client, '_ensure_metadata_initialized') as mock_init:
+                    await client._ensure_metadata_initialized()
+                    mock_init.assert_called_once()
+    
+    def test_enhanced_metadata_info(self):
+        """Test that get_metadata_info includes new cache information."""
+        config = FOClientConfig(base_url="https://test.dynamics.com")
+        
+        with patch('d365fo_client.auth.DefaultAzureCredential'):
+            client = FOClient(config)
+            
+            info = client.get_metadata_info()
+            assert "advanced_cache_enabled" in info
+            # Should be False since metadata_cache is None initially
+            assert info["advanced_cache_enabled"] is False
+    
+    @pytest.mark.asyncio
+    async def test_background_sync_trigger(self):
+        """Test background sync triggering logic."""
+        config = FOClientConfig(
+            base_url="https://test.dynamics.com",
+            enable_metadata_cache=True
+        )
+        
+        with patch('d365fo_client.auth.DefaultAzureCredential'):
+            async with FOClient(config) as client:
+                client._metadata_initialized = True
+                
+                # Mock sync manager
+                mock_sync_manager = AsyncMock()
+                mock_sync_manager.needs_sync.return_value = True
+                client.sync_manager = mock_sync_manager
+                
+                with patch.object(client, '_background_sync_worker') as mock_worker:
+                    await client._trigger_background_sync_if_needed()
+                    
+                    # Should check if sync is needed
+                    mock_sync_manager.needs_sync.assert_called_once()
+    
+    @pytest.mark.asyncio
+    async def test_new_download_metadata_method(self):
+        """Test the new download_metadata method using sync manager."""
+        config = FOClientConfig(
+            base_url="https://test.dynamics.com",
+            enable_metadata_cache=True
+        )
+        
+        with patch('d365fo_client.auth.DefaultAzureCredential'):
+            async with FOClient(config) as client:
+                # Mock successful initialization
+                client._metadata_initialized = True
+                
+                # Mock sync manager
+                mock_sync_manager = AsyncMock()
+                mock_result = AsyncMock()
+                mock_result.success = True
+                mock_result.sync_type = "full"
+                mock_result.entities_synced = 100
+                mock_result.enumerations_synced = 50
+                mock_result.duration_ms = 1500.0
+                mock_sync_manager.sync_metadata.return_value = mock_result
+                client.sync_manager = mock_sync_manager
+                
+                # Test the method
+                result = await client.download_metadata(force_refresh=True)
+                
+                assert result is True
+                mock_sync_manager.sync_metadata.assert_called_once_with(force_full=True)

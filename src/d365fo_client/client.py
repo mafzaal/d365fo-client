@@ -1,5 +1,7 @@
 """Main F&O client implementation."""
 
+import asyncio
+import logging
 import os
 from typing import Dict, List, Optional, Any, Union
 
@@ -11,6 +13,8 @@ from .auth import AuthenticationManager
 from .session import SessionManager
 from .metadata import MetadataManager
 from .metadata_api import MetadataAPIOperations
+from .metadata_cache import MetadataCache
+from .metadata_sync import MetadataSyncManager
 from .cache import LabelCache
 from .crud import CrudOperations
 from .labels import LabelOperations
@@ -44,11 +48,18 @@ class FOClient:
             config = FOClientConfig(**config)
         
         self.config = config
+        self.logger = logging.getLogger(__name__)
         
         # Initialize components
         self.auth_manager = AuthenticationManager(config)
         self.session_manager = SessionManager(config, self.auth_manager)
         self.metadata_manager = MetadataManager(config.metadata_cache_dir)
+        
+        # Initialize new metadata cache and sync components
+        self.metadata_cache = None
+        self.sync_manager = None
+        self._metadata_initialized = False
+        self._background_sync_task = None
         
         # Initialize label cache if enabled
         self.label_cache = (LabelCache(config.label_cache_expiry_minutes) 
@@ -62,7 +73,112 @@ class FOClient:
     
     async def close(self):
         """Close the client session"""
+        # Cancel background sync task if running
+        if self._background_sync_task and not self._background_sync_task.done():
+            self._background_sync_task.cancel()
+            try:
+                await self._background_sync_task
+            except asyncio.CancelledError:
+                pass
+        
         await self.session_manager.close()
+    
+    async def _ensure_metadata_initialized(self):
+        """Ensure metadata cache and sync manager are initialized"""
+        if not self._metadata_initialized and self.config.enable_metadata_cache:
+            try:
+                from pathlib import Path
+                cache_dir = Path(self.config.metadata_cache_dir)
+                
+                # Initialize metadata cache
+                self.metadata_cache = MetadataCache(self.config.base_url, cache_dir)
+                await self.metadata_cache.initialize()
+                
+                # Initialize sync manager
+                self.sync_manager = MetadataSyncManager(self.metadata_cache, self.metadata_api_ops)
+                
+                self._metadata_initialized = True
+                self.logger.debug("Metadata cache and sync manager initialized")
+                
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize metadata cache: {e}")
+                # Continue without metadata cache
+                self.config.enable_metadata_cache = False
+    
+    async def _trigger_background_sync_if_needed(self):
+        """Trigger background sync if metadata is stale or missing"""
+        if not self.config.enable_metadata_cache or not self._metadata_initialized:
+            return
+            
+        try:
+            # Check if we need to sync
+            if await self.sync_manager.needs_sync():
+                # Only start sync if not already running
+                if not self._background_sync_task or self._background_sync_task.done():
+                    self._background_sync_task = asyncio.create_task(
+                        self._background_sync_worker()
+                    )
+                    self.logger.debug("Background metadata sync triggered")
+        except Exception as e:
+            self.logger.warning(f"Failed to check sync status: {e}")
+    
+    async def _background_sync_worker(self):
+        """Background worker for metadata synchronization"""
+        try:
+            self.logger.info("Starting background metadata sync")
+            result = await self.sync_manager.sync_metadata()
+            
+            if result.success:
+                self.logger.info(f"Background sync completed: {result.sync_type}, "
+                               f"{result.entities_synced} entities, "
+                               f"{result.duration_ms:.2f}ms")
+            else:
+                self.logger.warning(f"Background sync failed: {result.errors}")
+                
+        except Exception as e:
+            self.logger.error(f"Background sync error: {e}")
+    
+    async def _get_from_cache_first(self, cache_method, fallback_method, *args, use_cache_first: Optional[bool] = None, **kwargs):
+        """Helper method to implement cache-first pattern
+        
+        Args:
+            cache_method: Method to call on cache
+            fallback_method: Method to call as fallback
+            use_cache_first: Override config setting
+            *args: Arguments to pass to methods
+            **kwargs: Keyword arguments to pass to methods
+        """
+        # Use provided parameter or config default
+        if use_cache_first is None:
+            use_cache_first = self.config.use_cache_first
+        
+        # If cache-first is disabled, go straight to fallback
+        if not use_cache_first or not self.config.enable_metadata_cache:
+            return await fallback_method(*args, **kwargs) if asyncio.iscoroutinefunction(fallback_method) else fallback_method(*args, **kwargs)
+        
+        # Ensure metadata is initialized
+        await self._ensure_metadata_initialized()
+        
+        if not self._metadata_initialized:
+            # Cache not available, use fallback
+            return await fallback_method(*args, **kwargs) if asyncio.iscoroutinefunction(fallback_method) else fallback_method(*args, **kwargs)
+        
+        try:
+            # Try cache first
+            result = await cache_method(*args, **kwargs) if asyncio.iscoroutinefunction(cache_method) else cache_method(*args, **kwargs)
+            
+            # If cache returns empty result, trigger sync and try fallback
+            if not result or (isinstance(result, list) and len(result) == 0):
+                await self._trigger_background_sync_if_needed()
+                return await fallback_method(*args, **kwargs) if asyncio.iscoroutinefunction(fallback_method) else fallback_method(*args, **kwargs)
+            
+            return result
+            
+        except Exception as e:
+            self.logger.warning(f"Cache lookup failed, using fallback: {e}")
+            # Trigger sync if cache failed
+            await self._trigger_background_sync_if_needed()
+            return await fallback_method(*args, **kwargs) if asyncio.iscoroutinefunction(fallback_method) else fallback_method(*args, **kwargs)
     
     async def __aenter__(self):
         """Async context manager entry"""
@@ -114,85 +230,130 @@ class FOClient:
     # Metadata Operations
     
     async def download_metadata(self, force_refresh: bool = False) -> bool:
-        """Download OData metadata from F&O
+        """Download/sync metadata using new sync manager
         
         Args:
-            force_refresh: Force download even if metadata exists
+            force_refresh: Force full synchronization even if cache is fresh
             
         Returns:
             True if successful
         """
-        metadata_file = self.metadata_manager.metadata_file
+        # Ensure metadata components are initialized
+        await self._ensure_metadata_initialized()
         
-        if not force_refresh and os.path.exists(metadata_file):
-            print("Metadata already exists. Use force_refresh=True to re-download.")
-            return True
+        if not self._metadata_initialized:
+            self.logger.error("Metadata cache could not be initialized")
+            return False
         
         try:
-            session = await self.session_manager.get_session()
-            url = f"{self.config.base_url}/data/$metadata"
+            self.logger.info("Starting metadata synchronization")
+            result = await self.sync_manager.sync_metadata(force_full=force_refresh)
             
-            # Set headers to request XML format for metadata
-            headers = session.headers.copy()
-            headers['Accept'] = 'application/xml'
-
-            async with session.get(url, headers=headers) as response:
-                if response.status == 200:
-                    content = await response.text()
-                    self.metadata_manager.save_metadata(content)
-                    print(f"Metadata downloaded successfully to {metadata_file}")
-                    return True
-                else:
-                    print(f"Failed to download metadata: {response.status} - {await response.text()}")
-                    return False
-        
+            if result.success:
+                self.logger.info(f"Metadata sync completed: {result.sync_type}, "
+                               f"{result.entities_synced} entities, "
+                               f"{result.enumerations_synced} enumerations, "
+                               f"{result.duration_ms:.2f}ms")
+                return True
+            else:
+                self.logger.error(f"Metadata sync failed: {result.errors}")
+                return False
+                
         except Exception as e:
-            print(f"Error downloading metadata: {e}")
+            self.logger.error(f"Error during metadata sync: {e}")
             return False
     
-    def search_entities(self, pattern: str = "") -> List[str]:
-        """Search entities by name pattern
+    async def search_entities(self, pattern: str = "", use_cache_first: Optional[bool] = None) -> List[str]:
+        """Search entities by name pattern with cache-first approach
         
         Args:
             pattern: Search pattern (regex supported)
+            use_cache_first: Override config setting for cache-first behavior
             
         Returns:
             List of matching entity names
         """
-        return self.metadata_manager.search_entities(pattern)
+        async def cache_search():
+            if self.metadata_cache and hasattr(self.metadata_cache, 'search_entities'):
+                return await self.metadata_cache.search_entities(pattern)
+            return []
+            
+        def fallback_search():
+            return self.metadata_manager.search_entities(pattern)
+        
+        return await self._get_from_cache_first(
+            cache_search, fallback_search, 
+            use_cache_first=use_cache_first
+        )
     
-    def get_entity_info(self, entity_name: str) -> Optional[EntityInfo]:
-        """Get detailed entity information
+    async def get_entity_info(self, entity_name: str, use_cache_first: Optional[bool] = None) -> Optional[EntityInfo]:
+        """Get detailed entity information with cache-first approach
         
         Args:
             entity_name: Name of the entity
+            use_cache_first: Override config setting for cache-first behavior
             
         Returns:
             EntityInfo object or None if not found
         """
-        return self.metadata_manager.get_entity_info(entity_name)
+        async def cache_lookup():
+            if self.metadata_cache and hasattr(self.metadata_cache, 'get_entity_info'):
+                return await self.metadata_cache.get_entity_info(entity_name)
+            return None
+            
+        def fallback_lookup():
+            return self.metadata_manager.get_entity_info(entity_name)
+        
+        return await self._get_from_cache_first(
+            cache_lookup, fallback_lookup,
+            use_cache_first=use_cache_first
+        )
     
-    def search_actions(self, pattern: str = "") -> List[str]:
-        """Search actions by name pattern
+    async def search_actions(self, pattern: str = "", use_cache_first: Optional[bool] = None) -> List[str]:
+        """Search actions by name pattern with cache-first approach
         
         Args:
             pattern: Search pattern (regex supported)
+            use_cache_first: Override config setting for cache-first behavior
             
         Returns:
             List of matching action names
         """
-        return self.metadata_manager.search_actions(pattern)
+        async def cache_search():
+            if self.metadata_cache and hasattr(self.metadata_cache, 'search_actions'):
+                return await self.metadata_cache.search_actions(pattern)
+            return []
+            
+        def fallback_search():
+            return self.metadata_manager.search_actions(pattern)
+        
+        return await self._get_from_cache_first(
+            cache_search, fallback_search,
+            use_cache_first=use_cache_first
+        )
     
-    def get_action_info(self, action_name: str) -> Optional[ActionInfo]:
-        """Get detailed action information
+    async def get_action_info(self, action_name: str, use_cache_first: Optional[bool] = None) -> Optional[ActionInfo]:
+        """Get detailed action information with cache-first approach
         
         Args:
             action_name: Name of the action
+            use_cache_first: Override config setting for cache-first behavior
             
         Returns:
             ActionInfo object or None if not found
         """
-        return self.metadata_manager.get_action_info(action_name)
+        async def cache_lookup():
+            if self.metadata_cache and hasattr(self.metadata_cache, 'get_action_info'):
+                return await self.metadata_cache.get_action_info(action_name)
+            return None
+            
+        def fallback_lookup():
+            return self.metadata_manager.get_action_info(action_name)
+        
+        return await self._get_from_cache_first(
+            cache_lookup, fallback_lookup,
+            use_cache_first=use_cache_first
+        )
     
     # CRUD Operations
     
@@ -392,8 +553,9 @@ class FOClient:
     async def search_data_entities(self, pattern: str = "", entity_category: Optional[str] = None,
                                   data_service_enabled: Optional[bool] = None,
                                   data_management_enabled: Optional[bool] = None,
-                                  is_read_only: Optional[bool] = None) -> List[DataEntityInfo]:
-        """Search data entities with filtering
+                                  is_read_only: Optional[bool] = None,
+                                  use_cache_first: Optional[bool] = None) -> List[DataEntityInfo]:
+        """Search data entities with filtering and cache-first approach
         
         Args:
             pattern: Search pattern for entity name (regex supported)
@@ -401,28 +563,55 @@ class FOClient:
             data_service_enabled: Filter by data service enabled status
             data_management_enabled: Filter by data management enabled status
             is_read_only: Filter by read-only status
+            use_cache_first: Override config setting for cache-first behavior
             
         Returns:
             List of matching data entities
         """
-        return await self.metadata_api_ops.search_data_entities(
-            pattern, entity_category, data_service_enabled, 
-            data_management_enabled, is_read_only
+        async def cache_search():
+            if self.metadata_cache and hasattr(self.metadata_cache, 'search_data_entities'):
+                return await self.metadata_cache.search_data_entities(
+                    pattern, entity_category, data_service_enabled,
+                    data_management_enabled, is_read_only
+                )
+            return []
+            
+        async def fallback_search():
+            return await self.metadata_api_ops.search_data_entities(
+                pattern, entity_category, data_service_enabled, 
+                data_management_enabled, is_read_only
+            )
+        
+        return await self._get_from_cache_first(
+            cache_search, fallback_search,
+            use_cache_first=use_cache_first
         )
     
     async def get_data_entity_info(self, entity_name: str, resolve_labels: bool = True,
-                                  language: str = "en-US") -> Optional[DataEntityInfo]:
-        """Get detailed information about a specific data entity
+                                  language: str = "en-US", use_cache_first: Optional[bool] = None) -> Optional[DataEntityInfo]:
+        """Get detailed information about a specific data entity with cache-first approach
         
         Args:
             entity_name: Name of the data entity
             resolve_labels: Whether to resolve label IDs to text
             language: Language for label resolution
+            use_cache_first: Override config setting for cache-first behavior
             
         Returns:
             DataEntityInfo object or None if not found
         """
-        return await self.metadata_api_ops.get_data_entity_info(entity_name, resolve_labels, language)
+        async def cache_lookup():
+            if self.metadata_cache and hasattr(self.metadata_cache, 'get_data_entity_info'):
+                return await self.metadata_cache.get_data_entity_info(entity_name, resolve_labels, language)
+            return None
+            
+        async def fallback_lookup():
+            return await self.metadata_api_ops.get_data_entity_info(entity_name, resolve_labels, language)
+        
+        return await self._get_from_cache_first(
+            cache_lookup, fallback_lookup,
+            use_cache_first=use_cache_first
+        )
     
     async def get_public_entities(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
         """Get public entities from PublicEntities metadata endpoint
@@ -436,32 +625,57 @@ class FOClient:
         return await self.metadata_api_ops.get_public_entities(options)
     
     async def search_public_entities(self, pattern: str = "", is_read_only: Optional[bool] = None,
-                                   configuration_enabled: Optional[bool] = None) -> List[PublicEntityInfo]:
-        """Search public entities with filtering
+                                   configuration_enabled: Optional[bool] = None,
+                                   use_cache_first: Optional[bool] = None) -> List[PublicEntityInfo]:
+        """Search public entities with filtering and cache-first approach
         
         Args:
             pattern: Search pattern for entity name (regex supported)
             is_read_only: Filter by read-only status
             configuration_enabled: Filter by configuration enabled status
+            use_cache_first: Override config setting for cache-first behavior
             
         Returns:
             List of matching public entities (without detailed properties)
         """
-        return await self.metadata_api_ops.search_public_entities(pattern, is_read_only, configuration_enabled)
+        async def cache_search():
+            if self.metadata_cache and hasattr(self.metadata_cache, 'search_public_entities'):
+                return await self.metadata_cache.search_public_entities(pattern, is_read_only, configuration_enabled)
+            return []
+            
+        async def fallback_search():
+            return await self.metadata_api_ops.search_public_entities(pattern, is_read_only, configuration_enabled)
+        
+        return await self._get_from_cache_first(
+            cache_search, fallback_search,
+            use_cache_first=use_cache_first
+        )
     
     async def get_public_entity_info(self, entity_name: str, resolve_labels: bool = True,
-                                   language: str = "en-US") -> Optional[PublicEntityInfo]:
-        """Get detailed information about a specific public entity
+                                   language: str = "en-US", use_cache_first: Optional[bool] = None) -> Optional[PublicEntityInfo]:
+        """Get detailed information about a specific public entity with cache-first approach
         
         Args:
             entity_name: Name of the public entity
             resolve_labels: Whether to resolve label IDs to text
             language: Language for label resolution
+            use_cache_first: Override config setting for cache-first behavior
             
         Returns:
             PublicEntityInfo object with full details or None if not found
         """
-        return await self.metadata_api_ops.get_public_entity_info(entity_name, resolve_labels, language)
+        async def cache_lookup():
+            if self.metadata_cache and hasattr(self.metadata_cache, 'get_public_entity_info'):
+                return await self.metadata_cache.get_public_entity_info(entity_name, resolve_labels, language)
+            return None
+            
+        async def fallback_lookup():
+            return await self.metadata_api_ops.get_public_entity_info(entity_name, resolve_labels, language)
+        
+        return await self._get_from_cache_first(
+            cache_lookup, fallback_lookup,
+            use_cache_first=use_cache_first
+        )
     
     async def get_all_public_entities_with_details(self, resolve_labels: bool = False, 
                                                  language: str = "en-US") -> List[PublicEntityInfo]:
@@ -490,30 +704,54 @@ class FOClient:
         """
         return await self.metadata_api_ops.get_public_enumerations(options)
     
-    async def search_public_enumerations(self, pattern: str = "") -> List[EnumerationInfo]:
-        """Search public enumerations with filtering
+    async def search_public_enumerations(self, pattern: str = "", use_cache_first: Optional[bool] = None) -> List[EnumerationInfo]:
+        """Search public enumerations with filtering and cache-first approach
         
         Args:
             pattern: Search pattern for enumeration name (regex supported)
+            use_cache_first: Override config setting for cache-first behavior
             
         Returns:
             List of matching enumerations (without detailed members)
         """
-        return await self.metadata_api_ops.search_public_enumerations(pattern)
+        async def cache_search():
+            if self.metadata_cache and hasattr(self.metadata_cache, 'search_public_enumerations'):
+                return await self.metadata_cache.search_public_enumerations(pattern)
+            return []
+            
+        async def fallback_search():
+            return await self.metadata_api_ops.search_public_enumerations(pattern)
+        
+        return await self._get_from_cache_first(
+            cache_search, fallback_search,
+            use_cache_first=use_cache_first
+        )
     
     async def get_public_enumeration_info(self, enumeration_name: str, resolve_labels: bool = True,
-                                        language: str = "en-US") -> Optional[EnumerationInfo]:
-        """Get detailed information about a specific public enumeration
+                                        language: str = "en-US", use_cache_first: Optional[bool] = None) -> Optional[EnumerationInfo]:
+        """Get detailed information about a specific public enumeration with cache-first approach
         
         Args:
             enumeration_name: Name of the enumeration
             resolve_labels: Whether to resolve label IDs to text
             language: Language for label resolution
+            use_cache_first: Override config setting for cache-first behavior
             
         Returns:
             EnumerationInfo object with full details or None if not found
         """
-        return await self.metadata_api_ops.get_public_enumeration_info(enumeration_name, resolve_labels, language)
+        async def cache_lookup():
+            if self.metadata_cache and hasattr(self.metadata_cache, 'get_public_enumeration_info'):
+                return await self.metadata_cache.get_public_enumeration_info(enumeration_name, resolve_labels, language)
+            return None
+            
+        async def fallback_lookup():
+            return await self.metadata_api_ops.get_public_enumeration_info(enumeration_name, resolve_labels, language)
+        
+        return await self._get_from_cache_first(
+            cache_lookup, fallback_lookup,
+            use_cache_first=use_cache_first
+        )
     
     async def get_all_public_enumerations_with_details(self, resolve_labels: bool = False, 
                                                      language: str = "en-US") -> List[EnumerationInfo]:
@@ -581,7 +819,39 @@ class FOClient:
         Returns:
             Dictionary with metadata information
         """
-        return self.metadata_manager.get_cache_info()
+        info = self.metadata_manager.get_cache_info()
+        
+        # Add new metadata cache info if available
+        if self.metadata_cache:
+            try:
+                cache_info = {
+                    "advanced_cache_enabled": True,
+                    "cache_initialized": self._metadata_initialized,
+                    "sync_manager_available": self.sync_manager is not None,
+                    "background_sync_running": (
+                        self._background_sync_task and 
+                        not self._background_sync_task.done()
+                    ) if self._background_sync_task else False
+                }
+                info.update(cache_info)
+            except Exception as e:
+                self.logger.warning(f"Error getting cache info: {e}")
+                # Even on error, include basic cache info
+                info.update({
+                    "advanced_cache_enabled": True,
+                    "cache_initialized": self._metadata_initialized,
+                    "sync_manager_available": False,
+                    "background_sync_running": False
+                })
+        else:
+            info.update({
+                "advanced_cache_enabled": False,
+                "cache_initialized": False,
+                "sync_manager_available": False,
+                "background_sync_running": False
+            })
+            
+        return info
     
     # Application Version Operations
     

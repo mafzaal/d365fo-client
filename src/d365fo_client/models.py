@@ -70,6 +70,8 @@ class FOClientConfig:
     cache_ttl_seconds: int = 300
     enable_fts_search: bool = True
     max_memory_cache_size: int = 1000
+    # Cache-first behavior configuration
+    use_cache_first: bool = True
     
     def __post_init__(self):
         """Post-initialization to set default cache directory if not provided."""

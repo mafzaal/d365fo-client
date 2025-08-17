@@ -123,6 +123,29 @@ class MetadataSyncManager:
             is_active=True
         )
     
+    async def needs_sync(self) -> bool:
+        """Check if metadata synchronization is needed
+        
+        Returns:
+            True if sync is needed
+        """
+        try:
+            # Get current environment version
+            current_version = await self._get_current_version()
+            
+            # Get cached version
+            cached_version = await self.cache._database.get_active_version(
+                self.cache._environment_id
+            )
+            
+            # Check if sync is needed
+            return self._needs_full_sync(current_version, cached_version)
+            
+        except Exception as e:
+            logger.warning(f"Could not check sync status: {e}")
+            # When in doubt, assume sync is needed
+            return True
+    
     def _needs_full_sync(self, current: MetadataVersionInfo, cached: MetadataVersionInfo) -> bool:
         """Determine if full sync is needed"""
         if not cached:
