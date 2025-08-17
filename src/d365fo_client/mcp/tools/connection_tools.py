@@ -43,6 +43,11 @@ class ConnectionTools:
             inputSchema={
                 "type": "object",
                 "properties": {
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use",
+                        "default": "default"
+                    },
                     "baseUrl": {
                         "type": "string",
                         "description": "Override default base URL"
@@ -85,14 +90,16 @@ class ConnectionTools:
         """
         try:
             start_time = time.time()
+            profile = arguments.get("profile", "default")
             
             # Test connection
-            success = await self.client_manager.test_connection()
+            success = await self.client_manager.test_connection(profile)
             response_time = time.time() - start_time
             
             # Build response
             response = {
                 "success": success,
+                "profile": profile,
                 "endpoints": {
                     "data": success,
                     "metadata": success  # Simplification for now
@@ -110,6 +117,7 @@ class ConnectionTools:
             logger.error(f"Test connection failed: {e}")
             error_response = {
                 "success": False,
+                "profile": arguments.get("profile", "default"),
                 "endpoints": {"data": False, "metadata": False},
                 "responseTime": 0.0,
                 "error": str(e)

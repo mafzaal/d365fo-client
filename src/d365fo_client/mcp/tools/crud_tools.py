@@ -51,6 +51,11 @@ class CrudTools:
                         "type": "string",
                         "description": "Name of the entity to query"
                     },
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use",
+                        "default": "default"
+                    },
                     "select": {
                         "type": "array",
                         "items": {"type": "string"},
@@ -225,7 +230,8 @@ class CrudTools:
             List of TextContent responses
         """
         try:
-            client = await self.client_manager.get_client()
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
             
             # Build query options
             options = QueryOptions(

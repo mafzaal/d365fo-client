@@ -12,6 +12,7 @@ from datetime import datetime
 from ..client import FOClient
 from ..models import FOClientConfig
 from ..exceptions import FOClientError, AuthenticationError
+from ..profile_manager import ProfileManager
 
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,7 @@ class D365FOClientManager:
         self._client_pool: Dict[str, FOClient] = {}
         self._session_lock = asyncio.Lock()
         self._last_health_check: Optional[datetime] = None
+        self.profile_manager = ProfileManager()
         
     async def get_client(self, profile: str = "default") -> FOClient:
         """Get or create a client for the specified profile.
@@ -144,7 +146,12 @@ class D365FOClientManager:
         Returns:
             FOClientConfig instance
         """
-        # Get profile config or use default
+        # First try to get from profile manager (file-based profiles)
+        env_profile = self.profile_manager.get_profile(profile)
+        if env_profile:
+            return self.profile_manager.profile_to_client_config(env_profile)
+        
+        # Fallback to legacy config-based profiles
         profile_config = self.config.get("profiles", {}).get(profile, {})
         default_config = self.config.get("default_environment", {})
         

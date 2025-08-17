@@ -159,6 +159,7 @@ from .utils import (
 )
 from .output import OutputFormatter
 from .config import ConfigManager, CLIProfile
+from .profile_manager import ProfileManager, EnvironmentProfile
 from .cli import CLIManager
 from .main import main
 
@@ -211,6 +212,8 @@ __all__ = [
     "OutputFormatter",
     "ConfigManager",
     "CLIProfile",
+    "ProfileManager",
+    "EnvironmentProfile", 
     "CLIManager",
     
     # MCP Server

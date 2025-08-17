@@ -12,7 +12,7 @@ from mcp.types import TextContent
 
 from .client_manager import D365FOClientManager
 from .resources import EntityResourceHandler, EnvironmentResourceHandler, MetadataResourceHandler, QueryResourceHandler
-from .tools import ConnectionTools, CrudTools, MetadataTools, LabelTools
+from .tools import ConnectionTools, CrudTools, MetadataTools, LabelTools, ProfileTools
 from .models import MCPServerConfig
 
 
@@ -43,6 +43,7 @@ class D365FOMCPServer:
         self.crud_tools = CrudTools(self.client_manager)
         self.metadata_tools = MetadataTools(self.client_manager)
         self.label_tools = LabelTools(self.client_manager)
+        self.profile_tools = ProfileTools(self.client_manager)
         
         # Tool registry for execution
         self.tool_registry = {}
@@ -121,6 +122,10 @@ class D365FOMCPServer:
                 label_tools = self.label_tools.get_tools()
                 tools.extend(label_tools)
                 
+                # Add profile tools
+                profile_tools = self.profile_tools.get_tools()
+                tools.extend(profile_tools)
+                
                 # Register tools for execution
                 for tool in tools:
                     self.tool_registry[tool.name] = tool
@@ -162,6 +167,24 @@ class D365FOMCPServer:
                     return await self.label_tools.execute_get_label(arguments)
                 elif name == "d365fo_get_labels_batch":
                     return await self.label_tools.execute_get_labels_batch(arguments)
+                elif name == "d365fo_list_profiles":
+                    return await self.profile_tools.execute_list_profiles(arguments)
+                elif name == "d365fo_get_profile":
+                    return await self.profile_tools.execute_get_profile(arguments)
+                elif name == "d365fo_create_profile":
+                    return await self.profile_tools.execute_create_profile(arguments)
+                elif name == "d365fo_update_profile":
+                    return await self.profile_tools.execute_update_profile(arguments)
+                elif name == "d365fo_delete_profile":
+                    return await self.profile_tools.execute_delete_profile(arguments)
+                elif name == "d365fo_set_default_profile":
+                    return await self.profile_tools.execute_set_default_profile(arguments)
+                elif name == "d365fo_get_default_profile":
+                    return await self.profile_tools.execute_get_default_profile(arguments)
+                elif name == "d365fo_validate_profile":
+                    return await self.profile_tools.execute_validate_profile(arguments)
+                elif name == "d365fo_test_profile_connection":
+                    return await self.profile_tools.execute_test_profile_connection(arguments)
                 else:
                     raise ValueError(f"Unknown tool: {name}")
                     
