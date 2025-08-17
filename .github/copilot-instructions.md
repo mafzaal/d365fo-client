@@ -3,11 +3,34 @@
 ## Project Overview
 This is a Python package project named `d365fo-client` that uses `uv` for dependency management and will be published to PyPI.org. The project follows modern Python packaging standards with `pyproject.toml` configuration.
 
+**Current Enhancement Focus**: We are enhancing the command-line interface (CLI) in `main.py` from a simple demo utility to a comprehensive CLI tool for D365 Finance & Operations operations. See `.github/copilot-agent-cli-spec.md` for detailed CLI enhancement requirements.
+
 ## Development Environment
 - **Package Manager**: `uv` (for fast Python package management)
 - **Python Version**: >=3.13
 - **Build Backend**: `hatchling` (default for uv projects)
 - **Distribution**: PyPI.org
+
+## Current CLI Enhancement Project
+The main focus is transforming `src/d365fo_client/main.py` from a simple demo utility into a comprehensive CLI tool:
+
+### CLI Enhancement Requirements
+1. **Hierarchical Command Structure**: Using `argparse` subparsers for commands like `test`, `version`, `metadata`, `entity`, `action`
+2. **Environment Base URL Support**: `--base-url` argument for specifying D365 F&O environments
+3. **Metadata Operations**: Sync metadata and search by entity type
+4. **Entity Data Operations**: Get/create/update/delete entity records with OData query support
+5. **Action Operations**: List and call OData actions
+6. **Configuration Profiles**: YAML-based configuration management
+7. **Multiple Output Formats**: JSON, table, CSV, YAML output options
+8. **Backward Compatibility**: Maintain existing `--demo` functionality
+
+### New Components to Implement
+- **CLI Manager** (`cli.py`): Central command execution orchestrator
+- **Configuration Manager** (`config.py`): Profile-based configuration handling  
+- **Output Formatter** (`output.py`): Multi-format output rendering
+- **Enhanced Main** (`main.py`): Comprehensive argument parsing
+
+Refer to `.github/copilot-agent-cli-spec.md` for complete implementation guidance.
 
 ## Project Structure Guidelines
 ```
@@ -152,7 +175,51 @@ AZURE_TENANT_ID=your-tenant-id
 - Comprehensive fixture system for resource management
 - Performance metrics collection and validation
 
-### 5. Documentation
+### 5. CLI Development Practices
+
+#### 5.1 Command Structure Guidelines
+- Use `argparse` with subparsers for hierarchical commands
+- Follow pattern: `d365fo-client [GLOBAL_OPTIONS] COMMAND [SUBCOMMAND] [OPTIONS]`
+- Implement global options before subcommands (--base-url, --output, --verbose, etc.)
+- Use consistent naming: dash-separated for CLI args, underscore for internal code
+
+#### 5.2 Command Implementation Pattern
+```python
+# CLI Manager with async command handlers
+class CLIManager:
+    async def execute_command(self, args: argparse.Namespace) -> int:
+        # Setup -> Create client -> Route command -> Handle errors
+        
+    async def _handle_command(self, args: argparse.Namespace) -> int:
+        # Execute client operations and format output
+        # Return 0 for success, 1 for errors
+```
+
+#### 5.3 Configuration Management
+- Support profile-based configuration in YAML format
+- Location: `~/.d365fo-client/config.yaml`
+- Environment variable substitution: `${VAR_NAME}`
+- Precedence: CLI args > Environment variables > Profile config > Defaults
+
+#### 5.4 Output Formatting Requirements
+- Support multiple formats: JSON, table, CSV, YAML
+- Use `tabulate` library for table formatting
+- Consistent data structures for formatting
+- Handle error output separately from data output
+
+#### 5.5 CLI Testing Practices
+- Mock `FOClient` for CLI tests
+- Test argument parsing separately from command execution
+- Use `argparse.Namespace` objects for test scenarios
+- Test both success and error cases for each command
+
+#### 5.6 Backward Compatibility
+- Maintain existing `--demo` option functionality
+- Keep `example_usage()` function for demo mode
+- Preserve existing API without breaking changes
+- Support both new CLI and legacy demo modes
+
+### 6. Documentation
 - Store all documentation files in the `docs/` folder
 - Maintain comprehensive README.md with usage examples
 - Use docstrings for all public functions and classes
@@ -160,7 +227,7 @@ AZURE_TENANT_ID=your-tenant-id
 - Place API documentation, guides, and tutorials in `docs/`
 - Consider using Sphinx for API documentation with output to `docs/`
 
-### 6. Version Management
+### 7. Version Management
 - Follow semantic versioning (MAJOR.MINOR.PATCH)
 - Update version in `pyproject.toml` before releases
 - Maintain CHANGELOG.md with release notes
