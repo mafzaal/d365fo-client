@@ -147,19 +147,68 @@ class D365FOClientManager:
             FOClientConfig instance
         """
         # First try to get from profile manager (file-based profiles)
-        env_profile = self.profile_manager.get_profile(profile)
+        env_profile = None
+        
+        # If requesting "default", resolve to the actual default profile
+        if profile == "default":
+            env_profile = self.profile_manager.get_default_profile()
+            if not env_profile:
+                # No default profile set, try to get a profile named "default"
+                env_profile = self.profile_manager.get_profile("default")
+        else:
+            # Get specific profile
+            env_profile = self.profile_manager.get_profile(profile)
+        
         if env_profile:
-            return self.profile_manager.profile_to_client_config(env_profile)
+            config = self.profile_manager.profile_to_client_config(env_profile)
+            # Validate that we have a base_url
+            if not config.base_url:
+                raise ValueError(f"Profile '{env_profile.name}' has no base_url configured")
+            return config
         
         # Fallback to legacy config-based profiles
         profile_config = self.config.get("profiles", {}).get(profile, {})
         default_config = self.config.get("default_environment", {})
         
+        # If requesting a specific profile name that doesn't exist in profiles, don't fall back
+        if profile != "default" and profile not in self.config.get("profiles", {}) and not profile_config:
+            available_profiles = list(self.profile_manager.list_profiles().keys())
+            legacy_profiles = list(self.config.get("profiles", {}).keys())
+            all_profiles = sorted(set(available_profiles + legacy_profiles))
+            
+            default_profile = self.profile_manager.get_default_profile()
+            
+            error_msg = f"Profile '{profile}' not found"
+            if all_profiles:
+                error_msg += f". Available profiles: {', '.join(all_profiles)}"
+            if default_profile:
+                error_msg += f". Default profile is '{default_profile.name}'"
+            else:
+                error_msg += ". No default profile is set"
+            
+            raise ValueError(error_msg)
+        
         # Merge configs (profile overrides default)
         config = {**default_config, **profile_config}
         
+        # Validate base_url
+        base_url = config.get("base_url")
+        if not base_url:
+            available_profiles = list(self.profile_manager.list_profiles().keys())
+            default_profile = self.profile_manager.get_default_profile()
+            
+            error_msg = f"No configuration found for profile '{profile}'"
+            if available_profiles:
+                error_msg += f". Available profiles: {', '.join(available_profiles)}"
+            if default_profile:
+                error_msg += f". Default profile is '{default_profile.name}'"
+            else:
+                error_msg += ". No default profile is set"
+            
+            raise ValueError(error_msg)
+        
         return FOClientConfig(
-            base_url=config.get("base_url"),
+            base_url=base_url,
             client_id=config.get("client_id"),
             client_secret=config.get("client_secret"),
             tenant_id=config.get("tenant_id"),

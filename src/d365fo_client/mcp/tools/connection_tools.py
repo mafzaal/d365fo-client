@@ -39,14 +39,13 @@ class ConnectionTools:
         """Get test connection tool definition."""
         return Tool(
             name="d365fo_test_connection",
-            description="Test connectivity to D365FO environment",
+            description="Test connectivity to D365FO environment. If no profile is specified, uses the default profile. If no default profile is set, provides guidance on setting up profiles.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "profile": {
                         "type": "string",
-                        "description": "Configuration profile to use",
-                        "default": "default"
+                        "description": "Configuration profile to use (optional - uses default profile if not specified)"
                     },
                     "baseUrl": {
                         "type": "string",
@@ -66,14 +65,13 @@ class ConnectionTools:
         """Get environment info tool definition."""
         return Tool(
             name="d365fo_get_environment_info",
-            description="Get comprehensive environment information",
+            description="Get comprehensive environment information. If no profile is specified, uses the default profile.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "profile": {
                         "type": "string",
-                        "description": "Configuration profile to use",
-                        "default": "default"
+                        "description": "Configuration profile to use (optional - uses default profile if not specified)"
                     }
                 }
             }
@@ -113,6 +111,21 @@ class ConnectionTools:
                 text=json.dumps(response, indent=2)
             )]
             
+        except ValueError as e:
+            # Handle configuration errors with helpful messages
+            logger.error(f"Configuration error for profile {arguments.get('profile', 'default')}: {e}")
+            error_response = {
+                "success": False,
+                "profile": arguments.get("profile", "default"),
+                "endpoints": {"data": False, "metadata": False},
+                "responseTime": 0.0,
+                "error": str(e),
+                "suggestion": "Please create a profile or set a default profile using the profile management tools."
+            }
+            return [TextContent(
+                type="text",
+                text=json.dumps(error_response, indent=2)
+            )]
         except Exception as e:
             logger.error(f"Test connection failed: {e}")
             error_response = {
@@ -158,6 +171,19 @@ class ConnectionTools:
                 text=json.dumps(response, indent=2)
             )]
             
+        except ValueError as e:
+            # Handle configuration errors with helpful messages
+            logger.error(f"Configuration error for profile {arguments.get('profile', 'default')}: {e}")
+            error_response = {
+                "error": str(e),
+                "tool": "d365fo_get_environment_info",
+                "arguments": arguments,
+                "suggestion": "Please create a profile or set a default profile using the profile management tools."
+            }
+            return [TextContent(
+                type="text",
+                text=json.dumps(error_response, indent=2)
+            )]
         except Exception as e:
             logger.error(f"Get environment info failed: {e}")
             error_response = {
