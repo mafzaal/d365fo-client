@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import re
 import sqlite3
 import threading
 import time
@@ -1276,6 +1277,569 @@ class MetadataCache:
             await self.initialize()
         
         return await self._database.get_statistics(self._environment_id)
+    
+    # Data Entity Methods
+    
+    async def search_data_entities(self, pattern: str = "", entity_category: Optional[str] = None,
+                                  data_service_enabled: Optional[bool] = None,
+                                  data_management_enabled: Optional[bool] = None,
+                                  is_read_only: Optional[bool] = None) -> List[DataEntityInfo]:
+        """Search data entities with filtering and caching
+        
+        Args:
+            pattern: Search pattern for entity name (regex supported)
+            entity_category: Filter by entity category (e.g., 'Master', 'Transaction')
+            data_service_enabled: Filter by data service enabled status
+            data_management_enabled: Filter by data management enabled status
+            is_read_only: Filter by read-only status
+            
+        Returns:
+            List of matching data entities
+        """
+        if self._environment_id is None:
+            await self.initialize()
+        
+        # Build cache key for search
+        key_parts = ["data_entities_search", pattern or ""]
+        if entity_category is not None:
+            key_parts.append(f"category:{entity_category}")
+        if data_service_enabled is not None:
+            key_parts.append(f"ds_enabled:{data_service_enabled}")
+        if data_management_enabled is not None:
+            key_parts.append(f"dm_enabled:{data_management_enabled}")
+        if is_read_only is not None:
+            key_parts.append(f"readonly:{is_read_only}")
+        
+        cache_key = "|".join(key_parts)
+        
+        # L1: Memory cache (if available)
+        if self._memory_cache:
+            entities = self._memory_cache.get(cache_key)
+            if entities is not None:
+                logger.debug(f"Memory cache hit for data entities search: {pattern}")
+                return entities
+        
+        # L2: Disk cache (if available)
+        if self._disk_cache:
+            try:
+                entities = self._disk_cache.get(cache_key)
+                if entities is not None:
+                    logger.debug(f"Disk cache hit for data entities search: {pattern}")
+                    # Store in memory cache
+                    if self._memory_cache:
+                        self._memory_cache[cache_key] = entities
+                    return entities
+            except Exception as e:
+                logger.warning(f"Disk cache error for data entities search: {e}")
+        
+        # L3: Database
+        entities = await self._search_data_entities_from_db(
+            pattern, entity_category, data_service_enabled,
+            data_management_enabled, is_read_only
+        )
+        
+        # Cache results
+        if self._memory_cache:
+            self._memory_cache[cache_key] = entities
+        if self._disk_cache:
+            try:
+                self._disk_cache.set(cache_key, entities, expire=3600)  # 1 hour TTL
+            except Exception as e:
+                logger.warning(f"Failed to cache data entities search to disk: {e}")
+        
+        logger.debug(f"Database lookup for data entities search: {pattern}, found {len(entities)} entities")
+        return entities
+    
+    async def _search_data_entities_from_db(self, pattern: str = "", entity_category: Optional[str] = None,
+                                           data_service_enabled: Optional[bool] = None,
+                                           data_management_enabled: Optional[bool] = None,
+                                           is_read_only: Optional[bool] = None) -> List[DataEntityInfo]:
+        """Search data entities from database with filtering"""
+        if aiosqlite is None:
+            return []
+        
+        # Build WHERE clause
+        where_conditions = ["mv.environment_id = ?", "mv.is_active = 1"]
+        params = [self._environment_id]
+        
+        if pattern:
+            # Use LIKE for simple pattern matching
+            where_conditions.append("LOWER(de.name) LIKE LOWER(?)")
+            params.append(f"%{pattern}%")
+        
+        if entity_category is not None:
+            where_conditions.append("de.entity_category = ?")
+            params.append(entity_category)
+        
+        if data_service_enabled is not None:
+            where_conditions.append("de.data_service_enabled = ?")
+            params.append(1 if data_service_enabled else 0)
+        
+        if data_management_enabled is not None:
+            where_conditions.append("de.data_management_enabled = ?")
+            params.append(1 if data_management_enabled else 0)
+        
+        if is_read_only is not None:
+            where_conditions.append("de.is_read_only = ?")
+            params.append(1 if is_read_only else 0)
+        
+        where_clause = " AND ".join(where_conditions)
+        
+        query = f"""
+            SELECT de.name, de.public_entity_name, de.public_collection_name, 
+                   de.label_id, de.entity_category, de.data_service_enabled,
+                   de.data_management_enabled, de.is_read_only
+            FROM data_entities de
+            JOIN metadata_versions mv ON de.version_id = mv.id
+            WHERE {where_clause}
+            ORDER BY de.name
+        """
+        
+        async with aiosqlite.connect(self._database.db_path) as db:
+            cursor = await db.execute(query, params)
+            rows = await cursor.fetchall()
+        
+        entities = []
+        for row in rows:
+            
+            entity = DataEntityInfo(
+                name=row[0],
+                public_entity_name=row[1] or "",
+                public_collection_name=row[2] or "",
+                label_id=row[3],
+
+                entity_category=row[4],
+                data_service_enabled=bool(row[5]),
+                data_management_enabled=bool(row[6]),
+                is_read_only=bool(row[7])
+            )
+            
+            entities.append(entity)
+        
+        # Apply regex pattern if provided and contains regex characters
+        if pattern and re.search(r'[.*+?^${}()|[\]\\]', pattern):
+            try:
+                flags = re.IGNORECASE
+                entities = [e for e in entities if re.search(pattern, e.name, flags)]
+            except re.error:
+                # If regex is invalid, fall back to simple substring matching
+                logger.warning(f"Invalid regex pattern '{pattern}', using substring matching")
+        
+        return entities
+    
+    async def get_data_entity_info(self, entity_name: str, resolve_labels: bool = True,
+                                  language: str = "en-US") -> Optional[DataEntityInfo]:
+        """Get detailed data entity information with label resolution
+        
+        Args:
+            entity_name: Name of the data entity
+            resolve_labels: Whether to resolve label IDs to text
+            language: Language for label resolution
+            
+        Returns:
+            DataEntityInfo object or None if not found
+        """
+        if self._environment_id is None:
+            await self.initialize()
+        
+        # Get entity from cache/database
+        entity = await self.get_entity(entity_name, "data")
+        if not entity or not isinstance(entity, DataEntityInfo):
+            return None
+        
+        # Resolve labels if requested
+        if resolve_labels and entity.label_id:
+            label_text = await self.get_label(entity.label_id, language)
+            if label_text:
+                entity.label_text = label_text
+        
+        return entity
+
+    # Public Entity Methods
+    
+    async def search_public_entities(self, pattern: str = "", is_read_only: Optional[bool] = None,
+                                   configuration_enabled: Optional[bool] = None) -> List[PublicEntityInfo]:
+        """Search public entities with filtering and caching
+        
+        Args:
+            pattern: Search pattern for entity name (regex supported)
+            is_read_only: Filter by read-only status
+            configuration_enabled: Filter by configuration enabled status
+            
+        Returns:
+            List of matching public entities
+        """
+        if self._environment_id is None:
+            await self.initialize()
+        
+        # Build cache key for search
+        key_parts = ["public_entities_search", pattern or ""]
+        if is_read_only is not None:
+            key_parts.append(f"readonly:{is_read_only}")
+        if configuration_enabled is not None:
+            key_parts.append(f"config_enabled:{configuration_enabled}")
+        
+        cache_key = "|".join(key_parts)
+        
+        # L1: Memory cache (if available)
+        if self._memory_cache:
+            entities = self._memory_cache.get(cache_key)
+            if entities is not None:
+                logger.debug(f"Memory cache hit for public entities search: {pattern}")
+                return entities
+        
+        # L2: Disk cache (if available)
+        if self._disk_cache:
+            try:
+                entities = self._disk_cache.get(cache_key)
+                if entities is not None:
+                    logger.debug(f"Disk cache hit for public entities search: {pattern}")
+                    # Store in memory cache
+                    if self._memory_cache:
+                        self._memory_cache[cache_key] = entities
+                    return entities
+            except Exception as e:
+                logger.warning(f"Disk cache error for public entities search: {e}")
+        
+        # L3: Database
+        entities = await self._search_public_entities_from_db(
+            pattern, is_read_only, configuration_enabled
+        )
+        
+        # Cache results
+        if self._memory_cache:
+            self._memory_cache[cache_key] = entities
+        if self._disk_cache:
+            try:
+                self._disk_cache.set(cache_key, entities, expire=3600)  # 1 hour TTL
+            except Exception as e:
+                logger.warning(f"Failed to cache public entities search to disk: {e}")
+        
+        logger.debug(f"Database lookup for public entities search: {pattern}, found {len(entities)} entities")
+        return entities
+    
+    async def _search_public_entities_from_db(self, pattern: str = "", is_read_only: Optional[bool] = None,
+                                            configuration_enabled: Optional[bool] = None) -> List[PublicEntityInfo]:
+        """Search public entities from database with filtering"""
+        if aiosqlite is None:
+            return []
+        
+        # Build WHERE clause
+        where_conditions = ["mv.environment_id = ?", "mv.is_active = 1"]
+        params = [self._environment_id]
+        
+        if pattern:
+            # Use LIKE for simple pattern matching
+            where_conditions.append("LOWER(pe.name) LIKE LOWER(?)")
+            params.append(f"%{pattern}%")
+        
+        if is_read_only is not None:
+            where_conditions.append("pe.is_read_only = ?")
+            params.append(1 if is_read_only else 0)
+        
+        if configuration_enabled is not None:
+            where_conditions.append("pe.configuration_enabled = ?")
+            params.append(1 if configuration_enabled else 0)
+        
+        where_clause = " AND ".join(where_conditions)
+        
+        query = f"""
+            SELECT pe.name, pe.entity_set_name, pe.label_id, 
+                   pe.is_read_only, pe.configuration_enabled
+            FROM public_entities pe
+            JOIN metadata_versions mv ON pe.version_id = mv.id
+            WHERE {where_clause}
+            ORDER BY pe.name
+        """
+        
+        async with aiosqlite.connect(self._database.db_path) as db:
+            cursor = await db.execute(query, params)
+            rows = await cursor.fetchall()
+        
+        entities = []
+        for row in rows:
+            entity = PublicEntityInfo(
+                name=row[0],
+                entity_set_name=row[1] or "",
+                label_id=row[2],
+                is_read_only=bool(row[3]),
+                configuration_enabled=bool(row[4])
+            )
+            entities.append(entity)
+        
+        # Apply regex pattern if provided and contains regex characters
+        if pattern and re.search(r'[.*+?^${}()|[\]\\]', pattern):
+            try:
+                flags = re.IGNORECASE
+                entities = [e for e in entities if re.search(pattern, e.name, flags)]
+            except re.error:
+                # If regex is invalid, fall back to simple substring matching
+                logger.warning(f"Invalid regex pattern '{pattern}', using substring matching")
+        
+        return entities
+    
+    async def get_public_entity_info(self, entity_name: str, resolve_labels: bool = True,
+                                   language: str = "en-US") -> Optional[PublicEntityInfo]:
+        """Get detailed public entity information with label resolution
+        
+        Args:
+            entity_name: Name of the public entity
+            resolve_labels: Whether to resolve label IDs to text
+            language: Language for label resolution
+            
+        Returns:
+            PublicEntityInfo object or None if not found
+        """
+        if self._environment_id is None:
+            await self.initialize()
+        
+        # Get entity from cache/database (this already includes full details)
+        entity = await self.get_entity(entity_name, "public")
+        if not entity or not isinstance(entity, PublicEntityInfo):
+            return None
+        
+        # Resolve labels if requested
+        if resolve_labels:
+            await self._resolve_public_entity_labels(entity, language)
+        
+        return entity
+    
+    async def _resolve_public_entity_labels(self, entity: PublicEntityInfo, language: str) -> None:
+        """Resolve labels for a public entity and its properties"""
+        # Collect all label IDs
+        label_ids = []
+        
+        if entity.label_id:
+            label_ids.append(entity.label_id)
+        
+        for prop in entity.properties:
+            if prop.label_id:
+                label_ids.append(prop.label_id)
+        
+        # Resolve labels in batch if any label IDs found
+        if label_ids:
+            # Remove duplicates while preserving order
+            unique_label_ids = list(dict.fromkeys(label_ids))
+            
+            # Get labels from cache
+            label_texts = {}
+            for label_id in unique_label_ids:
+                label_text = await self.get_label(label_id, language)
+                if label_text:
+                    label_texts[label_id] = label_text
+            
+            # Apply resolved labels
+            if entity.label_id and entity.label_id in label_texts:
+                entity.label_text = label_texts[entity.label_id]
+            
+            for prop in entity.properties:
+                if prop.label_id and prop.label_id in label_texts:
+                    prop.label_text = label_texts[prop.label_id]
+
+    # Enumeration Methods
+    
+    async def search_public_enumerations(self, pattern: str = "") -> List[EnumerationInfo]:
+        """Search public enumerations with filtering and caching
+        
+        Args:
+            pattern: Search pattern for enumeration name (regex supported)
+            
+        Returns:
+            List of matching enumerations
+        """
+        if self._environment_id is None:
+            await self.initialize()
+        
+        # Build cache key for search
+        cache_key = f"public_enumerations_search|{pattern or ''}"
+        
+        # L1: Memory cache (if available)
+        if self._memory_cache:
+            enumerations = self._memory_cache.get(cache_key)
+            if enumerations is not None:
+                logger.debug(f"Memory cache hit for public enumerations search: {pattern}")
+                return enumerations
+        
+        # L2: Disk cache (if available)
+        if self._disk_cache:
+            try:
+                enumerations = self._disk_cache.get(cache_key)
+                if enumerations is not None:
+                    logger.debug(f"Disk cache hit for public enumerations search: {pattern}")
+                    # Store in memory cache
+                    if self._memory_cache:
+                        self._memory_cache[cache_key] = enumerations
+                    return enumerations
+            except Exception as e:
+                logger.warning(f"Disk cache error for public enumerations search: {e}")
+        
+        # L3: Database
+        enumerations = await self._search_public_enumerations_from_db(pattern)
+        
+        # Cache results
+        if self._memory_cache:
+            self._memory_cache[cache_key] = enumerations
+        if self._disk_cache:
+            try:
+                self._disk_cache.set(cache_key, enumerations, expire=3600)  # 1 hour TTL
+            except Exception as e:
+                logger.warning(f"Failed to cache public enumerations search to disk: {e}")
+        
+        logger.debug(f"Database lookup for public enumerations search: {pattern}, found {len(enumerations)} enumerations")
+        return enumerations
+    
+    async def _search_public_enumerations_from_db(self, pattern: str = "") -> List[EnumerationInfo]:
+        """Search public enumerations from database with filtering"""
+        if aiosqlite is None:
+            return []
+        
+        # Build WHERE clause
+        where_conditions = ["mv.environment_id = ?", "mv.is_active = 1"]
+        params = [self._environment_id]
+        
+        if pattern:
+            # Use LIKE for simple pattern matching
+            where_conditions.append("LOWER(e.name) LIKE LOWER(?)")
+            params.append(f"%{pattern}%")
+        
+        where_clause = " AND ".join(where_conditions)
+        
+        query = f"""
+            SELECT e.name, e.label_id
+            FROM enumerations e
+            JOIN metadata_versions mv ON e.version_id = mv.id
+            WHERE {where_clause}
+            ORDER BY e.name
+        """
+        
+        async with aiosqlite.connect(self._database.db_path) as db:
+            cursor = await db.execute(query, params)
+            rows = await cursor.fetchall()
+        
+        enumerations = []
+        for row in rows:
+            enum = EnumerationInfo(
+                name=row[0],
+                label_id=row[1]
+            )
+            enumerations.append(enum)
+        
+        # Apply regex pattern if provided and contains regex characters
+        if pattern and re.search(r'[.*+?^${}()|[\]\\]', pattern):
+            try:
+                flags = re.IGNORECASE
+                enumerations = [e for e in enumerations if re.search(pattern, e.name, flags)]
+            except re.error:
+                # If regex is invalid, fall back to simple substring matching
+                logger.warning(f"Invalid regex pattern '{pattern}', using substring matching")
+        
+        return enumerations
+    
+    async def get_public_enumeration_info(self, enumeration_name: str, resolve_labels: bool = True,
+                                        language: str = "en-US") -> Optional[EnumerationInfo]:
+        """Get detailed enumeration information with label resolution
+        
+        Args:
+            enumeration_name: Name of the enumeration
+            resolve_labels: Whether to resolve label IDs to text
+            language: Language for label resolution
+            
+        Returns:
+            EnumerationInfo object or None if not found
+        """
+        if self._environment_id is None:
+            await self.initialize()
+        
+        # Get enumeration from database with full details including members
+        enum = await self._get_enumeration_from_db(enumeration_name)
+        if not enum:
+            return None
+        
+        # Resolve labels if requested
+        if resolve_labels:
+            await self._resolve_enumeration_labels(enum, language)
+        
+        return enum
+    
+    async def _get_enumeration_from_db(self, enumeration_name: str) -> Optional[EnumerationInfo]:
+        """Get enumeration from database with full details"""
+        if aiosqlite is None:
+            return None
+        
+        async with aiosqlite.connect(self._database.db_path) as db:
+            # Get enumeration base info
+            cursor = await db.execute(
+                """SELECT e.id, e.name, e.label_id
+                   FROM enumerations e
+                   JOIN metadata_versions mv ON e.version_id = mv.id
+                   WHERE e.name = ? AND mv.environment_id = ? AND mv.is_active = 1""",
+                (enumeration_name, self._environment_id)
+            )
+            row = await cursor.fetchone()
+            
+            if not row:
+                return None
+            
+            enum_id, name, label_id = row
+            
+            # Create enumeration info
+            enum = EnumerationInfo(
+                name=name,
+                label_id=label_id
+            )
+            
+            # Get enumeration members
+            cursor = await db.execute(
+                """SELECT name, value, label_id, configuration_enabled
+                   FROM enumeration_members
+                   WHERE enumeration_id = ?
+                   ORDER BY member_order, name""",
+                (enum_id,)
+            )
+            member_rows = await cursor.fetchall()
+            
+            for member_row in member_rows:
+                member = EnumerationMemberInfo(
+                    name=member_row[0],
+                    value=member_row[1],
+                    label_id=member_row[2],
+                    configuration_enabled=bool(member_row[3])
+                )
+                enum.members.append(member)
+            
+            return enum
+    
+    async def _resolve_enumeration_labels(self, enum: EnumerationInfo, language: str) -> None:
+        """Resolve labels for an enumeration and its members"""
+        # Collect all label IDs
+        label_ids = []
+        
+        if enum.label_id:
+            label_ids.append(enum.label_id)
+        
+        for member in enum.members:
+            if member.label_id:
+                label_ids.append(member.label_id)
+        
+        # Resolve labels in batch if any label IDs found
+        if label_ids:
+            # Remove duplicates while preserving order
+            unique_label_ids = list(dict.fromkeys(label_ids))
+            
+            # Get labels from cache
+            label_texts = {}
+            for label_id in unique_label_ids:
+                label_text = await self.get_label(label_id, language)
+                if label_text:
+                    label_texts[label_id] = label_text
+            
+            # Apply resolved labels
+            if enum.label_id and enum.label_id in label_texts:
+                enum.label_text = label_texts[enum.label_id]
+            
+            for member in enum.members:
+                if member.label_id and member.label_id in label_texts:
+                    member.label_text = label_texts[member.label_id]
 
 
 class MetadataSearchEngine:

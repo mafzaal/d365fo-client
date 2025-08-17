@@ -262,7 +262,7 @@ class FOClient:
             self.logger.error(f"Error during metadata sync: {e}")
             return False
     
-    async def search_entities(self, pattern: str = "", use_cache_first: Optional[bool] = None) -> List[str]:
+    async def search_entities(self, pattern: str = "", use_cache_first: Optional[bool] = True) -> List[DataEntityInfo]:
         """Search entities by name pattern with cache-first approach
         
         Args:
@@ -274,30 +274,18 @@ class FOClient:
         """
         async def cache_search():
             if self.metadata_cache:
-                # Use the new search API with both public and data entities
-                query = SearchQuery(
-                    text=pattern,
-                    entity_types=["public_entity", "data_entity"],
-                    limit=1000
-                )
-                results = await self.metadata_cache.search(query)
-                return [result.name for result in results.results]
+                return await self.metadata_cache.search_data_entities(pattern)
             return []
             
         async def fallback_search():
             # Use metadata API operations as fallback
-            public_entities = await self.metadata_api_ops.search_public_entities(pattern)
-            data_entities = await self.metadata_api_ops.search_data_entities(pattern)
             
-            # Combine and deduplicate entity names
-            entity_names = set()
-            entity_names.update(entity.name for entity in public_entities)
-            entity_names.update(entity.name for entity in data_entities)
-            return sorted(list(entity_names))
+            return await self.metadata_api_ops.search_data_entities(pattern)
+            
         
         return await self._get_from_cache_first(
             cache_search, fallback_search, 
-            use_cache_first=use_cache_first
+            use_cache_first=use_cache_first or self.config.use_cache_first
         )
     
     async def get_entity_info(self, entity_name: str, use_cache_first: Optional[bool] = None) -> Optional[EntityInfo]:
@@ -637,7 +625,7 @@ class FOClient:
             List of matching data entities
         """
         async def cache_search():
-            if self.metadata_cache and hasattr(self.metadata_cache, 'search_data_entities'):
+            if self.metadata_cache:
                 return await self.metadata_cache.search_data_entities(
                     pattern, entity_category, data_service_enabled,
                     data_management_enabled, is_read_only
@@ -669,7 +657,7 @@ class FOClient:
             DataEntityInfo object or None if not found
         """
         async def cache_lookup():
-            if self.metadata_cache and hasattr(self.metadata_cache, 'get_data_entity_info'):
+            if self.metadata_cache:
                 return await self.metadata_cache.get_data_entity_info(entity_name, resolve_labels, language)
             return None
             

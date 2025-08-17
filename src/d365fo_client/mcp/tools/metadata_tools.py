@@ -48,16 +48,20 @@ class MetadataTools:
                         "type": "string",
                         "description": "Search pattern for entity names"
                     },
-                    "entityCategory": {
+                    "entity_category": {
                         "type": "string",
                         "description": "Filter by entity category",
                         "enum": ["Master", "Document", "Transaction", "Reference", "Parameter"]
                     },
-                    "dataServiceEnabled": {
+                    "data_service_enabled": {
                         "type": "boolean",
                         "description": "Filter by data service enabled"
                     },
-                    "isReadOnly": {
+                    "data_management_enabled": {
+                        "type": "boolean",
+                        "description": "Filter by data management enabled"
+                    },
+                    "is_read_only": {
                         "type": "boolean",
                         "description": "Filter by read-only status"
                     },
@@ -83,14 +87,14 @@ class MetadataTools:
                 "properties": {
                     "entityName": {
                         "type": "string",
-                        "description": "Name of the entity"
+                        "description": "Public name of the entity"
                     },
-                    "includeProperties": {
+                    "include_properties": {
                         "type": "boolean",
                         "default": True,
                         "description": "Include property details"
                     },
-                    "resolveLabels": {
+                    "resolve_labels": {
                         "type": "boolean",
                         "default": True,
                         "description": "Resolve label texts"
@@ -147,50 +151,43 @@ class MetadataTools:
             List of TextContent responses
         """
         try:
-            client = await self.client_manager.get_client()
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
             
             start_time = time.time()
-            entities = await client.search_entities(arguments["pattern"])
             
-            # Apply filters if provided
+            # Use search_data_entities to support all the filtering options
+            entities = await client.search_data_entities(
+                pattern=arguments["pattern"],
+                entity_category=arguments.get("entity_category"),
+                data_service_enabled=arguments.get("data_service_enabled"),
+                data_management_enabled=arguments.get("data_management_enabled"),  # Add this for completeness
+                is_read_only=arguments.get("is_read_only")
+            )
+            
+            # Convert DataEntityInfo objects to dictionaries for JSON serialization
+            entity_dicts = []
+            for entity in entities:
+                entity_dict = entity.to_dict()
+                entity_dicts.append(entity_dict)
+
+            # Apply limit
             limit = arguments.get("limit", 100)
-            filtered_entities = entities[:limit]
-            
-            # Get detailed info for entities
-            detailed_entities = []
-            for entity_name in filtered_entities:
-                entity_info = await client.get_entity_info(entity_name)
-                if entity_info:
-                    # Handle both object and dictionary return types
-                    if isinstance(entity_info, dict):
-                        detailed_entities.append({
-                            "name": entity_info.get("name", entity_name),
-                            "entitySetName": entity_info.get("entity_set_name", ""),
-                            "keys": entity_info.get("keys", []),
-                            "propertyCount": len(entity_info.get("properties", [])),
-                            "isReadOnly": entity_info.get("is_read_only", False),
-                            "labelText": entity_info.get("label_text", ""),
-                            "entityCategory": entity_info.get("entity_category", "Unknown")
-                        })
-                    else:
-                        detailed_entities.append({
-                            "name": getattr(entity_info, 'name', entity_name),
-                            "entitySetName": getattr(entity_info, 'entity_set_name', ''),
-                            "keys": getattr(entity_info, 'keys', []),
-                            "propertyCount": len(getattr(entity_info, 'properties', [])),
-                            "isReadOnly": getattr(entity_info, 'is_read_only', False),
-                            "labelText": getattr(entity_info, 'label_text', ''),
-                            "entityCategory": getattr(entity_info, 'entity_category', 'Unknown')
-                        })
-            
+            filtered_entities = entity_dicts[:limit]
             search_time = time.time() - start_time
             
             response = {
-                "entities": detailed_entities,
+                "entities": filtered_entities,
                 "totalCount": len(entities),
                 "searchTime": round(search_time, 3),
                 "pattern": arguments["pattern"],
-                "limit": limit
+                "limit": limit,
+                "filters": {
+                    "entity_Category": arguments.get("entity_Category"),
+                    "data_Service_Enabled": arguments.get("data_Service_Enabled"),
+                    "data_Management_Enabled": arguments.get("data_Management_Enabled"),
+                    "is_Read_Only": arguments.get("is_Read_Only")
+                }
             }
             
             return [TextContent(
@@ -220,63 +217,21 @@ class MetadataTools:
             List of TextContent responses
         """
         try:
-            client = await self.client_manager.get_client()
-            
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
+
             entity_name = arguments["entityName"]
-            entity_info = await client.get_entity_info(entity_name)
+            entity_info = await client.get_public_entity_info(entity_name)
             
             if not entity_info:
                 raise ValueError(f"Entity not found: {entity_name}")
             
-            # Handle both object and dictionary return types
-            if isinstance(entity_info, dict):
-                # Handle dictionary format
-                response = {
-                    "entity": {
-                        "name": entity_info.get("name", entity_name),
-                        "entitySetName": entity_info.get("entity_set_name", ""),
-                        "labelText": entity_info.get("label_text", ""),
-                        "isReadOnly": entity_info.get("is_read_only", False),
-                        "entityCategory": entity_info.get("entity_category", "Unknown")
-                    },
-                    "properties": [
-                        {
-                            "name": prop.get("name", "") if isinstance(prop, dict) else prop.name,
-                            "type": prop.get("type", "") if isinstance(prop, dict) else getattr(prop, 'type', ''),
-                            "isKey": (prop.get("name", "") if isinstance(prop, dict) else prop.name) in entity_info.get("keys", []),
-                            "maxLength": prop.get("max_length") if isinstance(prop, dict) else getattr(prop, 'max_length', None),
-                            "labelText": prop.get("label_text") if isinstance(prop, dict) and arguments.get("resolveLabels", True) else (getattr(prop, 'label_text', None) if arguments.get("resolveLabels", True) else None)
-                        } for prop in entity_info.get("properties", [])
-                    ] if arguments.get("includeProperties", True) else [],
-                    "keys": entity_info.get("keys", []),
-                    "propertyCount": len(entity_info.get("properties", []))
-                }
-            else:
-                # Handle object format (EntityInfo, PublicEntityInfo, etc.)
-                response = {
-                    "entity": {
-                        "name": getattr(entity_info, 'name', entity_name),
-                        "entitySetName": getattr(entity_info, 'entity_set_name', ''),
-                        "labelText": getattr(entity_info, 'label_text', ''),
-                        "isReadOnly": getattr(entity_info, 'is_read_only', False),
-                        "entityCategory": getattr(entity_info, 'entity_category', 'Unknown')
-                    },
-                    "properties": [
-                        {
-                            "name": getattr(prop, 'name', ''),
-                            "type": getattr(prop, 'type', '') or getattr(prop, 'type_name', ''),
-                            "isKey": getattr(prop, 'name', '') in getattr(entity_info, 'keys', []),
-                            "maxLength": getattr(prop, 'max_length', None),
-                            "labelText": getattr(prop, 'label_text', None) if arguments.get("resolveLabels", True) else None
-                        } for prop in getattr(entity_info, 'properties', [])
-                    ] if arguments.get("includeProperties", True) else [],
-                    "keys": getattr(entity_info, 'keys', []),
-                    "propertyCount": len(getattr(entity_info, 'properties', []))
-                }
-            
+           
+            entity_info_dic = entity_info.to_dict()
+
             return [TextContent(
                 type="text",
-                text=json.dumps(response, indent=2)
+                text=json.dumps(entity_info_dic, indent=2)
             )]
             
         except Exception as e:

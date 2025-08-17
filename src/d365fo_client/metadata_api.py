@@ -239,8 +239,8 @@ class MetadataAPIOperations:
                 public_entity_name=item.get('PublicEntityName', ''),
                 public_collection_name=item.get('PublicCollectionName', ''),
                 label_id=item.get('LabelId'),
-                data_service_enabled=item.get('DataServiceEnabled', True),
-                data_management_enabled=item.get('DataManagementEnabled', True),
+                data_service_enabled=item.get('DataServiceEnabled', False),
+                data_management_enabled=item.get('DataManagementEnabled', False),
                 entity_category=item.get('EntityCategory'),
                 is_read_only=item.get('IsReadOnly', False)
             )
