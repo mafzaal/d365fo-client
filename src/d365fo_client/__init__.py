@@ -158,13 +158,18 @@ from .utils import (
     extract_domain_from_url, get_environment_cache_dir, get_environment_cache_directory
 )
 from .output import OutputFormatter
-from .config import ConfigManager, CLIProfile
-from .profile_manager import ProfileManager, EnvironmentProfile
+from .config import ConfigManager
+from .profiles import Profile
+from .profile_manager import ProfileManager
 from .cli import CLIManager
 from .main import main
 
 # MCP Server
 from .mcp import D365FOMCPServer, D365FOClientManager
+
+# Legacy aliases for backward compatibility
+CLIProfile = Profile
+EnvironmentProfile = Profile
 
 # Public API
 __all__ = [
@@ -211,10 +216,13 @@ __all__ = [
     # CLI components
     "OutputFormatter",
     "ConfigManager",
-    "CLIProfile",
+    "Profile",
     "ProfileManager",
-    "EnvironmentProfile", 
     "CLIManager",
+    
+    # Legacy aliases
+    "CLIProfile",
+    "EnvironmentProfile",
     
     # MCP Server
     "D365FOMCPServer",

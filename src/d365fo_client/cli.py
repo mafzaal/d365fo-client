@@ -7,7 +7,8 @@ from typing import Dict, Any, Optional
 import argparse
 
 from .client import FOClient
-from .config import ConfigManager, CLIProfile
+from .config import ConfigManager
+from .profiles import Profile
 from .output import OutputFormatter, format_success_message, format_error_message
 from .models import QueryOptions, FOClientConfig
 from .exceptions import FOClientError
@@ -565,7 +566,7 @@ class CLIManager:
                 return 1
             
             # Create new profile
-            profile = CLIProfile(
+            profile = Profile(
                 name=profile_name,
                 base_url=base_url,
                 auth_mode=getattr(args, 'auth_mode', 'default'),
@@ -574,8 +575,10 @@ class CLIManager:
                 tenant_id=getattr(args, 'tenant_id', None),
                 verify_ssl=getattr(args, 'verify_ssl', True),
                 output_format=getattr(args, 'output_format', 'table'),
-                label_cache=getattr(args, 'label_cache', True),
-                label_expiry=getattr(args, 'label_expiry', 60),
+                use_label_cache=getattr(args, 'label_cache', True),
+                label_cache_expiry_minutes=getattr(args, 'label_expiry', 60),
+                use_cache_first=getattr(args, 'use_cache_first', True),
+                timeout=getattr(args, 'timeout', 60),
                 language=getattr(args, 'language', 'en-US')
             )
             

@@ -6,27 +6,18 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from dataclasses import dataclass, asdict
 import argparse
+import logging
 
 from .models import FOClientConfig
+from .profiles import Profile
+
+logger = logging.getLogger(__name__)
 
 
-@dataclass
-class CLIProfile:
-    """Configuration profile for CLI operations."""
-    name: str
-    base_url: str
-    auth_mode: str = "default"
-    client_id: Optional[str] = None
-    client_secret: Optional[str] = None
-    tenant_id: Optional[str] = None
-    verify_ssl: bool = True
-    output_format: str = "table"
-    label_cache: bool = True
-    label_expiry: int = 60
-    language: str = "en-US"
-    cache_dir: Optional[str] = None
-    use_cache_first: bool = True
-    timeout: int = 60
+
+
+# Legacy alias for backward compatibility
+CLIProfile = Profile
 
 
 class ConfigManager:
@@ -77,23 +68,27 @@ class ConfigManager:
         except Exception as e:
             print(f"Error saving config file {self.config_path}: {e}")
     
-    def get_profile(self, profile_name: str) -> Optional[CLIProfile]:
+    def get_profile(self, profile_name: str) -> Optional[Profile]:
         """Get a specific configuration profile.
         
         Args:
             profile_name: Name of the profile to retrieve
             
         Returns:
-            CLIProfile instance or None if not found
+            Profile instance or None if not found
         """
         profiles = self._config_data.get("profiles", {})
         if profile_name not in profiles:
             return None
         
         profile_data = profiles[profile_name]
-        return CLIProfile(name=profile_name, **profile_data)
+        try:
+            return Profile.from_dict(profile_name, profile_data)
+        except Exception as e:
+            logger.error(f"Error loading profile {profile_name}: {e}")
+            return None
     
-    def save_profile(self, profile: CLIProfile) -> None:
+    def save_profile(self, profile: Profile) -> None:
         """Save a configuration profile.
         
         Args:
@@ -102,11 +97,8 @@ class ConfigManager:
         if "profiles" not in self._config_data:
             self._config_data["profiles"] = {}
         
-        # Convert profile to dict, excluding the name field
-        profile_dict = asdict(profile)
-        profile_dict.pop("name", None)
-        
-        self._config_data["profiles"][profile.name] = profile_dict
+        # Convert profile to dict for storage
+        self._config_data["profiles"][profile.name] = profile.to_dict()
         self._save_config()
     
     def delete_profile(self, profile_name: str) -> bool:
@@ -131,15 +123,19 @@ class ConfigManager:
         self._save_config()
         return True
     
-    def list_profiles(self) -> Dict[str, CLIProfile]:
+    def list_profiles(self) -> Dict[str, Profile]:
         """List all configuration profiles.
         
         Returns:
-            Dictionary of profile name to CLIProfile instances
+            Dictionary of profile name to Profile instances
         """
         profiles = {}
         for name, data in self._config_data.get("profiles", {}).items():
-            profiles[name] = CLIProfile(name=name, **data)
+            try:
+                profiles[name] = Profile.from_dict(name, data)
+            except Exception as e:
+                logger.error(f"Error loading profile {name}: {e}")
+                continue
         return profiles
     
     def set_default_profile(self, profile_name: str) -> bool:
@@ -159,11 +155,11 @@ class ConfigManager:
         self._save_config()
         return True
     
-    def get_default_profile(self) -> Optional[CLIProfile]:
+    def get_default_profile(self) -> Optional[Profile]:
         """Get the default configuration profile.
         
         Returns:
-            Default CLIProfile instance or None if not set
+            Default Profile instance or None if not set
         """
         default_name = self._config_data.get("default_profile")
         if not default_name:
@@ -212,8 +208,8 @@ class ConfigManager:
                 "client_secret": profile.client_secret,
                 "tenant_id": profile.tenant_id,
                 "verify_ssl": profile.verify_ssl,
-                "use_label_cache": profile.label_cache,
-                "label_cache_expiry_minutes": profile.label_expiry,
+                "use_label_cache": profile.use_label_cache,
+                "label_cache_expiry_minutes": profile.label_cache_expiry_minutes,
                 "use_cache_first": profile.use_cache_first,
                 "timeout": profile.timeout,
             })
