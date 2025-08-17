@@ -888,13 +888,10 @@ class FOClient:
         """
         # Start with basic info (no longer using old MetadataManager)
         info = {
-            "metadata_file_exists": False,
-            "entities_cache_exists": False, 
-            "actions_cache_exists": False,
             "cache_directory": self.config.metadata_cache_dir,
             "statistics": None
         }
-        self._ensure_metadata_initialized()
+        await self._ensure_metadata_initialized()
         # Add new metadata cache info if available
         if self.metadata_cache:
             try:

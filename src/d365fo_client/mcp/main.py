@@ -56,10 +56,6 @@ def load_config() -> Optional[Dict[str, Any]]:
     if tenant_id := os.getenv("AZURE_TENANT_ID"):
         config.setdefault("default_environment", {})["tenant_id"] = tenant_id
     
-    # Set cache directory
-    cache_dir = os.getenv("D365FO_CACHE_DIR", str(Path.home() / ".d365fo-mcp" / "cache"))
-    config.setdefault("cache", {})["metadata_cache_dir"] = cache_dir
-    
     # Logging level
     log_level = os.getenv("D365FO_LOG_LEVEL", "INFO")
     setup_logging(log_level)
@@ -71,10 +67,7 @@ async def async_main() -> None:
     """Async main entry point for the MCP server."""
     try:
         # Load configuration
-        config = load_config()
-        #log config banner
-        logging.info(f"Loaded D365FO MCP Server configuration: {config}")
-    
+        config = load_config()  
         
         # Create and run the MCP server
         server = D365FOMCPServer(config)

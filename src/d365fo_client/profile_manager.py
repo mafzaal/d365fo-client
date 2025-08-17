@@ -30,6 +30,7 @@ class EnvironmentProfile:
     timeout: int = 60
     use_label_cache: bool = True
     label_cache_expiry_minutes: int = 60
+    use_cache_first: bool = True
     language: str = "en-US"
     cache_dir: Optional[str] = None
     description: Optional[str] = None
@@ -95,6 +96,7 @@ class ProfileManager:
         timeout: int = 60,
         use_label_cache: bool = True,
         label_cache_expiry_minutes: int = 60,
+        use_cache_first: bool = True,
         language: str = "en-US",
         cache_dir: Optional[str] = None,
         description: Optional[str] = None
@@ -137,6 +139,8 @@ class ProfileManager:
                 output_format="table",  # Default for CLI
                 label_cache=use_label_cache,
                 label_expiry=label_cache_expiry_minutes,
+                use_cache_first=use_cache_first,
+                timeout=timeout,
                 language=language,
                 cache_dir=cache_dir
             )
@@ -280,6 +284,7 @@ class ProfileManager:
             verify_ssl=profile.verify_ssl,
             use_label_cache=profile.use_label_cache,
             label_cache_expiry_minutes=profile.label_cache_expiry_minutes,
+            use_cache_first=profile.use_cache_first,
             metadata_cache_dir=profile.cache_dir
         )
     
@@ -355,9 +360,10 @@ class ProfileManager:
             client_secret=cli_profile.client_secret,
             tenant_id=cli_profile.tenant_id,
             verify_ssl=cli_profile.verify_ssl,
-            timeout=60,  # Default timeout
+            timeout=cli_profile.timeout,
             use_label_cache=cli_profile.label_cache,
             label_cache_expiry_minutes=cli_profile.label_expiry,
+            use_cache_first=cli_profile.use_cache_first,
             language=cli_profile.language,
             cache_dir=cli_profile.cache_dir,
             description=description

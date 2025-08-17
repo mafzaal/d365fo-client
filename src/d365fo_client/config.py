@@ -25,6 +25,8 @@ class CLIProfile:
     label_expiry: int = 60
     language: str = "en-US"
     cache_dir: Optional[str] = None
+    use_cache_first: bool = True
+    timeout: int = 60
 
 
 class ConfigManager:
@@ -190,6 +192,8 @@ class ConfigManager:
             "verify_ssl": True,
             "use_label_cache": True,
             "label_cache_expiry_minutes": 60,
+            "use_cache_first": True,
+            "timeout": 60,
         }
         
         # Apply profile settings if specified
@@ -210,6 +214,8 @@ class ConfigManager:
                 "verify_ssl": profile.verify_ssl,
                 "use_label_cache": profile.label_cache,
                 "label_cache_expiry_minutes": profile.label_expiry,
+                "use_cache_first": profile.use_cache_first,
+                "timeout": profile.timeout,
             })
         
         # Apply environment variables
@@ -221,15 +227,17 @@ class ConfigManager:
             "D365FO_VERIFY_SSL": "verify_ssl",
             "D365FO_LABEL_CACHE": "use_label_cache",
             "D365FO_LABEL_EXPIRY": "label_cache_expiry_minutes",
+            "D365FO_USE_CACHE_FIRST": "use_cache_first",
+            "D365FO_TIMEOUT": "timeout",
         }
         
         for env_var, param_name in env_mappings.items():
             env_value = os.getenv(env_var)
             if env_value:
-                if param_name in ["verify_ssl", "use_label_cache"]:
+                if param_name in ["verify_ssl", "use_label_cache", "use_cache_first"]:
                     # Convert to boolean
                     config_params[param_name] = env_value.lower() in ("true", "1", "yes", "on")
-                elif param_name == "label_cache_expiry_minutes":
+                elif param_name in ["label_cache_expiry_minutes", "timeout"]:
                     # Convert to int
                     try:
                         config_params[param_name] = int(env_value)
@@ -247,6 +255,8 @@ class ConfigManager:
             "verify_ssl": "verify_ssl",
             "label_cache": "use_label_cache",
             "label_expiry": "label_cache_expiry_minutes",
+            "use_cache_first": "use_cache_first",
+            "timeout": "timeout",
         }
         
         for arg_name, param_name in arg_mappings.items():
