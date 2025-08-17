@@ -6,6 +6,7 @@ import os
 from typing import Dict, List, Any, Optional
 from mcp.server import Server
 from mcp.server import Server, InitializationOptions
+from mcp.server.lowlevel.server import NotificationOptions
 from mcp import Resource, Tool
 from mcp.types import TextContent
 
@@ -197,7 +198,10 @@ class D365FOMCPServer:
                         InitializationOptions(
                             server_name="d365fo-mcp-server",
                             server_version="1.0.0",
-                            capabilities=self.server.get_capabilities()
+                            capabilities=self.server.get_capabilities(
+                                notification_options=NotificationOptions(),
+                                experimental_capabilities={}
+                            )
                         )
                     )
             else:
