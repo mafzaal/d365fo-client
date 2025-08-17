@@ -117,29 +117,59 @@ def test_url_builders():
     assert url == "https://test.com/data/Customers('US-001')/Microsoft.Dynamics.DataEntities.calculateBalance"
 
 
-def test_cache_functionality():
-    """Test label cache functionality."""
-    from d365fo_client.cache import LabelCache
+@pytest.mark.asyncio
+async def test_cache_functionality():
+    """Test metadata cache functionality."""
+    import tempfile
+    from pathlib import Path
+    from d365fo_client.metadata_cache import MetadataCache
+    from d365fo_client.models import LabelInfo
     
-    cache = LabelCache(expiry_minutes=60)
+    # Create temporary cache directory
+    temp_dir = tempfile.mkdtemp()
+    cache_dir = Path(temp_dir)
     
-    # Test setting and getting
-    cache.set("@SYS13342", "en-US", "Customer")
-    value = cache.get("@SYS13342", "en-US")
-    assert value == "Customer"
-    
-    # Test cache info
-    info = cache.get_info()
-    assert info["size"] == 1
-    assert info["expiry_minutes"] == 60
-    
-    # Test batch operations
-    labels = [
-        LabelInfo("@SYS1", "en-US", "Test1"),
-        LabelInfo("@SYS2", "en-US", "Test2")
-    ]
-    cache.set_batch(labels)
-    assert cache.size() == 3
+    try:
+        # Initialize MetadataCache
+        cache = MetadataCache(
+            environment_url="https://test.dynamics.com",
+            cache_dir=cache_dir
+        )
+        await cache.initialize()
+        
+        # Test setting and getting labels
+        test_label = LabelInfo(id="@SYS13342", language="en-US", value="Customer")
+        await cache.set_label(test_label)
+        
+        value = await cache.get_label("@SYS13342", "en-US")
+        assert value == "Customer"
+        
+        # Test batch operations
+        labels = [
+            LabelInfo(id="@SYS1", language="en-US", value="Test1"),
+            LabelInfo(id="@SYS2", language="en-US", value="Test2")
+        ]
+        await cache.set_labels_batch(labels)
+        
+        # Test retrieval of batch labels
+        value1 = await cache.get_label("@SYS1", "en-US")
+        value2 = await cache.get_label("@SYS2", "en-US")
+        assert value1 == "Test1"
+        assert value2 == "Test2"
+        
+        # Test cache statistics
+        stats = await cache.get_statistics()
+        assert "total_labels" in stats
+        assert stats["total_labels"] >= 3  # Should have at least 3 labels
+        
+    finally:
+        # Cleanup manually to avoid permission issues
+        import shutil
+        try:
+            shutil.rmtree(temp_dir)
+        except (PermissionError, OSError):
+            # Ignore cleanup errors on Windows
+            pass
 
 
 def test_query_string_builder():
@@ -208,18 +238,42 @@ def test_main_function_demo():
         mock_run.assert_called_once()
 
 
-def test_metadata_cache():
-    """Test metadata cache functionality."""
+@pytest.mark.asyncio
+async def test_metadata_cache():
+    """Test metadata cache initialization and basic functionality."""
     from d365fo_client.metadata_cache import MetadataCache
     from pathlib import Path
+    import tempfile
     
-    # Test just the basic properties without creating files
-    cache_dir = Path("test_cache")
-    cache = MetadataCache("https://test.dynamics.com", cache_dir)
+    # Create temporary cache directory for testing
+    temp_dir = tempfile.mkdtemp()
+    cache_dir = Path(temp_dir)
     
-    # Test that cache properties are set correctly
-    assert cache.environment_url == "https://test.dynamics.com"
-    assert cache.cache_dir == cache_dir
+    try:
+        cache = MetadataCache("https://test.dynamics.com", cache_dir)
+        
+        # Test that cache properties are set correctly
+        assert cache.environment_url == "https://test.dynamics.com"
+        assert cache.cache_dir == cache_dir
+        
+        # Test initialization
+        await cache.initialize()
+        assert cache._environment_id is not None
+        
+        # Test statistics functionality
+        stats = await cache.get_statistics()
+        assert isinstance(stats, dict)
+        assert "total_environments" in stats
+        assert stats["total_environments"] >= 1  # Should have at least our test environment
+        
+    finally:
+        # Cleanup manually to avoid permission issues
+        import shutil
+        try:
+            shutil.rmtree(temp_dir)
+        except (PermissionError, OSError):
+            # Ignore cleanup errors on Windows
+            pass
 
 
 class TestEnhancedFOClient:

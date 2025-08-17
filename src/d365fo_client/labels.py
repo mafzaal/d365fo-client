@@ -3,7 +3,7 @@
 from typing import Dict, List, Optional, Any
 
 from .models import LabelInfo, EntityInfo, EntityPropertyInfo
-from .cache import LabelCache
+from .metadata_cache import MetadataCache
 from .session import SessionManager
 
 
@@ -11,17 +11,17 @@ class LabelOperations:
     """Handles label operations for F&O client"""
     
     def __init__(self, session_manager: SessionManager, metadata_url: str, 
-                 label_cache: Optional[LabelCache] = None):
+                 metadata_cache: Optional[MetadataCache] = None):
         """Initialize label operations
         
         Args:
             session_manager: HTTP session manager
             metadata_url: Metadata API URL
-            label_cache: Optional label cache
+            metadata_cache: Optional metadata cache for label caching
         """
         self.session_manager = session_manager
         self.metadata_url = metadata_url
-        self.label_cache = label_cache
+        self.metadata_cache = metadata_cache
     
     async def get_label_text(self, label_id: str, language: str = "en-US") -> Optional[str]:
         """Get actual label text for a specific label ID
@@ -34,8 +34,8 @@ class LabelOperations:
             Label text or None if not found
         """
         # Check cache first
-        if self.label_cache:
-            cached_value = self.label_cache.get(label_id, language)
+        if self.metadata_cache:
+            cached_value = await self.metadata_cache.get_label(label_id, language)
             if cached_value is not None:
                 return cached_value
         
@@ -49,8 +49,9 @@ class LabelOperations:
                     label_text = data.get('Value', '')
                     
                     # Cache the result
-                    if self.label_cache:
-                        self.label_cache.set(label_id, language, label_text)
+                    if self.metadata_cache:
+                        label_info = LabelInfo(id=label_id, language=language, value=label_text)
+                        await self.metadata_cache.set_label(label_info)
                     
                     return label_text
                 else:
@@ -63,7 +64,7 @@ class LabelOperations:
     
     async def get_labels_batch(self, label_ids: List[str], 
                               language: str = "en-US") -> Dict[str, str]:
-        """Get multiple labels by calling get_label_text for each ID
+        """Get multiple labels efficiently using batch operations
         
         Args:
             label_ids: List of label IDs
@@ -76,12 +77,45 @@ class LabelOperations:
             return {}
         
         results = {}
+        uncached_ids = []
         
-        # Use get_label_text for each label ID to leverage caching and error handling
-        for label_id in label_ids:
-            label_text = await self.get_label_text(label_id, language)
-            if label_text is not None:
-                results[label_id] = label_text
+        # First, check cache for all labels if available
+        if self.metadata_cache:
+            for label_id in label_ids:
+                cached_value = await self.metadata_cache.get_label(label_id, language)
+                if cached_value is not None:
+                    results[label_id] = cached_value
+                else:
+                    uncached_ids.append(label_id)
+        else:
+            uncached_ids = label_ids
+        
+        # Fetch uncached labels from API
+        if uncached_ids:
+            # For now, use individual calls - could be optimized with batch API if available
+            fetched_labels = []
+            for label_id in uncached_ids:
+                try:
+                    session = await self.session_manager.get_session()
+                    url = f"{self.metadata_url}/Labels(Id='{label_id}',Language='{language}')"
+                    
+                    async with session.get(url) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            label_text = data.get('Value', '')
+                            results[label_id] = label_text
+                            
+                            # Prepare for batch cache storage
+                            fetched_labels.append(LabelInfo(id=label_id, language=language, value=label_text))
+                        else:
+                            print(f"Error fetching label {label_id}: {response.status}")
+                            
+                except Exception as e:
+                    print(f"Exception fetching label {label_id}: {e}")
+            
+            # Batch cache all fetched labels
+            if fetched_labels and self.metadata_cache:
+                await self.metadata_cache.set_labels_batch(fetched_labels)
         
         return results
     

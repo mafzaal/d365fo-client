@@ -492,6 +492,122 @@ class MetadataDatabase:
             else:
                 logger.warning("Could not find active version ID for FTS index rebuild")
     
+    async def get_label(self, label_id: str, language: str = "en-US") -> Optional[LabelInfo]:
+        """Get label from database
+        
+        Args:
+            label_id: Label identifier
+            language: Language code
+            
+        Returns:
+            LabelInfo or None if not found or expired
+        """
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute("""
+                SELECT label_id, language, value, cached_at, expires_at
+                FROM labels_cache
+                WHERE label_id = ? AND language = ? AND (expires_at IS NULL OR expires_at > ?)
+            """, (label_id, language, datetime.now(timezone.utc).isoformat()))
+            
+            row = await cursor.fetchone()
+            if row:
+                label_id_db, language_db, value, cached_at, expires_at = row
+                return LabelInfo(
+                    id=label_id_db,
+                    language=language_db,
+                    value=value
+                )
+            return None
+    
+    async def set_label(self, label: LabelInfo, ttl_hours: int = 24):
+        """Set label in database
+        
+        Args:
+            label: LabelInfo object to store
+            ttl_hours: Time to live in hours
+        """
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+        
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                INSERT OR REPLACE INTO labels_cache (label_id, language, value, cached_at, expires_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                label.id,
+                label.language,
+                label.value,
+                datetime.now(timezone.utc).isoformat(),
+                expires_at.isoformat()
+            ))
+            await db.commit()
+    
+    async def set_labels_batch(self, labels: List[LabelInfo], ttl_hours: int = 24):
+        """Set multiple labels in database
+        
+        Args:
+            labels: List of LabelInfo objects to store
+            ttl_hours: Time to live in hours
+        """
+        if not labels:
+            return
+            
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+        cached_at = datetime.now(timezone.utc).isoformat()
+        
+        async with aiosqlite.connect(self.db_path) as db:
+            label_data = [
+                (label.id, label.language, label.value, cached_at, expires_at.isoformat())
+                for label in labels
+            ]
+            
+            await db.executemany("""
+                INSERT OR REPLACE INTO labels_cache (label_id, language, value, cached_at, expires_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, label_data)
+            await db.commit()
+    
+    async def clear_expired_labels(self):
+        """Clear expired labels from database"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                DELETE FROM labels_cache
+                WHERE expires_at IS NOT NULL AND expires_at <= ?
+            """, (datetime.now(timezone.utc).isoformat(),))
+            await db.commit()
+    
+    async def get_labels_statistics(self) -> Dict[str, Any]:
+        """Get label cache statistics
+        
+        Returns:
+            Dictionary with label cache statistics
+        """
+        async with aiosqlite.connect(self.db_path) as db:
+            # Total labels
+            cursor = await db.execute("SELECT COUNT(*) FROM labels_cache")
+            total_labels = (await cursor.fetchone())[0]
+            
+            # Expired labels
+            cursor = await db.execute("""
+                SELECT COUNT(*) FROM labels_cache
+                WHERE expires_at IS NOT NULL AND expires_at <= ?
+            """, (datetime.now(timezone.utc).isoformat(),))
+            expired_labels = (await cursor.fetchone())[0]
+            
+            # Labels by language
+            cursor = await db.execute("""
+                SELECT language, COUNT(*) FROM labels_cache
+                GROUP BY language
+                ORDER BY COUNT(*) DESC
+            """)
+            languages = dict(await cursor.fetchall())
+            
+            return {
+                "total_labels": total_labels,
+                "expired_labels": expired_labels,
+                "active_labels": total_labels - expired_labels,
+                "languages": languages
+            }
+
     async def get_statistics(self, environment_id: Optional[int] = None) -> Dict[str, Any]:
         """Get statistics about database contents
         
@@ -628,6 +744,10 @@ class MetadataDatabase:
             
             stats["environments"] = environments
             stats["total_environments"] = len(environments)
+            
+            # Add labels statistics
+            labels_stats = await self.get_labels_statistics()
+            stats.update(labels_stats)
             
             return stats
 
@@ -1013,6 +1133,139 @@ class MetadataCache:
         
         return parameters
     
+    async def get_label(self, label_id: str, language: str = "en-US") -> Optional[str]:
+        """Get label text from cache
+        
+        Args:
+            label_id: Label identifier
+            language: Language code
+            
+        Returns:
+            Label text or None if not found
+        """
+        if self._environment_id is None:
+            await self.initialize()
+        
+        cache_key = self._build_cache_key("label", label_id, language=language)
+        
+        # L1: Memory cache
+        if self._memory_cache:
+            with self._lock:
+                cached_value = self._memory_cache.get(cache_key)
+                if cached_value is not None:
+                    logger.debug(f"Label cache hit (memory): {label_id} ({language})")
+                    return cached_value
+        
+        # L2: Disk cache (optional)
+        if self._disk_cache:
+            try:
+                with self._lock:
+                    cached_value = self._disk_cache.get(cache_key)
+                    if cached_value is not None:
+                        logger.debug(f"Label cache hit (disk): {label_id} ({language})")
+                        # Store in memory cache
+                        if self._memory_cache:
+                            self._memory_cache[cache_key] = cached_value
+                        return cached_value
+            except Exception as e:
+                logger.warning(f"Disk cache error for label {label_id}: {e}")
+        
+        # L3: Database
+        label_info = await self._database.get_label(label_id, language)
+        if label_info:
+            logger.debug(f"Label cache hit (database): {label_id} ({language})")
+            # Store in upper cache levels
+            with self._lock:
+                if self._memory_cache:
+                    self._memory_cache[cache_key] = label_info.value
+                if self._disk_cache:
+                    try:
+                        self._disk_cache[cache_key] = label_info.value
+                    except Exception as e:
+                        logger.warning(f"Failed to store label in disk cache: {e}")
+            return label_info.value
+        
+        logger.debug(f"Label cache miss: {label_id} ({language})")
+        return None
+    
+    async def set_label(self, label: LabelInfo, ttl_hours: int = 24):
+        """Set label in cache
+        
+        Args:
+            label: LabelInfo object to store
+            ttl_hours: Time to live in hours
+        """
+        if self._environment_id is None:
+            await self.initialize()
+        
+        cache_key = self._build_cache_key("label", label.id, language=label.language)
+        
+        # Store in all cache levels
+        with self._lock:
+            # L1: Memory cache
+            if self._memory_cache:
+                self._memory_cache[cache_key] = label.value
+            
+            # L2: Disk cache
+            if self._disk_cache:
+                try:
+                    self._disk_cache[cache_key] = label.value
+                except Exception as e:
+                    logger.warning(f"Failed to store label in disk cache: {e}")
+        
+        # L3: Database
+        await self._database.set_label(label, ttl_hours)
+        
+        logger.debug(f"Label cached: {label.id} ({label.language})")
+    
+    async def set_labels_batch(self, labels: List[LabelInfo], ttl_hours: int = 24):
+        """Set multiple labels in cache
+        
+        Args:
+            labels: List of LabelInfo objects to store
+            ttl_hours: Time to live in hours
+        """
+        if not labels:
+            return
+            
+        if self._environment_id is None:
+            await self.initialize()
+        
+        # Store in all cache levels
+        with self._lock:
+            for label in labels:
+                cache_key = self._build_cache_key("label", label.id, language=label.language)
+                
+                # L1: Memory cache
+                if self._memory_cache:
+                    self._memory_cache[cache_key] = label.value
+                
+                # L2: Disk cache
+                if self._disk_cache:
+                    try:
+                        self._disk_cache[cache_key] = label.value
+                    except Exception as e:
+                        logger.warning(f"Failed to store label in disk cache: {e}")
+        
+        # L3: Database (batch operation)
+        await self._database.set_labels_batch(labels, ttl_hours)
+        
+        logger.debug(f"Batch cached {len(labels)} labels")
+    
+    async def clear_expired_labels(self):
+        """Clear expired labels from all cache levels"""
+        if self._environment_id is None:
+            await self.initialize()
+        
+        # Clear from database
+        await self._database.clear_expired_labels()
+        
+        # For memory and disk cache, we rely on their built-in TTL mechanisms
+        # Memory cache (TTLCache) automatically removes expired items
+        # Disk cache (diskcache) also has TTL support
+        
+        logger.debug("Expired labels cleared")
+
     async def get_statistics(self) -> Dict[str, Any]:
         """Get metadata cache statistics
         

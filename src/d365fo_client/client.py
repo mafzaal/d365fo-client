@@ -14,7 +14,6 @@ from .session import SessionManager
 from .metadata_api import MetadataAPIOperations
 from .metadata_cache import MetadataCache
 from .metadata_sync import MetadataSyncManager
-from .cache import LabelCache
 from .crud import CrudOperations
 from .labels import LabelOperations
 from .query import QueryBuilder
@@ -59,14 +58,13 @@ class FOClient:
         self._metadata_initialized = False
         self._background_sync_task = None
         
-        # Initialize label cache if enabled
-        self.label_cache = (LabelCache(config.label_cache_expiry_minutes) 
-                           if config.use_label_cache else None)
-        
+  
         # Initialize operations
         self.metadata_url = f"{config.base_url.rstrip('/')}/Metadata"
         self.crud_ops = CrudOperations(self.session_manager, config.base_url)
-        self.label_ops = LabelOperations(self.session_manager, self.metadata_url, self.label_cache)
+        
+        # Initialize label operations - will be updated with metadata_cache when available
+        self.label_ops = LabelOperations(self.session_manager, self.metadata_url, None)
         self.metadata_api_ops = MetadataAPIOperations(self.session_manager, self.metadata_url, self.label_ops)
     
     async def close(self):
@@ -91,6 +89,9 @@ class FOClient:
                 # Initialize metadata cache
                 self.metadata_cache = MetadataCache(self.config.base_url, cache_dir)
                 await self.metadata_cache.initialize()
+                
+                # Update label operations to use metadata cache
+                self.label_ops.metadata_cache = self.metadata_cache
                 
                 # Initialize sync manager
                 self.sync_manager = MetadataSyncManager(self.metadata_cache, self.metadata_api_ops)
@@ -844,12 +845,11 @@ class FOClient:
         Returns:
             Dictionary with cache information
         """
-        if not self.label_cache:
+        if not self.metadata_cache:
             return {"enabled": False}
         
         return {
             "enabled": True,
-            **self.label_cache.get_info()
         }
     
     def get_entity_url(self, entity_name: str, key: Optional[str] = None) -> str:

@@ -100,7 +100,8 @@ class LabelTools:
             List of TextContent responses
         """
         try:
-            client = await self.client_manager.get_client()
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
             
             label_id = arguments["labelId"]
             language = arguments.get("language", "en-US")
@@ -145,8 +146,9 @@ class LabelTools:
             List of TextContent responses
         """
         try:
-            client = await self.client_manager.get_client()
-            
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
+
             label_ids = arguments["labelIds"]
             language = arguments.get("language", "en-US")
             
