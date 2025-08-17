@@ -162,6 +162,9 @@ from .config import ConfigManager, CLIProfile
 from .cli import CLIManager
 from .main import main
 
+# MCP Server
+from .mcp import D365FOMCPServer, D365FOClientManager
+
 # Public API
 __all__ = [
     # Main client
@@ -209,6 +212,10 @@ __all__ = [
     "ConfigManager",
     "CLIProfile",
     "CLIManager",
+    
+    # MCP Server
+    "D365FOMCPServer",
+    "D365FOClientManager",
     
     # Entry point
     "main",
