@@ -28,6 +28,33 @@ pip install -e .
 
 ## Quick Start
 
+## Command Line Interface (CLI)
+
+d365fo-client provides a CLI for interacting with Dynamics 365 Finance & Operations APIs and metadata. The CLI allows you to perform common operations directly from your terminal.
+
+### Usage
+
+```sh
+python -m d365fo_client.cli [OPTIONS] COMMAND [ARGS]
+```
+
+### Example Commands
+
+- `get-version` — Retrieve the application version.
+- `list-entities` — List available metadata entities.
+- `cache-metadata` — Cache metadata locally for faster access.
+- `help` — Show available commands and options.
+
+### Options
+
+- `--config PATH` — Specify a custom configuration file.
+- `--verbose` — Enable verbose output for debugging.
+
+For a full list of commands and options, run:
+
+```sh
+python -m d365fo_client.cli --help
+```
 ### Basic Usage
 
 ```python

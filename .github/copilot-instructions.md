@@ -3,7 +3,6 @@
 ## Project Overview
 This is a Python package project named `d365fo-client` that uses `uv` for dependency management and will be published to PyPI.org. The project follows modern Python packaging standards with `pyproject.toml` configuration.
 
-**Current Enhancement Focus**: We are enhancing the command-line interface (CLI) in `main.py` from a simple demo utility to a comprehensive CLI tool for D365 Finance & Operations operations. See `.github/copilot-agent-cli-spec.md` for detailed CLI enhancement requirements.
 
 ## Development Environment
 - **Package Manager**: `uv` (for fast Python package management)
@@ -11,26 +10,7 @@ This is a Python package project named `d365fo-client` that uses `uv` for depend
 - **Build Backend**: `hatchling` (default for uv projects)
 - **Distribution**: PyPI.org
 
-## Current CLI Enhancement Project
-The main focus is transforming `src/d365fo_client/main.py` from a simple demo utility into a comprehensive CLI tool:
 
-### CLI Enhancement Requirements
-1. **Hierarchical Command Structure**: Using `argparse` subparsers for commands like `test`, `version`, `metadata`, `entity`, `action`
-2. **Environment Base URL Support**: `--base-url` argument for specifying D365 F&O environments
-3. **Metadata Operations**: Sync metadata and search by entity type
-4. **Entity Data Operations**: Get/create/update/delete entity records with OData query support
-5. **Action Operations**: List and call OData actions
-6. **Configuration Profiles**: YAML-based configuration management
-7. **Multiple Output Formats**: JSON, table, CSV, YAML output options
-8. **Backward Compatibility**: Maintain existing `--demo` functionality
-
-### New Components to Implement
-- **CLI Manager** (`cli.py`): Central command execution orchestrator
-- **Configuration Manager** (`config.py`): Profile-based configuration handling  
-- **Output Formatter** (`output.py`): Multi-format output rendering
-- **Enhanced Main** (`main.py`): Comprehensive argument parsing
-
-Refer to `.github/copilot-agent-cli-spec.md` for complete implementation guidance.
 
 ## Project Structure Guidelines
 ```
