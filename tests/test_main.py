@@ -2,6 +2,7 @@
 
 import pytest
 import pytest_asyncio
+from pathlib import Path
 from unittest.mock import patch, AsyncMock, MagicMock
 from d365fo_client import FOClient, FOClientConfig, create_client
 from d365fo_client.models import QueryOptions, LabelInfo, EntityInfo
@@ -207,23 +208,18 @@ def test_main_function_demo():
         mock_run.assert_called_once()
 
 
-def test_metadata_manager():
-    """Test metadata manager functionality."""
-    import tempfile
-    import os
-    from d365fo_client.metadata import MetadataManager
+def test_metadata_cache():
+    """Test metadata cache functionality."""
+    from d365fo_client.metadata_cache import MetadataCache
+    from pathlib import Path
     
-    with tempfile.TemporaryDirectory() as temp_dir:
-        manager = MetadataManager(temp_dir)
-        
-        # Test cache info
-        info = manager.get_cache_info()
-        assert "metadata_file_exists" in info
-        assert "cache_directory" in info
-        assert info["cache_directory"] == temp_dir
-        
-        # Test that directory was created
-        assert os.path.exists(temp_dir)
+    # Test just the basic properties without creating files
+    cache_dir = Path("test_cache")
+    cache = MetadataCache("https://test.dynamics.com", cache_dir)
+    
+    # Test that cache properties are set correctly
+    assert cache.environment_url == "https://test.dynamics.com"
+    assert cache.cache_dir == cache_dir
 
 
 class TestEnhancedFOClient:

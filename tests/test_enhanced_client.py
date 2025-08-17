@@ -62,8 +62,9 @@ class TestCacheFirstFunctionality:
         
         with patch('d365fo_client.auth.DefaultAzureCredential'):
             async with FOClient(config) as client:
-                # Mock metadata manager fallback
-                client.metadata_manager.search_entities = MagicMock(return_value=["FallbackEntity"])
+                # Mock metadata API operations fallback
+                client.metadata_api_ops.search_public_entities = AsyncMock(return_value=[])
+                client.metadata_api_ops.search_data_entities = AsyncMock(return_value=[])
                 
                 with patch.object(client, '_get_from_cache_first') as mock_cache_first:
                     mock_cache_first.return_value = ["FallbackEntity"]

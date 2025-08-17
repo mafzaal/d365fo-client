@@ -7,11 +7,10 @@ from typing import Dict, List, Optional, Any, Union
 
 from .models import (
     FOClientConfig, QueryOptions, LabelInfo, EntityInfo, ActionInfo, EntityPropertyInfo,
-    DataEntityInfo, PublicEntityInfo, EnumerationInfo
+    DataEntityInfo, PublicEntityInfo, EnumerationInfo, SearchQuery
 )
 from .auth import AuthenticationManager
 from .session import SessionManager
-from .metadata import MetadataManager
 from .metadata_api import MetadataAPIOperations
 from .metadata_cache import MetadataCache
 from .metadata_sync import MetadataSyncManager
@@ -53,7 +52,6 @@ class FOClient:
         # Initialize components
         self.auth_manager = AuthenticationManager(config)
         self.session_manager = SessionManager(config, self.auth_manager)
-        self.metadata_manager = MetadataManager(config.metadata_cache_dir)
         
         # Initialize new metadata cache and sync components
         self.metadata_cache = None
@@ -274,12 +272,27 @@ class FOClient:
             List of matching entity names
         """
         async def cache_search():
-            if self.metadata_cache and hasattr(self.metadata_cache, 'search_entities'):
-                return await self.metadata_cache.search_entities(pattern)
+            if self.metadata_cache:
+                # Use the new search API with both public and data entities
+                query = SearchQuery(
+                    text=pattern,
+                    entity_types=["public_entity", "data_entity"],
+                    limit=1000
+                )
+                results = await self.metadata_cache.search(query)
+                return [result.name for result in results.results]
             return []
             
-        def fallback_search():
-            return self.metadata_manager.search_entities(pattern)
+        async def fallback_search():
+            # Use metadata API operations as fallback
+            public_entities = await self.metadata_api_ops.search_public_entities(pattern)
+            data_entities = await self.metadata_api_ops.search_data_entities(pattern)
+            
+            # Combine and deduplicate entity names
+            entity_names = set()
+            entity_names.update(entity.name for entity in public_entities)
+            entity_names.update(entity.name for entity in data_entities)
+            return sorted(list(entity_names))
         
         return await self._get_from_cache_first(
             cache_search, fallback_search, 
@@ -297,12 +310,52 @@ class FOClient:
             EntityInfo object or None if not found
         """
         async def cache_lookup():
-            if self.metadata_cache and hasattr(self.metadata_cache, 'get_entity_info'):
-                return await self.metadata_cache.get_entity_info(entity_name)
+            if self.metadata_cache:
+                # Try to get entity from cache (public entity first, then data entity)
+                entity = await self.metadata_cache.get_entity(entity_name, "public")
+                if not entity:
+                    entity = await self.metadata_cache.get_entity(entity_name, "data")
+                
+                if entity:
+                    # Convert to EntityInfo format for backward compatibility
+                    return EntityInfo(
+                        name=entity.name,
+                        keys=[prop.name for prop in getattr(entity, 'properties', []) if getattr(prop, 'is_key', False)],
+                        properties=[{
+                            'name': prop.name,
+                            'type': getattr(prop, 'type_name', ''),
+                            'nullable': 'true' if not getattr(prop, 'is_mandatory', False) else 'false'
+                        } for prop in getattr(entity, 'properties', [])],
+                        actions=[]  # Actions are handled separately in new system
+                    )
             return None
             
-        def fallback_lookup():
-            return self.metadata_manager.get_entity_info(entity_name)
+        async def fallback_lookup():
+            # Use metadata API operations as fallback
+            public_entity = await self.metadata_api_ops.get_public_entity_info(entity_name, resolve_labels=False)
+            if public_entity:
+                return EntityInfo(
+                    name=public_entity.name,
+                    keys=[prop.name for prop in public_entity.properties if prop.is_key],
+                    properties=[{
+                        'name': prop.name,
+                        'type': prop.type_name,
+                        'nullable': 'true' if not prop.is_mandatory else 'false'
+                    } for prop in public_entity.properties],
+                    actions=[]
+                )
+            
+            # Try data entity if public entity not found
+            data_entity = await self.metadata_api_ops.get_data_entity_info(entity_name, resolve_labels=False)
+            if data_entity:
+                return EntityInfo(
+                    name=data_entity.name,
+                    keys=[],  # Data entities don't have key info in the same way
+                    properties=[],  # Data entities have different property structure
+                    actions=[]
+                )
+            
+            return None
         
         return await self._get_from_cache_first(
             cache_lookup, fallback_lookup,
@@ -312,20 +365,27 @@ class FOClient:
     async def search_actions(self, pattern: str = "", use_cache_first: Optional[bool] = None) -> List[str]:
         """Search actions by name pattern with cache-first approach
         
+        Note: Actions are not directly searchable in the new metadata system as they
+        are embedded within entity information. This method provides limited functionality
+        for backward compatibility.
+        
         Args:
             pattern: Search pattern (regex supported)
             use_cache_first: Override config setting for cache-first behavior
             
         Returns:
-            List of matching action names
+            List of matching action names (limited functionality)
         """
         async def cache_search():
-            if self.metadata_cache and hasattr(self.metadata_cache, 'search_actions'):
-                return await self.metadata_cache.search_actions(pattern)
+            # Actions are not directly searchable in new cache system
+            # They are embedded in entity information
             return []
             
-        def fallback_search():
-            return self.metadata_manager.search_actions(pattern)
+        async def fallback_search():
+            # Actions are not directly available through metadata API
+            # They are part of entity definitions
+            # Return empty list for backward compatibility
+            return []
         
         return await self._get_from_cache_first(
             cache_search, fallback_search,
@@ -335,20 +395,27 @@ class FOClient:
     async def get_action_info(self, action_name: str, use_cache_first: Optional[bool] = None) -> Optional[ActionInfo]:
         """Get detailed action information with cache-first approach
         
+        Note: Actions are not directly accessible in the new metadata system as they
+        are embedded within entity information. This method provides limited functionality
+        for backward compatibility.
+        
         Args:
             action_name: Name of the action
             use_cache_first: Override config setting for cache-first behavior
             
         Returns:
-            ActionInfo object or None if not found
+            ActionInfo object or None if not found (limited functionality)
         """
         async def cache_lookup():
-            if self.metadata_cache and hasattr(self.metadata_cache, 'get_action_info'):
-                return await self.metadata_cache.get_action_info(action_name)
+            # Actions are not directly accessible in new cache system
+            # They are embedded in entity information
             return None
             
-        def fallback_lookup():
-            return self.metadata_manager.get_action_info(action_name)
+        async def fallback_lookup():
+            # Actions are not directly available through metadata API
+            # They are part of entity definitions
+            # Return None for backward compatibility
+            return None
         
         return await self._get_from_cache_first(
             cache_lookup, fallback_lookup,
@@ -819,7 +886,13 @@ class FOClient:
         Returns:
             Dictionary with metadata information
         """
-        info = self.metadata_manager.get_cache_info()
+        # Start with basic info (no longer using old MetadataManager)
+        info = {
+            "metadata_file_exists": False,
+            "entities_cache_exists": False, 
+            "actions_cache_exists": False,
+            "cache_directory": self.config.metadata_cache_dir
+        }
         
         # Add new metadata cache info if available
         if self.metadata_cache:

@@ -366,26 +366,17 @@ def test_cache_directory_structure():
     assert parts[-1] == "test.dynamics.com"
 
 
-def test_integration_with_metadata_manager():
-    """Test integration with MetadataManager."""
-    from d365fo_client.metadata import MetadataManager
-    import tempfile
+def test_integration_with_metadata_cache():
+    """Test integration with new MetadataCache."""
+    from d365fo_client.metadata_cache import MetadataCache
+    from pathlib import Path
     
-    with tempfile.TemporaryDirectory() as temp_dir:
-        cache_dir = Path(temp_dir) / "test_cache"
-        
-        # Verify directory doesn't exist initially
-        assert not cache_dir.exists()
-        
-        # Create MetadataManager which should create the directory
-        manager = MetadataManager(str(cache_dir))
-        
-        # Verify directory was created
-        assert cache_dir.exists()
-        assert cache_dir.is_dir()
-        
-        # Verify cache files are properly set up
-        assert manager.cache_dir == str(cache_dir)
-        assert manager.metadata_file == str(cache_dir / "odata_metadata.xml")
-        assert manager.entities_cache == str(cache_dir / "entities.json")
-        assert manager.actions_cache == str(cache_dir / "actions.json")
+    # Test just the basic properties without creating temp files
+    cache_dir = Path("test_cache")
+    
+    # Create MetadataCache instance
+    cache = MetadataCache("https://test.dynamics.com", cache_dir)
+    
+    # Verify cache properties are properly set up
+    assert cache.cache_dir == cache_dir
+    assert cache.environment_url == "https://test.dynamics.com"

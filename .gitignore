@@ -35,3 +35,4 @@ Thumbs.db
 .env.local
 
 metadata_cache/
+test_cache/diskcache/cache.db
