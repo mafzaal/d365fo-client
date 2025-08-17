@@ -162,28 +162,429 @@ async def example_usage():
                     print(f"    Sample values: {', '.join([f'{m.name}={m.value}' for m in enum_detail.members[:3]])}")
 
 
-def main() -> None:
-    """Main entry point for the d365fo-client application."""
+def create_argument_parser() -> argparse.ArgumentParser:
+    """Create the enhanced argument parser with all CLI commands."""
     from . import __version__, __author__, __email__
     
     parser = argparse.ArgumentParser(
         description="Microsoft Dynamics 365 Finance & Operations Client",
         prog="d365fo-client"
     )
+    
+    # Global options (available for all commands)
     parser.add_argument(
         "--version", 
         action="version", 
         version=f"d365fo-client {__version__} by {__author__} ({__email__})"
     )
     parser.add_argument(
+        "--base-url",
+        help="D365 F&O environment URL"
+    )
+    parser.add_argument(
+        "--auth-mode",
+        choices=["default", "explicit", "interactive"],
+        default="default",
+        help="Authentication mode (default: default)"
+    )
+    parser.add_argument(
+        "--client-id",
+        help="Azure AD client ID"
+    )
+    parser.add_argument(
+        "--client-secret",
+        help="Azure AD client secret"
+    )
+    parser.add_argument(
+        "--tenant-id",
+        help="Azure AD tenant ID"
+    )
+    parser.add_argument(
+        "--verify-ssl",
+        type=bool,
+        default=True,
+        help="SSL verification (default: true)"
+    )
+    parser.add_argument(
+        "--output",
+        choices=["json", "table", "csv", "yaml"],
+        default="table",
+        help="Output format (default: table)"
+    )
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Verbose output"
+    )
+    parser.add_argument(
+        "--quiet", "-q",
+        action="store_true",
+        help="Suppress non-essential output"
+    )
+    parser.add_argument(
+        "--config",
+        help="Configuration file path"
+    )
+    parser.add_argument(
+        "--profile",
+        help="Configuration profile to use"
+    )
+    parser.add_argument(
+        "--label-cache",
+        type=bool,
+        default=True,
+        help="Enable label caching (default: true)"
+    )
+    parser.add_argument(
+        "--label-expiry",
+        type=int,
+        default=60,
+        help="Label cache expiry in minutes (default: 60)"
+    )
+    
+    # Legacy option for backward compatibility
+    parser.add_argument(
         "--demo",
         action="store_true",
         help="Run the demo/example usage"
     )
     
+    # Subcommands
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    
+    # Add command subparsers
+    _add_test_command(subparsers)
+    _add_version_command(subparsers)
+    _add_metadata_commands(subparsers)
+    _add_entity_commands(subparsers)
+    _add_action_commands(subparsers)
+    _add_config_commands(subparsers)
+    
+    return parser
+
+
+def _add_test_command(subparsers) -> None:
+    """Add test connectivity command."""
+    test_parser = subparsers.add_parser("test", help="Test connectivity to D365 F&O environment")
+    test_parser.add_argument(
+        "--odata-only",
+        action="store_true",
+        help="Test only OData API connectivity"
+    )
+    test_parser.add_argument(
+        "--metadata-only",
+        action="store_true",
+        help="Test only Metadata API connectivity"
+    )
+    test_parser.add_argument(
+        "--timeout",
+        type=int,
+        default=30,
+        help="Connection timeout in seconds (default: 30)"
+    )
+
+
+def _add_version_command(subparsers) -> None:
+    """Add version information command."""
+    version_parser = subparsers.add_parser("version", help="Get environment version information")
+    version_parser.add_argument(
+        "--application",
+        action="store_true",
+        help="Get application version"
+    )
+    version_parser.add_argument(
+        "--platform",
+        action="store_true",
+        help="Get platform build version"
+    )
+    version_parser.add_argument(
+        "--build",
+        action="store_true",
+        help="Get application build version"
+    )
+    version_parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Get all version information"
+    )
+
+
+def _add_metadata_commands(subparsers) -> None:
+    """Add metadata operation commands."""
+    metadata_parser = subparsers.add_parser("metadata", help="Metadata operations")
+    metadata_subs = metadata_parser.add_subparsers(dest="metadata_subcommand", help="Metadata subcommands")
+    
+    # sync subcommand
+    sync_parser = metadata_subs.add_parser("sync", help="Sync metadata to cache")
+    sync_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force refresh of metadata cache"
+    )
+    
+    # search subcommand
+    search_parser = metadata_subs.add_parser("search", help="Search metadata by pattern")
+    search_parser.add_argument(
+        "pattern",
+        help="Search pattern"
+    )
+    search_parser.add_argument(
+        "--type",
+        choices=["entities", "actions", "all"],
+        default="entities",
+        help="Type of metadata to search (default: entities)"
+    )
+    search_parser.add_argument(
+        "--limit",
+        type=int,
+        help="Maximum number of results"
+    )
+    
+    # info subcommand
+    info_parser = metadata_subs.add_parser("info", help="Get entity metadata details")
+    info_parser.add_argument(
+        "entity_name",
+        help="Entity name"
+    )
+    info_parser.add_argument(
+        "--properties",
+        action="store_true",
+        help="Include property details"
+    )
+    info_parser.add_argument(
+        "--keys",
+        action="store_true",
+        help="Include key information"
+    )
+    info_parser.add_argument(
+        "--labels",
+        action="store_true",
+        help="Include label information"
+    )
+
+
+def _add_entity_commands(subparsers) -> None:
+    """Add entity operation commands."""
+    entity_parser = subparsers.add_parser("entity", help="Entity operations")
+    entity_subs = entity_parser.add_subparsers(dest="entity_subcommand", help="Entity subcommands")
+    
+    # get subcommand
+    get_parser = entity_subs.add_parser("get", help="Get entity data")
+    get_parser.add_argument(
+        "entity_name",
+        help="Entity name"
+    )
+    get_parser.add_argument(
+        "key",
+        nargs="?",
+        help="Entity key (optional, for single record)"
+    )
+    get_parser.add_argument(
+        "--select",
+        help="Fields to select (comma-separated)"
+    )
+    get_parser.add_argument(
+        "--filter",
+        help="OData filter expression"
+    )
+    get_parser.add_argument(
+        "--top",
+        type=int,
+        help="Maximum number of records"
+    )
+    get_parser.add_argument(
+        "--orderby",
+        help="Order by fields (comma-separated)"
+    )
+    
+    # create subcommand
+    create_parser = entity_subs.add_parser("create", help="Create entity record")
+    create_parser.add_argument(
+        "entity_name",
+        help="Entity name"
+    )
+    create_parser.add_argument(
+        "--data",
+        help="Entity data as JSON string"
+    )
+    create_parser.add_argument(
+        "--file",
+        help="Path to JSON file containing entity data"
+    )
+    
+    # update subcommand
+    update_parser = entity_subs.add_parser("update", help="Update entity record")
+    update_parser.add_argument(
+        "entity_name",
+        help="Entity name"
+    )
+    update_parser.add_argument(
+        "key",
+        help="Entity key"
+    )
+    update_parser.add_argument(
+        "--data",
+        help="Entity data as JSON string"
+    )
+    update_parser.add_argument(
+        "--file",
+        help="Path to JSON file containing entity data"
+    )
+    
+    # delete subcommand
+    delete_parser = entity_subs.add_parser("delete", help="Delete entity record")
+    delete_parser.add_argument(
+        "entity_name",
+        help="Entity name"
+    )
+    delete_parser.add_argument(
+        "key",
+        help="Entity key"
+    )
+    delete_parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Skip confirmation prompt"
+    )
+
+
+def _add_action_commands(subparsers) -> None:
+    """Add action operation commands."""
+    action_parser = subparsers.add_parser("action", help="Action operations")
+    action_subs = action_parser.add_subparsers(dest="action_subcommand", help="Action subcommands")
+    
+    # list subcommand
+    list_parser = action_subs.add_parser("list", help="List available actions")
+    list_parser.add_argument(
+        "pattern",
+        nargs="?",
+        default="",
+        help="Search pattern (optional)"
+    )
+    list_parser.add_argument(
+        "--entity",
+        help="Filter actions for specific entity"
+    )
+    
+    # call subcommand
+    call_parser = action_subs.add_parser("call", help="Call OData action")
+    call_parser.add_argument(
+        "action_name",
+        help="Action name"
+    )
+    call_parser.add_argument(
+        "--entity",
+        help="Entity name (if action is entity-specific)"
+    )
+    call_parser.add_argument(
+        "--parameters",
+        help="Action parameters as JSON string"
+    )
+
+
+def _add_config_commands(subparsers) -> None:
+    """Add configuration management commands."""
+    config_parser = subparsers.add_parser("config", help="Manage configuration profiles")
+    config_subs = config_parser.add_subparsers(dest="config_subcommand", help="Configuration subcommands")
+    
+    # list subcommand
+    config_subs.add_parser("list", help="List all configuration profiles")
+    
+    # show subcommand
+    show_parser = config_subs.add_parser("show", help="Show profile configuration")
+    show_parser.add_argument(
+        "profile_name",
+        help="Profile name"
+    )
+    
+    # create subcommand
+    create_parser = config_subs.add_parser("create", help="Create new profile")
+    create_parser.add_argument(
+        "profile_name",
+        help="Profile name"
+    )
+    create_parser.add_argument(
+        "--base-url",
+        required=True,
+        help="D365 F&O environment URL"
+    )
+    create_parser.add_argument(
+        "--auth-mode",
+        choices=["default", "explicit", "interactive"],
+        default="default",
+        help="Authentication mode"
+    )
+    create_parser.add_argument(
+        "--client-id",
+        help="Azure AD client ID"
+    )
+    create_parser.add_argument(
+        "--client-secret",
+        help="Azure AD client secret"
+    )
+    create_parser.add_argument(
+        "--tenant-id",
+        help="Azure AD tenant ID"
+    )
+    create_parser.add_argument(
+        "--verify-ssl",
+        type=bool,
+        default=True,
+        help="SSL verification"
+    )
+    create_parser.add_argument(
+        "--output-format",
+        choices=["json", "table", "csv", "yaml"],
+        default="table",
+        help="Default output format"
+    )
+    create_parser.add_argument(
+        "--label-cache",
+        type=bool,
+        default=True,
+        help="Enable label caching"
+    )
+    create_parser.add_argument(
+        "--label-expiry",
+        type=int,
+        default=60,
+        help="Label cache expiry in minutes"
+    )
+    create_parser.add_argument(
+        "--language",
+        default="en-US",
+        help="Language code"
+    )
+    
+    # update subcommand (placeholder)
+    update_parser = config_subs.add_parser("update", help="Update existing profile")
+    update_parser.add_argument(
+        "profile_name",
+        help="Profile name"
+    )
+    
+    # delete subcommand
+    delete_parser = config_subs.add_parser("delete", help="Delete profile")
+    delete_parser.add_argument(
+        "profile_name",
+        help="Profile name"
+    )
+    
+    # set-default subcommand
+    default_parser = config_subs.add_parser("set-default", help="Set default profile")
+    default_parser.add_argument(
+        "profile_name",
+        help="Profile name"
+    )
+
+
+def main() -> None:
+    """Enhanced main entry point with CLI support."""
+    parser = create_argument_parser()
     args = parser.parse_args()
     
-    if args.demo or len(sys.argv) == 1:
+    # Handle legacy demo mode or no arguments
+    if args.demo or (not hasattr(args, 'command') or not args.command) and len(sys.argv) == 1:
         # Run demo if --demo specified or no arguments provided
         print("Microsoft Dynamics 365 Finance & Operations Client")
         print("=" * 50)
@@ -194,9 +595,31 @@ def main() -> None:
             print("\n\nOperation cancelled by user")
         except Exception as e:
             print(f"\n\nError: {e}")
-    else:
-        # This handles cases where other arguments might be added in the future
+        return
+    
+    # If no command specified but other arguments provided, show help
+    if not hasattr(args, 'command') or not args.command:
         parser.print_help()
+        return
+    
+    # Create and run CLI manager
+    from .cli import CLIManager
+    
+    cli_manager = CLIManager()
+    
+    try:
+        exit_code = asyncio.run(cli_manager.execute_command(args))
+        sys.exit(exit_code)
+    except KeyboardInterrupt:
+        print("\n\nOperation cancelled by user")
+        sys.exit(130)
+    except Exception as e:
+        if getattr(args, 'verbose', False):
+            import traceback
+            traceback.print_exc()
+        else:
+            print(f"Unexpected error: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

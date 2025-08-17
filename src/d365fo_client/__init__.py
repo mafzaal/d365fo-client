@@ -157,6 +157,9 @@ from .utils import (
     get_user_cache_dir, get_default_cache_directory, ensure_directory_exists,
     extract_domain_from_url, get_environment_cache_dir, get_environment_cache_directory
 )
+from .output import OutputFormatter
+from .config import ConfigManager, CLIProfile
+from .cli import CLIManager
 from .main import main
 
 # Public API
@@ -200,6 +203,12 @@ __all__ = [
     "extract_domain_from_url",
     "get_environment_cache_dir", 
     "get_environment_cache_directory",
+    
+    # CLI components
+    "OutputFormatter",
+    "ConfigManager",
+    "CLIProfile",
+    "CLIManager",
     
     # Entry point
     "main",
