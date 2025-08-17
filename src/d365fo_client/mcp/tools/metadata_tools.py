@@ -223,15 +223,16 @@ class MetadataTools:
             entity_name = arguments["entityName"]
             entity_info = await client.get_public_entity_info(entity_name)
             
+
             if not entity_info:
                 raise ValueError(f"Entity not found: {entity_name}")
             
-           
-            entity_info_dic = entity_info.to_dict()
+            logger.info(f"Retrieved entity info for {entity_info}")
+            entity_info_dict = entity_info.to_dict()
 
             return [TextContent(
                 type="text",
-                text=json.dumps(entity_info_dic, indent=2)
+                text=json.dumps(entity_info_dict, indent=2)
             )]
             
         except Exception as e:

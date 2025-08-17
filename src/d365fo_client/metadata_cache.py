@@ -1348,6 +1348,7 @@ class MetadataCache:
                 logger.warning(f"Failed to cache data entities search to disk: {e}")
         
         logger.debug(f"Database lookup for data entities search: {pattern}, found {len(entities)} entities")
+        
         return entities
     
     async def _search_data_entities_from_db(self, pattern: str = "", entity_category: Optional[str] = None,

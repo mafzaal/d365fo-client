@@ -142,6 +142,7 @@ __version__, __author__, __email__ = _get_package_metadata()
 # Import main classes and functions for public API
 from .client import FOClient, create_client
 from .metadata_cache import MetadataCache, MetadataSearchEngine
+from .labels import resolve_labels_generic, resolve_labels_generic_with_cache
 from .models import (
     FOClientConfig, QueryOptions, LabelInfo, 
     EntityInfo, EntityPropertyInfo, ActionInfo,
@@ -179,6 +180,7 @@ __all__ = [
     # Caching
     "MetadataCache",
     "MetadataSearchEngine",
+    "resolve_labels_generic",
     
     # Configuration and models
     "FOClientConfig",

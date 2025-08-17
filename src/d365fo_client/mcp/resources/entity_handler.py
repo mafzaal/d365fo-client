@@ -3,6 +3,7 @@
 import json
 import logging
 from datetime import datetime
+from time import timezone
 from typing import List
 from mcp.types import Resource
 
@@ -114,7 +115,7 @@ class EntityResourceHandler:
                 "metadata": metadata,
                 "sampleData": sample_data.get("value", []) if sample_data else [],
                 "recordCount": sample_data.get("@odata.count") if sample_data else None,
-                "lastUpdated": datetime.utcnow().isoformat()
+                "lastUpdated": datetime.now(timezone.utc).isoformat()
             }
             
             logger.info(f"Retrieved entity resource: {entity_name}")

@@ -15,7 +15,7 @@ from .metadata_api import MetadataAPIOperations
 from .metadata_cache import MetadataCache
 from .metadata_sync import MetadataSyncManager
 from .crud import CrudOperations
-from .labels import LabelOperations
+from .labels import LabelOperations,resolve_labels_generic
 from .query import QueryBuilder
 from .exceptions import FOClientError, ConfigurationError
 
@@ -610,7 +610,7 @@ class FOClient:
                                   data_service_enabled: Optional[bool] = None,
                                   data_management_enabled: Optional[bool] = None,
                                   is_read_only: Optional[bool] = None,
-                                  use_cache_first: Optional[bool] = None) -> List[DataEntityInfo]:
+                                  use_cache_first: Optional[bool] = True) -> List[DataEntityInfo]:
         """Search data entities with filtering and cache-first approach
         
         Args:
@@ -638,10 +638,15 @@ class FOClient:
                 data_management_enabled, is_read_only
             )
         
-        return await self._get_from_cache_first(
+        entities = await self._get_from_cache_first(
             cache_search, fallback_search,
-            use_cache_first=use_cache_first
+            use_cache_first=use_cache_first or self.config.use_cache_first
         )
+
+        if self.metadata_cache:
+            entities = await resolve_labels_generic(entities,self.label_ops)
+
+        return entities
     
     async def get_data_entity_info(self, entity_name: str, resolve_labels: bool = True,
                                   language: str = "en-US", use_cache_first: Optional[bool] = None) -> Optional[DataEntityInfo]:
@@ -708,7 +713,7 @@ class FOClient:
         )
     
     async def get_public_entity_info(self, entity_name: str, resolve_labels: bool = True,
-                                   language: str = "en-US", use_cache_first: Optional[bool] = None) -> Optional[PublicEntityInfo]:
+                                   language: str = "en-US", use_cache_first: Optional[bool] = True) -> Optional[PublicEntityInfo]:
         """Get detailed information about a specific public entity with cache-first approach
         
         Args:
@@ -721,17 +726,19 @@ class FOClient:
             PublicEntityInfo object with full details or None if not found
         """
         async def cache_lookup():
-            if self.metadata_cache and hasattr(self.metadata_cache, 'get_public_entity_info'):
+            if self.metadata_cache:
                 return await self.metadata_cache.get_public_entity_info(entity_name, resolve_labels, language)
             return None
             
         async def fallback_lookup():
             return await self.metadata_api_ops.get_public_entity_info(entity_name, resolve_labels, language)
         
-        return await self._get_from_cache_first(
+        entity = await self._get_from_cache_first(
             cache_lookup, fallback_lookup,
-            use_cache_first=use_cache_first
+            use_cache_first=use_cache_first or self.config.use_cache_first
         )
+
+        return await resolve_labels_generic(entity,self.label_ops)
     
     async def get_all_public_entities_with_details(self, resolve_labels: bool = False, 
                                                  language: str = "en-US") -> List[PublicEntityInfo]:
