@@ -80,13 +80,17 @@ class D365FOClientManager:
             return False
     
     async def get_environment_info(self, profile: str = "default") -> dict:
-        """Get environment information for a profile.
+        """Get comprehensive environment information for a profile.
         
         Args:
             profile: Configuration profile name
             
         Returns:
-            Dictionary with environment information
+            Dictionary with environment information including:
+            - base_url: The D365FO environment URL
+            - versions: Application, platform, and build version information
+            - connectivity: Connection status to the environment
+            - metadata_info: Comprehensive metadata and cache information from FOClient
         """
         client = await self.get_client(profile)
         
@@ -99,8 +103,8 @@ class D365FOClientManager:
             # Test connectivity
             connectivity = await self._test_client_connection(client)
             
-            # Get cache status
-            cache_status = self._get_cache_status(client)
+            # Get comprehensive metadata and cache information using FOClient's method
+            metadata_info = client.get_metadata_info()
             
             return {
                 "base_url": client.config.base_url,
@@ -110,7 +114,7 @@ class D365FOClientManager:
                     "build": build_version
                 },
                 "connectivity": connectivity,
-                "cache_status": cache_status
+                "metadata_info": metadata_info
             }
         except Exception as e:
             logger.error(f"Failed to get environment info for profile {profile}: {e}")
@@ -235,40 +239,6 @@ class D365FOClientManager:
         except Exception as e:
             logger.error(f"Client connection test failed: {e}")
             return False
-    
-    def _get_cache_status(self, client: FOClient) -> dict:
-        """Get cache status information.
-        
-        Args:
-            client: FOClient instance
-            
-        Returns:
-            Dictionary with cache status
-        """
-        try:
-            metadata_cache = hasattr(client, '_metadata_manager') and client._metadata_manager.is_metadata_available()
-            labels_cache = hasattr(client, '_label_cache') and client._label_cache is not None
-            
-            return {
-                "metadata": {
-                    "available": metadata_cache,
-                    "size": 0,  # TODO: Get actual cache size
-                    "last_updated": datetime.utcnow().isoformat(),
-                    "hit_rate": 0.0  # TODO: Implement hit rate tracking
-                },
-                "labels": {
-                    "available": labels_cache,
-                    "size": 0,  # TODO: Get actual cache size
-                    "last_updated": datetime.utcnow().isoformat(),
-                    "hit_rate": 0.0  # TODO: Implement hit rate tracking
-                }
-            }
-        except Exception as e:
-            logger.error(f"Failed to get cache status: {e}")
-            return {
-                "metadata": {"available": False, "size": 0, "last_updated": "", "hit_rate": 0.0},
-                "labels": {"available": False, "size": 0, "last_updated": "", "hit_rate": 0.0}
-            }
     
     async def health_check(self) -> dict:
         """Perform health check on all managed clients.

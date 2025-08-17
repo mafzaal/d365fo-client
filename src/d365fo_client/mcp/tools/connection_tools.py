@@ -153,12 +153,12 @@ class ConnectionTools:
             profile = arguments.get("profile", "default")
             env_info = await self.client_manager.get_environment_info(profile)
             
-            # Format response according to specification
+            # Format response according to specification with enhanced metadata info
             response = {
                 "baseUrl": env_info["base_url"],
                 "versions": env_info["versions"],
                 "connectivity": env_info["connectivity"],
-                "cacheStatus": env_info["cache_status"],
+                "metadataInfo": env_info["metadata_info"],
                 "statistics": {
                     "entityCount": 0,  # TODO: Get actual counts
                     "actionCount": 0,
