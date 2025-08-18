@@ -1,60 +1,155 @@
 # Copilot Instructions for d365fo-client Python Package
 
 ## Project Overview
-This is a Python package project named `d365fo-client` that uses `uv` for dependency management and will be published to PyPI.org. The project follows modern Python packaging standards with `pyproject.toml` configuration.
+This is a comprehensive Python package for **Microsoft Dynamics 365 Finance & Operations (D365 F&O)** that provides:
 
+- **OData Client Library**: Full CRUD operations on D365 F&O data entities
+- **CLI Application**: Command-line interface for D365 F&O operations  
+- **MCP Server**: Model Context Protocol server for AI assistant integration
+- **Metadata Management**: Advanced caching and discovery of D365 F&O entities/actions
+- **Label Operations**: Multilingual label retrieval and management
 
 ## Development Environment
 - **Package Manager**: `uv` (for fast Python package management)
-- **Python Version**: >=3.13
-- **Build Backend**: `hatchling` (default for uv projects)
+- **Python Version**: >=3.13  
+- **Build Backend**: `setuptools` (configured in pyproject.toml)
 - **Distribution**: PyPI.org
+- **Architecture**: Async/await throughout, type-safe with comprehensive hints
 
 
 
 ## Project Structure Guidelines
+
+### Current Architecture
 ```
 d365fo-client/
-├── src/
-│   └── d365fo_client/
-│       ├── __init__.py
-│       ├── main.py
-│       └── ...
-├── tests/
-│   ├── __init__.py
-│   └── test_*.py
-├── docs/
-├── pyproject.toml
-├── README.md
-├── LICENSE
-├── .gitignore
-└── CHANGELOG.md
+├── src/d365fo_client/           # Main package source
+│   ├── __init__.py              # Package exports and public API
+│   ├── main.py                  # CLI entry point
+│   ├── cli.py                   # CLI command handlers
+│   ├── client.py                # Core D365FO client
+│   ├── config.py                # Configuration management
+│   ├── auth.py                  # Azure AD authentication
+│   ├── session.py               # HTTP session management
+│   ├── crud.py                  # CRUD operations
+│   ├── query.py                 # OData query building
+│   ├── metadata.py              # Metadata operations
+│   ├── metadata_api.py          # Metadata API client
+│   ├── metadata_cache.py        # Metadata caching layer
+│   ├── metadata_sync.py         # Metadata synchronization
+│   ├── labels.py                # Label operations
+│   ├── profiles.py              # Profile data models
+│   ├── profile_manager.py       # Profile management
+│   ├── models.py                # Data models and types
+│   ├── output.py                # Output formatting
+│   ├── utils.py                 # Utility functions
+│   ├── exceptions.py            # Custom exceptions
+│   └── mcp/                     # Model Context Protocol server
+│       ├── __init__.py          # MCP package exports
+│       ├── main.py              # MCP server entry point
+│       ├── server.py            # Core MCP server implementation
+│       ├── client_manager.py    # D365FO client connection pooling
+│       ├── models.py            # MCP-specific data models
+│       ├── tools/               # MCP tool handlers (12 tools)
+│       │   ├── connection_tools.py # Connection testing tools
+│       │   ├── crud_tools.py    # CRUD operation tools
+│       │   ├── metadata_tools.py# Metadata discovery tools
+│       │   └── label_tools.py   # Label retrieval tools
+│       ├── resources/           # MCP resource handlers (4 types)
+│       │   ├── entity_handler.py    # Entity resource handler
+│       │   ├── metadata_handler.py  # Metadata resource handler
+│       │   ├── environment_handler.py # Environment resource handler
+│       │   └── query_handler.py     # Query resource handler
+│       └── prompts/             # MCP prompt templates
+├── tests/                       # Comprehensive test suite
+│   ├── unit/                    # Unit tests (pytest-based)
+│   ├── integration/             # Multi-tier integration testing
+│   │   ├── mock_server/         # Mock D365 F&O API server
+│   │   ├── test_mock_server.py  # Mock server tests
+│   │   ├── test_sandbox.py      # Sandbox environment tests ✅
+│   │   ├── test_live.py         # Live environment tests
+│   │   ├── conftest.py          # Shared pytest fixtures
+│   │   ├── test_runner.py       # Python test execution engine
+│   │   └── integration-test-simple.ps1 # PowerShell automation
+│   └── test_mcp_server.py       # MCP server unit tests
+├── docs/                        # Comprehensive documentation
+├── examples/                    # Usage examples and demos
+├── pyproject.toml               # Project configuration
+├── uv.lock                      # Dependency lock file
+├── Makefile                     # Unix make commands
+├── make.bat                     # Windows batch commands
+├── make.ps1                     # PowerShell make commands
+├── README.md                    # Project documentation
+├── CHANGELOG.md                 # Release notes
+└── LICENSE                      # MIT license
 ```
+
+### Package Entry Points
+- **CLI**: `d365fo-client` command (via `d365fo_client.main:main`)
+- **MCP Server**: `d365fo-mcp-server` command (via `d365fo_client.mcp.main:main`)
+- **Python API**: `from d365fo_client import D365FOClient, FOClientConfig`
 
 ## Key Development Practices
 
 ### 1. Package Management with uv
-- Use `uv add <package>` to add dependencies
-- Use `uv add --dev <package>` for development dependencies
+- Use `uv add <package>` to add dependencies  
+- Use `uv add --group dev <package>` for development dependencies (new syntax)
 - Use `uv sync` to install dependencies from lockfile
 - Use `uv run <command>` to run commands in the project environment
 - Use `uv build` to build distribution packages
 - Use `uv publish` to publish to PyPI
 
-### 2. Code Organization
+### 2. Build System and Make Commands
+The project includes three make implementations for cross-platform development:
+
+#### Quick Commands (choose your platform):
+```bash
+# Unix/Linux/macOS
+make dev-setup         # Initial setup
+make dev               # Quick dev check (format + lint + test)
+make quality-check     # Comprehensive quality checks
+
+# Windows Command Prompt  
+make.bat dev-setup
+make.bat dev
+make.bat quality-check
+
+# Windows PowerShell (recommended)
+.\make.ps1 dev-setup
+.\make.ps1 dev
+.\make.ps1 quality-check
+```
+
+#### Available Make Targets:
+- `dev-setup` - Set up development environment
+- `dev` - Quick development check (format + lint + test)  
+- `quality-check` - Run all code quality checks
+- `test` - Run unit tests
+- `test-coverage` - Run tests with coverage report
+- `format` - Format code with black and isort
+- `lint` - Run linting with ruff
+- `type-check` - Run type checking with mypy
+- `build` - Build distribution packages
+- `publish-test` - Publish to Test PyPI
+- `publish` - Publish to PyPI
+- `clean` - Clean build artifacts
+- `security-check` - Run security checks
+- `info` - Show environment information
+
+### 3. Code Organization
 - Place all source code in `src/d365fo_client/` directory
 - Use proper `__init__.py` files for package initialization
 - Export main functionality through `__init__.py`
 - Follow PEP 8 style guidelines
 - Use type hints for all functions and methods
 
-### 3. Dependencies and Requirements
+### 4. Dependencies and Requirements
 - Add all runtime dependencies to `pyproject.toml` under `[project]` dependencies
-- Add development dependencies using `uv add --dev`
+- Add development dependencies using `uv add --group dev`
 - Pin exact versions for reproducible builds
 - Keep dependencies minimal and well-justified
 
-### 4. Testing Framework
+### 5. Testing Framework
 
 #### Unit Testing
 - Use `pytest` as the testing framework
@@ -155,15 +250,15 @@ AZURE_TENANT_ID=your-tenant-id
 - Comprehensive fixture system for resource management
 - Performance metrics collection and validation
 
-### 5. CLI Development Practices
+### 6. CLI Development Practices
 
-#### 5.1 Command Structure Guidelines
+#### 6.1 Command Structure Guidelines
 - Use `argparse` with subparsers for hierarchical commands
 - Follow pattern: `d365fo-client [GLOBAL_OPTIONS] COMMAND [SUBCOMMAND] [OPTIONS]`
 - Implement global options before subcommands (--base-url, --output, --verbose, etc.)
 - Use consistent naming: dash-separated for CLI args, underscore for internal code
 
-#### 5.2 Command Implementation Pattern
+#### 6.2 Command Implementation Pattern
 ```python
 # CLI Manager with async command handlers
 class CLIManager:
@@ -175,31 +270,31 @@ class CLIManager:
         # Return 0 for success, 1 for errors
 ```
 
-#### 5.3 Configuration Management
+#### 6.3 Configuration Management
 - Support profile-based configuration in YAML format
 - Location: `~/.d365fo-client/config.yaml`
 - Environment variable substitution: `${VAR_NAME}`
 - Precedence: CLI args > Environment variables > Profile config > Defaults
 
-#### 5.4 Output Formatting Requirements
+#### 6.4 Output Formatting Requirements
 - Support multiple formats: JSON, table, CSV, YAML
 - Use `tabulate` library for table formatting
 - Consistent data structures for formatting
 - Handle error output separately from data output
 
-#### 5.5 CLI Testing Practices
+#### 6.5 CLI Testing Practices
 - Mock `FOClient` for CLI tests
 - Test argument parsing separately from command execution
 - Use `argparse.Namespace` objects for test scenarios
 - Test both success and error cases for each command
 
-#### 5.6 Backward Compatibility
+#### 6.6 Backward Compatibility
 - Maintain existing `--demo` option functionality
 - Keep `example_usage()` function for demo mode
 - Preserve existing API without breaking changes
 - Support both new CLI and legacy demo modes
 
-### 6. Documentation
+### 7. Documentation
 - Store all documentation files in the `docs/` folder
 - Maintain comprehensive README.md with usage examples
 - Use docstrings for all public functions and classes
@@ -207,59 +302,17 @@ class CLIManager:
 - Place API documentation, guides, and tutorials in `docs/`
 - Consider using Sphinx for API documentation with output to `docs/`
 
-### 7. Version Management
+### 8. Version Management
 - Follow semantic versioning (MAJOR.MINOR.PATCH)
 - Update version in `pyproject.toml` before releases
 - Maintain CHANGELOG.md with release notes
 - Tag releases in git with version numbers
 
-## pyproject.toml Configuration Guidelines
-
-### Essential sections to include:
-```toml
-[project]
-name = "d365fo-client"
-version = "x.y.z"
-description = "Microsot Dynamics 365 Finance & Operations client"
-readme = "README.md"
-license = { text = "MIT" }
-authors = [{ name = "Muhammad Afzaal", email = "mo@thedataguy.pro" }]
-requires-python = ">=3.13"
-dependencies = []
-keywords = ["keyword1", "keyword2"]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.13",
-]
-
-[project.urls]
-Homepage = "https://github.com/mafzaal/d365fo-client"
-Repository = "https://github.com/mafzaal/d365fo-client"
-Documentation = "https://d365fo-client.readthedocs.io"
-Issues = "https://github.com/mafzaal/d365fo-client/issues"
-
-[project.scripts]
-d365fo-client = "d365fo_client.main:main"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build_meta"
-
-[tool.hatch.build.targets.sdist]
-include = ["src/d365fo_client"]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/d365fo_client"]
-```
-
 ## Development Workflow
 
 ### Setting up development environment:
 1. `uv sync` - Install dependencies
-2. `uv add --dev pytest black isort mypy` - Add development tools
+2. `uv add --group dev pytest black isort mypy` - Add development tools
 3. `uv run pytest` - Run tests
 
 ### Before committing:
@@ -384,13 +437,20 @@ Before publishing to PyPI:
 
 ## Common Commands
 - `uv add package-name` - Add dependency
-- `uv add --dev package-name` - Add dev dependency
+- `uv add --group dev package-name` - Add dev dependency
 - `uv sync` - Install/sync dependencies
 - `uv run command` - Run command in project environment
 - `uv build` - Build distribution packages
 - `uv publish` - Publish to PyPI
 - `uv run pytest` - Run unit tests
 - `uv run black .` - Format code
+
+### Make Commands (Cross-Platform)
+- `make dev-setup` / `make.bat dev-setup` / `.\make.ps1 dev-setup` - Development environment setup
+- `make dev` / `make.bat dev` / `.\make.ps1 dev` - Quick development check (format + lint + test)
+- `make quality-check` / `make.bat quality-check` / `.\make.ps1 quality-check` - Comprehensive quality checks
+- `make test-coverage` / `make.bat test-coverage` / `.\make.ps1 test-coverage` - Run tests with coverage
+- `make build` / `make.bat build` / `.\make.ps1 build` - Build distribution packages
 
 ### Integration Testing Commands
 - `.\tests\integration\integration-test-simple.ps1 test-sandbox` - Run sandbox integration tests (default)
