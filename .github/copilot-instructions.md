@@ -417,6 +417,82 @@ client = D365FOClient(config=config)
 # Your example code here...
 ```
 
+## Metadata Scripts
+
+The project includes a comprehensive set of metadata scripts in the `scripts/` folder for working with D365 F&O metadata. These scripts provide convenient command-line access to metadata operations.
+
+### Available Scripts
+
+#### Data Entity Scripts
+- **`search_data_entities.ps1`** - Search for data entities by pattern using CLI
+- **`get_data_entity_schema.ps1`** - Get detailed schema information for a specific entity using CLI
+
+#### Enumeration Scripts  
+- **`search_enums.py`** - Search for enumerations by pattern using Python API
+- **`get_enumeration_info.py`** - Get detailed information for a specific enumeration using Python API
+
+#### Action Scripts
+- **`search_actions.ps1`** - Search for actions by pattern using CLI
+- **`get_action_info.py`** - Get detailed information for a specific action using Python API
+
+### Usage Examples
+
+#### Search Data Entities
+```powershell
+# Basic search
+.\scripts\search_data_entities.ps1 -Pattern "customer"
+
+# Advanced search with options
+.\scripts\search_data_entities.ps1 -Pattern ".*sales.*" -Output json -Limit 10
+```
+
+#### Get Entity Schema
+```powershell
+# Get detailed schema with all information
+.\scripts\get_data_entity_schema.ps1 -EntityName "CustomersV3" -Properties -Keys -Labels -Output json
+```
+
+#### Search Enumerations
+```bash
+# Search enumerations using Python API
+uv run python scripts\search_enums.py "status" --output json --limit 5
+```
+
+#### Get Enumeration Details
+```bash
+# Get enumeration details with labels
+uv run python scripts\get_enumeration_info.py "CustVendorBlocked" --output table
+```
+
+#### Search Actions
+```powershell
+# Search actions by pattern
+.\scripts\search_actions.ps1 -Pattern "post" -Output json
+```
+
+#### Get Action Information
+```bash
+# Get detailed action information
+uv run python scripts\get_action_info.py "Microsoft.Dynamics.DataEntities.GetKeys" --output json
+```
+
+### Script Configuration
+
+All scripts support:
+- **Multiple output formats**: table, json, csv, yaml/list
+- **Environment configuration**: via `--base-url` parameter or environment variables
+- **Profile support**: via `--profile` parameter (where implemented)
+- **Verbose output**: via `--verbose` or `-VerboseOutput` parameters
+
+### Prerequisites for Scripts
+- d365fo-client package installed (`uv sync`)
+- PowerShell (for .ps1 scripts)
+- Python 3.13+ with uv (for .py scripts)
+- D365 F&O environment access with proper authentication
+- Environment variables set: `D365FO_BASE_URL`, optional Azure AD credentials
+
+See `scripts/README.md` for comprehensive documentation and additional examples.
+
 ## Security Considerations
 - Never commit API keys or secrets
 - Use environment variables for configuration
@@ -458,6 +534,14 @@ Before publishing to PyPI:
 - `.\tests\integration\integration-test-simple.ps1 coverage` - Run tests with coverage
 - `.\tests\integration\integration-test-simple.ps1 setup` - Setup integration test environment
 - `python tests/integration/test_runner.py sandbox --verbose` - Alternative test execution
+
+### Metadata Scripts Commands
+- `.\scripts\search_data_entities.ps1 -Pattern "customer"` - Search data entities  
+- `.\scripts\get_data_entity_schema.ps1 -EntityName "CustomersV3" -Properties -Keys` - Get entity schema
+- `uv run python scripts\search_enums.py "status" --output json` - Search enumerations
+- `uv run python scripts\get_enumeration_info.py "CustVendorBlocked"` - Get enumeration details
+- `.\scripts\search_actions.ps1 -Pattern "post"` - Search actions
+- `uv run python scripts\get_action_info.py "ActionName" --output json` - Get action details
 
 ## When creating new features:
 1. Create feature branch
