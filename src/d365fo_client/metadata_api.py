@@ -56,11 +56,13 @@ class MetadataAPIOperations:
         )
         
         # Process properties
+        prop_order = 1
         for prop_data in item.get('Properties', []):
             prop = PublicEntityPropertyInfo(
                 name=prop_data.get('Name', ''),
                 type_name=prop_data.get('TypeName', ''),
                 data_type=prop_data.get('DataType', ''),
+                odata_xpp_type=prop_data.get('DataType', ''),
                 label_id=prop_data.get('LabelId'),
                 is_key=prop_data.get('IsKey', False),
                 is_mandatory=prop_data.get('IsMandatory', False),
@@ -71,8 +73,10 @@ class MetadataAPIOperations:
                 dimension_relation=prop_data.get('DimensionRelation'),
                 is_dynamic_dimension=prop_data.get('IsDynamicDimension', False),
                 dimension_legal_entity_property=prop_data.get('DimensionLegalEntityProperty'),
-                dimension_type_property=prop_data.get('DimensionTypeProperty')
+                dimension_type_property=prop_data.get('DimensionTypeProperty'),
+                property_order=prop_order
             )
+            prop_order += 1
             entity.properties.append(prop)
         
         # Process navigation properties
