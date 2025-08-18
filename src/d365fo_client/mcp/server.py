@@ -229,6 +229,10 @@ class D365FOMCPServer:
                     return await self.metadata_tools.execute_get_entity_schema(arguments)
                 elif name == "d365fo_search_actions":
                     return await self.metadata_tools.execute_search_actions(arguments)
+                elif name == "d365fo_search_enumerations":
+                    return await self.metadata_tools.execute_search_enumerations(arguments)
+                elif name == "d365fo_get_enumeration_fields":
+                    return await self.metadata_tools.execute_get_enumeration_fields(arguments)
                 elif name == "d365fo_get_label":
                     return await self.label_tools.execute_get_label(arguments)
                 elif name == "d365fo_get_labels_batch":

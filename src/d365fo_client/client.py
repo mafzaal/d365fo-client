@@ -288,7 +288,7 @@ class FOClient:
             use_cache_first=use_cache_first or self.config.use_cache_first
         )
     
-    async def get_entity_info(self, entity_name: str, use_cache_first: Optional[bool] = None) -> Optional[EntityInfo]:
+    async def get_entity_info(self, entity_name: str, use_cache_first: Optional[bool] = True) -> Optional[PublicEntityInfo]:
         """Get detailed entity information with cache-first approach
         
         Args:
@@ -296,60 +296,9 @@ class FOClient:
             use_cache_first: Override config setting for cache-first behavior
             
         Returns:
-            EntityInfo object or None if not found
+            PublicEntityInfo object or None if not found
         """
-        async def cache_lookup():
-            if self.metadata_cache:
-                # Try to get entity from cache (public entity first, then data entity)
-                entity = await self.metadata_cache.get_entity(entity_name, "public")
-                if not entity:
-                    entity = await self.metadata_cache.get_entity(entity_name, "data")
-                
-                if entity:
-                    # Convert to EntityInfo format for backward compatibility
-                    return EntityInfo(
-                        name=entity.name,
-                        keys=[prop.name for prop in getattr(entity, 'properties', []) if getattr(prop, 'is_key', False)],
-                        properties=[{
-                            'name': prop.name,
-                            'type': getattr(prop, 'type_name', ''),
-                            'nullable': 'true' if not getattr(prop, 'is_mandatory', False) else 'false'
-                        } for prop in getattr(entity, 'properties', [])],
-                        actions=[]  # Actions are handled separately in new system
-                    )
-            return None
-            
-        async def fallback_lookup():
-            # Use metadata API operations as fallback
-            public_entity = await self.metadata_api_ops.get_public_entity_info(entity_name, resolve_labels=False)
-            if public_entity:
-                return EntityInfo(
-                    name=public_entity.name,
-                    keys=[prop.name for prop in public_entity.properties if prop.is_key],
-                    properties=[{
-                        'name': prop.name,
-                        'type': prop.type_name,
-                        'nullable': 'true' if not prop.is_mandatory else 'false'
-                    } for prop in public_entity.properties],
-                    actions=[]
-                )
-            
-            # Try data entity if public entity not found
-            data_entity = await self.metadata_api_ops.get_data_entity_info(entity_name, resolve_labels=False)
-            if data_entity:
-                return EntityInfo(
-                    name=data_entity.name,
-                    keys=[],  # Data entities don't have key info in the same way
-                    properties=[],  # Data entities have different property structure
-                    actions=[]
-                )
-            
-            return None
-        
-        return await self._get_from_cache_first(
-            cache_lookup, fallback_lookup,
-            use_cache_first=use_cache_first
-        )
+        return await self.get_public_entity_info(entity_name, use_cache_first=use_cache_first)
     
     async def search_actions(self, pattern: str = "", use_cache_first: Optional[bool] = None) -> List[str]:
         """Search actions by name pattern with cache-first approach
@@ -756,7 +705,7 @@ class FOClient:
         """
         return await self.metadata_api_ops.get_all_public_entities_with_details(resolve_labels, language)
     
-    async def get_public_enumerations(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
+    async def get_public_enumerations(self, options: Optional[QueryOptions] = None) -> List[EnumerationInfo]:
         """Get public enumerations from PublicEnumerations metadata endpoint
         
         Args:
@@ -765,9 +714,11 @@ class FOClient:
         Returns:
             Response containing public enumerations
         """
+        self._ensure_metadata_initialized()
+
         return await self.metadata_api_ops.get_public_enumerations(options)
     
-    async def search_public_enumerations(self, pattern: str = "", use_cache_first: Optional[bool] = None) -> List[EnumerationInfo]:
+    async def search_public_enumerations(self, pattern: str = "", use_cache_first: Optional[bool] = True) -> List[EnumerationInfo]:
         """Search public enumerations with filtering and cache-first approach
         
         Args:
@@ -778,20 +729,22 @@ class FOClient:
             List of matching enumerations (without detailed members)
         """
         async def cache_search():
-            if self.metadata_cache and hasattr(self.metadata_cache, 'search_public_enumerations'):
+            if self.metadata_cache:
                 return await self.metadata_cache.search_public_enumerations(pattern)
             return []
             
         async def fallback_search():
             return await self.metadata_api_ops.search_public_enumerations(pattern)
         
-        return await self._get_from_cache_first(
+        enums = await self._get_from_cache_first(
             cache_search, fallback_search,
-            use_cache_first=use_cache_first
+            use_cache_first=use_cache_first or self.config.use_cache_first
         )
+
+        return await resolve_labels_generic(enums,self.label_ops) 
     
     async def get_public_enumeration_info(self, enumeration_name: str, resolve_labels: bool = True,
-                                        language: str = "en-US", use_cache_first: Optional[bool] = None) -> Optional[EnumerationInfo]:
+                                        language: str = "en-US", use_cache_first: Optional[bool] = True) -> Optional[EnumerationInfo]:
         """Get detailed information about a specific public enumeration with cache-first approach
         
         Args:
@@ -811,10 +764,11 @@ class FOClient:
         async def fallback_lookup():
             return await self.metadata_api_ops.get_public_enumeration_info(enumeration_name, resolve_labels, language)
         
-        return await self._get_from_cache_first(
+        enum =  await self._get_from_cache_first(
             cache_lookup, fallback_lookup,
-            use_cache_first=use_cache_first
+            use_cache_first=use_cache_first or self.config.use_cache_first
         )
+        return await resolve_labels_generic(enum, self.label_ops) if enum else None
     
     async def get_all_public_enumerations_with_details(self, resolve_labels: bool = False, 
                                                      language: str = "en-US") -> List[EnumerationInfo]:

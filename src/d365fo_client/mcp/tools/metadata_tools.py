@@ -33,7 +33,9 @@ class MetadataTools:
         return [
             self._get_search_entities_tool(),
             self._get_entity_schema_tool(),
-            self._get_search_actions_tool()
+            self._get_search_actions_tool(),
+            self._get_search_enumerations_tool(),
+            self._get_enumeration_fields_tool()
         ]
     
     def _get_search_entities_tool(self) -> Tool:
@@ -138,6 +140,57 @@ class MetadataTools:
                     }
                 },
                 "required": ["pattern"]
+            }
+        )
+    
+    def _get_search_enumerations_tool(self) -> Tool:
+        """Get search enumerations tool definition."""
+        return Tool(
+            name="d365fo_search_enumerations",
+            description="Search for enumerations by name or pattern",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "pattern": {
+                        "type": "string",
+                        "description": "Search pattern for enumeration names (regex supported)"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 500,
+                        "default": 100,
+                        "description": "Maximum number of results"
+                    }
+                },
+                "required": ["pattern"]
+            }
+        )
+    
+    def _get_enumeration_fields_tool(self) -> Tool:
+        """Get enumeration fields tool definition."""
+        return Tool(
+            name="d365fo_get_enumeration_fields",
+            description="Get detailed field information for a specific enumeration including all members and their values",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "enumeration_name": {
+                        "type": "string",
+                        "description": "Name of the enumeration"
+                    },
+                    "resolve_labels": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "Resolve label texts for enumeration and members"
+                    },
+                    "language": {
+                        "type": "string",
+                        "default": "en-US",
+                        "description": "Language for label resolution"
+                    }
+                },
+                "required": ["enumeration_name"]
             }
         )
     
@@ -299,6 +352,117 @@ class MetadataTools:
             error_response = {
                 "error": str(e),
                 "tool": "d365fo_search_actions", 
+                "arguments": arguments
+            }
+            return [TextContent(
+                type="text",
+                text=json.dumps(error_response, indent=2)
+            )]
+    
+    async def execute_search_enumerations(self, arguments: dict) -> List[TextContent]:
+        """Execute search enumerations tool.
+        
+        Args:
+            arguments: Tool arguments
+            
+        Returns:
+            List of TextContent responses
+        """
+        try:
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
+            
+            start_time = time.time()
+            
+            # Search for enumerations using the pattern
+            enumerations = await client.search_public_enumerations(
+                pattern=arguments["pattern"]
+            )
+            
+            # Convert EnumerationInfo objects to dictionaries for JSON serialization
+            enum_dicts = []
+            for enum in enumerations:
+                enum_dict = enum.to_dict()
+                enum_dicts.append(enum_dict)
+            
+            # Apply limit
+            limit = arguments.get("limit", 100)
+            filtered_enums = enum_dicts[:limit]
+            search_time = time.time() - start_time
+            
+            response = {
+                "enumerations": filtered_enums,
+                "totalCount": len(enumerations),
+                "searchTime": round(search_time, 3),
+                "pattern": arguments["pattern"],
+                "limit": limit
+            }
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps(response, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Search enumerations failed: {e}")
+            error_response = {
+                "error": str(e),
+                "tool": "d365fo_search_enumerations",
+                "arguments": arguments
+            }
+            return [TextContent(
+                type="text",
+                text=json.dumps(error_response, indent=2)
+            )]
+    
+    async def execute_get_enumeration_fields(self, arguments: dict) -> List[TextContent]:
+        """Execute get enumeration fields tool.
+        
+        Args:
+            arguments: Tool arguments
+            
+        Returns:
+            List of TextContent responses
+        """
+        try:
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
+            
+            enumeration_name = arguments["enumeration_name"]
+            resolve_labels = arguments.get("resolve_labels", True)
+            language = arguments.get("language", "en-US")
+            
+            # Get detailed enumeration information
+            enum_info = await client.get_public_enumeration_info(
+                enumeration_name=enumeration_name,
+                resolve_labels=resolve_labels,
+                language=language
+            )
+            
+            if not enum_info:
+                raise ValueError(f"Enumeration not found: {enumeration_name}")
+            
+            # Convert to dictionary for JSON serialization
+            enum_dict = enum_info.to_dict()
+            
+            # Add additional metadata
+            response = {
+                "enumeration": enum_dict,
+                "memberCount": len(enum_info.members),
+                "hasLabels": bool(enum_info.label_text),
+                "language": language if resolve_labels else None
+            }
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps(response, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Get enumeration fields failed: {e}")
+            error_response = {
+                "error": str(e),
+                "tool": "d365fo_get_enumeration_fields",
                 "arguments": arguments
             }
             return [TextContent(
