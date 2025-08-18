@@ -238,7 +238,7 @@ class CrudTools:
                 select=arguments.get("select"),
                 filter=arguments.get("filter"),
                 expand=arguments.get("expand"),
-                order_by=arguments.get("orderBy"),
+                orderby=arguments.get("orderBy"),
                 top=arguments.get("top", 100),
                 skip=arguments.get("skip"),
                 count=arguments.get("count", False)
