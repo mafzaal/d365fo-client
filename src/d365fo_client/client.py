@@ -943,6 +943,164 @@ class FOClient:
         except Exception as e:
             raise FOClientError(f"Failed to get application build version: {e}")
 
+    async def query_data_management_entities(self, 
+                                           category_filters: Optional[List[int]] = None,
+                                           config_key_filters: Optional[List[str]] = None,
+                                           country_region_code_filters: Optional[List[str]] = None,
+                                           is_shared_filters: Optional[List[int]] = None,
+                                           module_filters: Optional[List[str]] = None,
+                                           tag_filters: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """Query data management entities using the OData query action
+        
+        This method calls the 'query' action bound to the DataManagementEntities
+        collection to retrieve filtered data management entities based on various criteria.
+        
+        Args:
+            category_filters: Filter by entity category IDs (integers - e.g., [0, 1, 2])
+                             0=Master, 1=Configuration, 2=Transaction, 3=Reference, 4=Document, 5=Parameters
+            config_key_filters: Filter by configuration keys (strings)
+            country_region_code_filters: Filter by country/region codes (strings)
+            is_shared_filters: Filter by shared status (integers - 0=No, 1=Yes)
+            module_filters: Filter by module names (strings)
+            tag_filters: Filter by tags (strings)
+            
+        Returns:
+            List[Dict[str, Any]]: List of data management entity information
+            
+        Raises:
+            FOClientError: If the action call fails
+            
+        Note:
+            All parameters must be passed as arrays/lists since they are collection parameters in the OData action.
+            The categoryFilters and isSharedFilters parameters expect integers, while other filters expect strings.
+            To query all entities, use empty lists [] for required parameters or omit optional ones.
+            
+            Category enum values:
+            - 0 = Master
+            - 1 = Configuration  
+            - 2 = Transaction
+            - 3 = Reference
+            - 4 = Document
+            - 5 = Parameters
+            
+            IsShared enum values:
+            - 0 = No
+            - 1 = Yes
+        """
+        try:
+            # Prepare parameters for the query action
+            # All parameters are collections (arrays) as per the OData action definition
+            parameters = {}
+            
+            # Required parameters with default empty arrays if not provided
+            parameters['categoryFilters'] = category_filters if category_filters is not None else []
+            parameters['isSharedFilters'] = is_shared_filters if is_shared_filters is not None else []
+            
+            # Optional collection parameters
+            if config_key_filters is not None:
+                parameters['configKeyFilters'] = config_key_filters
+            else:
+                parameters['configKeyFilters'] = []
+                
+            if country_region_code_filters is not None:
+                parameters['countryRegionCodeFilters'] = country_region_code_filters
+            else:
+                parameters['countryRegionCodeFilters'] = []
+                
+            if module_filters is not None:
+                parameters['moduleFilters'] = module_filters
+            else:
+                parameters['moduleFilters'] = []
+                
+            if tag_filters is not None:
+                parameters['tagFilters'] = tag_filters
+            else:
+                parameters['tagFilters'] = []
+            
+            # Call the query action bound to DataManagementEntities
+            result = await self.call_action(
+                "query",
+                parameters=parameters,
+                entity_name="DataManagementEntities"
+            )
+            
+            # The action returns a collection of DataManagementEntity objects
+            if isinstance(result, dict):
+                if 'value' in result:
+                    # Standard OData response format
+                    return result['value']
+                elif '@odata.context' in result:
+                    # Response might be the entities directly
+                    entities = []
+                    for key, value in result.items():
+                        if not key.startswith('@'):
+                            entities.append(value)
+                    return entities
+                else:
+                    # Response is the result directly
+                    return [result] if result else []
+            elif isinstance(result, list):
+                # Direct list of entities
+                return result
+            else:
+                # Unexpected format, return empty list
+                self.logger.warning(f"Unexpected query response format: {type(result)}")
+                return []
+                
+        except Exception as e:
+            raise FOClientError(f"Failed to query data management entities: {e}")
+
+    async def query_data_management_entities_by_category(self, 
+                                                       categories: List[str],
+                                                       is_shared: Optional[bool] = None,
+                                                       modules: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """Query data management entities by category names (convenience method)
+        
+        This is a convenience method that converts category names to their integer enum values
+        and calls the main query_data_management_entities method.
+        
+        Args:
+            categories: List of category names (e.g., ['Master', 'Transaction'])
+                       Valid values: Master, Configuration, Transaction, Reference, Document, Parameters
+            is_shared: Optional boolean filter for shared status (True/False)
+            modules: Optional list of module names to filter by
+            
+        Returns:
+            List[Dict[str, Any]]: List of data management entity information
+            
+        Raises:
+            FOClientError: If the action call fails
+            ValueError: If invalid category names are provided
+        """
+        # Mapping of category names to enum values
+        category_map = {
+            'Master': 0,
+            'Configuration': 1,
+            'Transaction': 2,
+            'Reference': 3,
+            'Document': 4,
+            'Parameters': 5
+        }
+        
+        # Convert category names to enum values
+        category_filters = []
+        for category in categories:
+            if category not in category_map:
+                raise ValueError(f"Invalid category '{category}'. Valid categories: {list(category_map.keys())}")
+            category_filters.append(category_map[category])
+        
+        # Convert is_shared boolean to enum value
+        is_shared_filters = None
+        if is_shared is not None:
+            is_shared_filters = [1 if is_shared else 0]
+        
+        # Call the main query method with converted values
+        return await self.query_data_management_entities(
+            category_filters=category_filters,
+            is_shared_filters=is_shared_filters,
+            module_filters=modules
+        )
+
 
 # Convenience function for creating client
 def create_client(base_url: str, **kwargs) -> FOClient:
