@@ -223,6 +223,8 @@ class D365FOMCPServer:
                     return await self.crud_tools.execute_update_entity_record(arguments)
                 elif name == "d365fo_delete_entity_record":
                     return await self.crud_tools.execute_delete_entity_record(arguments)
+                elif name == "d365fo_call_action":
+                    return await self.crud_tools.execute_call_action(arguments)
                 elif name == "d365fo_search_entities":
                     return await self.metadata_tools.execute_search_entities(arguments)
                 elif name == "d365fo_get_entity_schema":

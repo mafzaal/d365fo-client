@@ -7,10 +7,18 @@ from .sequence_analysis import (
     SequenceAnalysisType,
     SequenceScope
 )
+from .action_execution import (
+    ACTION_EXECUTION_PROMPT,
+    ActionExecutionPrompt,
+    ActionExecutionPromptArgs,
+    ActionExecutionType,
+    ActionBindingKind
+)
 
 # Available prompts for MCP server
 AVAILABLE_PROMPTS = {
-    "d365fo_sequence_analysis": SEQUENCE_ANALYSIS_PROMPT
+    "d365fo_sequence_analysis": SEQUENCE_ANALYSIS_PROMPT,
+    "d365fo_action_execution": ACTION_EXECUTION_PROMPT
 }
 
 # Future: Additional prompt handlers will be implemented here
@@ -26,5 +34,10 @@ __all__ = [
     "SequenceAnalysisPromptArgs",
     "SequenceAnalysisType",
     "SequenceScope",
+    "ACTION_EXECUTION_PROMPT",
+    "ActionExecutionPrompt",
+    "ActionExecutionPromptArgs", 
+    "ActionExecutionType",
+    "ActionBindingKind",
     "AVAILABLE_PROMPTS"
 ]

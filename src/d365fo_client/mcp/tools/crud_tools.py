@@ -36,7 +36,8 @@ class CrudTools:
             self._get_entity_record_tool(),
             self._get_create_record_tool(),
             self._get_update_record_tool(),
-            self._get_delete_record_tool()
+            self._get_delete_record_tool(),
+            self._get_call_action_tool()
         ]
     
     def _get_query_entities_tool(self) -> Tool:
@@ -217,6 +218,55 @@ class CrudTools:
                     }
                 },
                 "required": ["entityName", "key"]
+            }
+        )
+    
+    def _get_call_action_tool(self) -> Tool:
+        """Get call action tool definition."""
+        return Tool(
+            name="d365fo_call_action",
+            description="Call/invoke a D365FO OData action with optional parameters and entity binding",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "actionName": {
+                        "type": "string",
+                        "description": "Name of the action to call (e.g., 'Microsoft.Dynamics.DataEntities.GetKeys')"
+                    },
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use",
+                        "default": "default"
+                    },
+                    "parameters": {
+                        "type": "object",
+                        "description": "Action parameters as key-value pairs"
+                    },
+                    "entityName": {
+                        "type": "string",
+                        "description": "Entity name for bound actions (optional)"
+                    },
+                    "entityKey": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "object"}
+                        ],
+                        "description": "Entity key for bound actions (optional, string or composite key object)"
+                    },
+                    "bindingKind": {
+                        "type": "string",
+                        "description": "Specify binding kind if known: 'Unbound', 'BoundToEntitySet', 'BoundToEntity'",
+                        "enum": ["Unbound", "BoundToEntitySet", "BoundToEntity"]
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 300,
+                        "default": 30,
+                        "description": "Request timeout in seconds"
+                    }
+                },
+                "required": ["actionName"]
             }
         )
     
@@ -441,6 +491,79 @@ class CrudTools:
                 "success": False,
                 "error": str(e),
                 "tool": "d365fo_delete_entity_record",
+                "arguments": arguments
+            }
+            return [TextContent(
+                type="text",
+                text=json.dumps(error_response, indent=2)
+            )]
+    
+    async def execute_call_action(self, arguments: dict) -> List[TextContent]:
+        """Execute call action tool.
+        
+        Args:
+            arguments: Tool arguments
+            
+        Returns:
+            List of TextContent responses
+        """
+        try:
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
+            
+            action_name = arguments["actionName"]
+            parameters = arguments.get("parameters", {})
+            entity_name = arguments.get("entityName")
+            entity_key = arguments.get("entityKey")
+            binding_kind = arguments.get("bindingKind")
+            
+            # Log the action call attempt
+            logger.info(f"Calling action: {action_name}")
+            if entity_name:
+                logger.info(f"  Entity: {entity_name}")
+            if entity_key:
+                logger.info(f"  Key: {entity_key}")
+            if binding_kind:
+                logger.info(f"  Binding: {binding_kind}")
+            
+            start_time = time.time()
+            
+            # Call the action using the client's call_action method
+            result = await client.call_action(
+                action_name=action_name,
+                parameters=parameters,
+                entity_name=entity_name,
+                entity_key=entity_key
+            )
+            
+            execution_time = time.time() - start_time
+            
+            # Format response
+            response = {
+                "success": True,
+                "actionName": action_name,
+                "result": result,
+                "executionTime": round(execution_time, 3),
+                "parameters": parameters,
+                "binding": {
+                    "entityName": entity_name,
+                    "entityKey": entity_key,
+                    "bindingKind": binding_kind
+                } if entity_name or entity_key else None
+            }
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps(response, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Call action failed: {e}")
+            error_response = {
+                "success": False,
+                "error": str(e),
+                "tool": "d365fo_call_action",
+                "actionName": arguments.get("actionName"),
                 "arguments": arguments
             }
             return [TextContent(
