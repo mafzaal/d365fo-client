@@ -78,7 +78,8 @@ def run_tests(test_level: str, specific_test: str = None, verbose: bool = False,
             # Include all mock-compatible test files
             cmd.extend([
                 str(test_dir / 'test_mock_server.py'),
-                str(test_dir / 'test_crud_comprehensive.py')
+                str(test_dir / 'test_crud_comprehensive.py'),
+                str(test_dir / 'test_cli_integration.py')
             ])
         elif test_level == 'sandbox':
             cmd.append(str(test_dir / 'test_sandbox.py'))
