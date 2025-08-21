@@ -75,7 +75,11 @@ def run_tests(test_level: str, specific_test: str = None, verbose: bool = False,
     else:
         # Filter tests based on level to avoid running incompatible tests
         if test_level == 'mock':
-            cmd.append(str(test_dir / 'test_mock_server.py'))
+            # Include all mock-compatible test files
+            cmd.extend([
+                str(test_dir / 'test_mock_server.py'),
+                str(test_dir / 'test_crud_comprehensive.py')
+            ])
         elif test_level == 'sandbox':
             cmd.append(str(test_dir / 'test_sandbox.py'))
         elif test_level == 'live':
