@@ -147,12 +147,14 @@ class D365MockServer:
         # OData endpoints
         self.app.router.add_get('/data', self.handle_data_root)
         self.app.router.add_get('/data/$metadata', self.handle_metadata)
-        self.app.router.add_get('/data/{entity}', self.handle_entity_collection)
+        # Add entity by key routes BEFORE entity collection to ensure proper matching
         self.app.router.add_get('/data/{entity}({key})', self.handle_entity_by_key)
-        self.app.router.add_post('/data/{entity}', self.handle_entity_create)
         self.app.router.add_patch('/data/{entity}({key})', self.handle_entity_update)
         self.app.router.add_put('/data/{entity}({key})', self.handle_entity_update)
         self.app.router.add_delete('/data/{entity}({key})', self.handle_entity_delete)
+        # Entity collection route must come AFTER entity by key to avoid conflicts
+        self.app.router.add_get('/data/{entity}', self.handle_entity_collection)
+        self.app.router.add_post('/data/{entity}', self.handle_entity_create)
         
         # Action endpoints
         self.app.router.add_post('/data/{entity}/Microsoft.Dynamics.DataEntities.{action}', self.handle_bound_action)
@@ -168,6 +170,8 @@ class D365MockServer:
         
         # Label endpoints
         self.app.router.add_get('/Metadata/Labels', self.handle_labels)
+        # Add specific label lookup endpoints
+        self.app.router.add_get('/Metadata/Labels(Id={label_id},Language={language})', self.handle_label_by_id)
 
     async def start(self):
         """Start the mock server."""
@@ -480,3 +484,18 @@ class D365MockServer:
                 for lid, text in self.labels.items()
             ]
         })
+    
+    async def handle_label_by_id(self, request: Request) -> Response:
+        """Handle GET /Metadata/Labels(Id='{label_id}',Language='{language}')."""
+        label_id = request.match_info['label_id'].strip("'")
+        language = request.match_info['language'].strip("'")
+        
+        if label_id in self.labels:
+            return web.json_response({
+                '@odata.context': f'http://localhost:{self.port}/Metadata/$metadata#Labels/$entity',
+                'LabelId': label_id,
+                'Value': self.labels[label_id],  # Client expects 'Value' not 'Text'
+                'Language': language
+            })
+        else:
+            return web.json_response({'error': {'message': f'Label {label_id} not found'}}, status=404)

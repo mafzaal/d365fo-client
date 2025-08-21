@@ -193,7 +193,7 @@ class TestMetadataApiMockServer:
         # Check entity structure
         entity = entities[0]
         assert hasattr(entity, 'name')
-        assert hasattr(entity, 'entity_set_name')
+        assert hasattr(entity, 'public_collection_name')
         assert entity.name == 'Customers'
     
     @pytest.mark.asyncio
@@ -219,10 +219,10 @@ class TestMetadataApiMockServer:
         assert entity_info is not None
         assert entity_info.name == 'Customers'
         assert entity_info.entity_set_name == 'Customers'
-        assert len(entity_info.enhanced_properties) > 0
+        assert len(entity_info.properties) > 0
         
         # Check property structure
-        prop = entity_info.enhanced_properties[0]
+        prop = entity_info.properties[0]
         assert hasattr(prop, 'name')
         assert hasattr(prop, 'type_name')
         assert hasattr(prop, 'is_key')
