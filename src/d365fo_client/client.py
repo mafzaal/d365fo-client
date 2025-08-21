@@ -300,7 +300,7 @@ class FOClient:
         """
         return await self.get_public_entity_info(entity_name, use_cache_first=use_cache_first)
     
-    async def search_actions(self, pattern: str = "", use_cache_first: Optional[bool] = None) -> List[str]:
+    async def search_actions(self, pattern: str = "", use_cache_first: Optional[bool] = True) -> List[str]:
         """Search actions by name pattern with cache-first approach
         
         Note: Actions are not directly searchable in the new metadata system as they

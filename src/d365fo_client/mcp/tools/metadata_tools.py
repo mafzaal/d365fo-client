@@ -42,37 +42,37 @@ class MetadataTools:
         """Get search entities tool definition."""
         return Tool(
             name="d365fo_search_entities",
-            description="Search for entities by name or pattern",
+            description="Search for D365 F&O data entities by name, pattern, or properties. Use this to discover available entities for data operations.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "Search pattern for entity names"
+                        "description": "Regex pattern to search for in entity names. Use this for broad or partial name searches."
                     },
                     "entity_category": {
                         "type": "string",
-                        "description": "Filter by entity category",
+                        "description": "Filter entities by their functional category (e.g., Master, Transaction).",
                         "enum": ["Master", "Document", "Transaction", "Reference", "Parameter"]
                     },
                     "data_service_enabled": {
                         "type": "boolean",
-                        "description": "Filter by data service enabled"
+                        "description": "Filter entities that are enabled for OData API access (e.g., for querying)."
                     },
                     "data_management_enabled": {
                         "type": "boolean",
-                        "description": "Filter by data management enabled"
+                        "description": "Filter entities that can be used with the Data Management Framework (DMF)."
                     },
                     "is_read_only": {
                         "type": "boolean",
-                        "description": "Filter by read-only status"
+                        "description": "Filter entities based on whether they are read-only or support write operations."
                     },
                     "limit": {
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 500,
                         "default": 100,
-                        "description": "Maximum number of results"
+                        "description": "Maximum number of matching entities to return."
                     }
                 },
                 "required": ["pattern"]
@@ -83,28 +83,28 @@ class MetadataTools:
         """Get entity schema tool definition."""
         return Tool(
             name="d365fo_get_entity_schema",
-            description="Get detailed schema information for a specific entity",
+            description="Get the detailed schema for a specific D365 F&O data entity, including properties, keys, and available actions.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "entityName": {
                         "type": "string",
-                        "description": "Public name of the entity"
+                        "description": "The public name of the entity (e.g., 'CustomersV3')."
                     },
                     "include_properties": {
                         "type": "boolean",
                         "default": True,
-                        "description": "Include property details"
+                        "description": "Set to true to include detailed information about each property (field) in the entity."
                     },
                     "resolve_labels": {
                         "type": "boolean",
                         "default": True,
-                        "description": "Resolve label texts"
+                        "description": "Set to true to resolve and include human-readable labels for the entity and its properties."
                     },
                     "language": {
                         "type": "string",
                         "default": "en-US",
-                        "description": "Language for label resolution"
+                        "description": "The language to use for resolving labels (e.g., 'en-US', 'fr-FR')."
                     }
                 },
                 "required": ["entityName"]
@@ -115,28 +115,28 @@ class MetadataTools:
         """Get search actions tool definition."""
         return Tool(
             name="d365fo_search_actions",
-            description="Search for available OData actions",
+            description="Search for available OData actions in D365 F&O. Actions are operations that can be performed on entities or globally.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "Search pattern for action names"
+                        "description": "Regex pattern to search for in action names."
                     },
                     "entityName": {
                         "type": "string",
-                        "description": "Filter by entity name"
+                        "description": "Optional. Filter actions that are bound to a specific data entity."
                     },
                     "isFunction": {
                         "type": "boolean",
-                        "description": "Filter by function vs action"
+                        "description": "Optional. Filter by type: 'true' for functions (read-only), 'false' for actions (may have side-effects)."
                     },
                     "limit": {
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 500,
                         "default": 100,
-                        "description": "Maximum number of results"
+                        "description": "Maximum number of matching actions to return."
                     }
                 },
                 "required": ["pattern"]
@@ -147,20 +147,20 @@ class MetadataTools:
         """Get search enumerations tool definition."""
         return Tool(
             name="d365fo_search_enumerations",
-            description="Search for enumerations by name or pattern",
+            description="Search for enumerations (enums) in D365 F&O. Enums represent a list of named constants (e.g., NoYes, CustVendorBlocked).",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "Search pattern for enumeration names (regex supported)"
+                        "description": "Regex pattern to search for in enumeration names (e.g., '.*Status.*')."
                     },
                     "limit": {
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 500,
                         "default": 100,
-                        "description": "Maximum number of results"
+                        "description": "Maximum number of matching enumerations to return."
                     }
                 },
                 "required": ["pattern"]
@@ -171,23 +171,23 @@ class MetadataTools:
         """Get enumeration fields tool definition."""
         return Tool(
             name="d365fo_get_enumeration_fields",
-            description="Get detailed field information for a specific enumeration including all members and their values",
+            description="Get the detailed members (fields) and their values for a specific D365 F&O enumeration.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "enumeration_name": {
                         "type": "string",
-                        "description": "Name of the enumeration"
+                        "description": "The exact name of the enumeration (e.g., 'NoYes', 'CustVendorBlocked')."
                     },
                     "resolve_labels": {
                         "type": "boolean",
                         "default": True,
-                        "description": "Resolve label texts for enumeration and members"
+                        "description": "Set to true to resolve and include human-readable labels for the enumeration and its members."
                     },
                     "language": {
                         "type": "string",
                         "default": "en-US",
-                        "description": "Language for label resolution"
+                        "description": "The language to use for resolving labels (e.g., 'en-US', 'fr-FR')."
                     }
                 },
                 "required": ["enumeration_name"]
@@ -225,8 +225,11 @@ class MetadataTools:
                 entity_dicts.append(entity_dict)
 
             # Apply limit
-            limit = arguments.get("limit", 100)
-            filtered_entities = entity_dicts[:limit]
+            limit = arguments.get("limit")
+            filtered_entities = entity_dicts
+            if limit is not None:
+                filtered_entities = entity_dicts[:limit]
+            
             search_time = time.time() - start_time
             
             response = {
@@ -386,8 +389,9 @@ class MetadataTools:
                 enum_dicts.append(enum_dict)
             
             # Apply limit
-            limit = arguments.get("limit", 100)
-            filtered_enums = enum_dicts[:limit]
+            limit = arguments.get("limit")
+
+            filtered_enums = enum_dicts if limit is None else enum_dicts[:limit]
             search_time = time.time() - start_time
             
             response = {
