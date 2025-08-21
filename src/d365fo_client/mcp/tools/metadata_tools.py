@@ -33,44 +33,46 @@ class MetadataTools:
         return [
             self._get_search_entities_tool(),
             self._get_entity_schema_tool(),
-            self._get_search_actions_tool()
+            self._get_search_actions_tool(),
+            self._get_search_enumerations_tool(),
+            self._get_enumeration_fields_tool()
         ]
     
     def _get_search_entities_tool(self) -> Tool:
         """Get search entities tool definition."""
         return Tool(
             name="d365fo_search_entities",
-            description="Search for entities by name or pattern",
+            description="Search for D365 F&O data entities by name, pattern, or properties. Use this to discover available entities for data operations.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "Search pattern for entity names"
+                        "description": "Regex pattern to search for in entity names. Use this for broad or partial name searches."
                     },
                     "entity_category": {
                         "type": "string",
-                        "description": "Filter by entity category",
+                        "description": "Filter entities by their functional category (e.g., Master, Transaction).",
                         "enum": ["Master", "Document", "Transaction", "Reference", "Parameter"]
                     },
                     "data_service_enabled": {
                         "type": "boolean",
-                        "description": "Filter by data service enabled"
+                        "description": "Filter entities that are enabled for OData API access (e.g., for querying)."
                     },
                     "data_management_enabled": {
                         "type": "boolean",
-                        "description": "Filter by data management enabled"
+                        "description": "Filter entities that can be used with the Data Management Framework (DMF)."
                     },
                     "is_read_only": {
                         "type": "boolean",
-                        "description": "Filter by read-only status"
+                        "description": "Filter entities based on whether they are read-only or support write operations."
                     },
                     "limit": {
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 500,
                         "default": 100,
-                        "description": "Maximum number of results"
+                        "description": "Maximum number of matching entities to return."
                     }
                 },
                 "required": ["pattern"]
@@ -81,28 +83,28 @@ class MetadataTools:
         """Get entity schema tool definition."""
         return Tool(
             name="d365fo_get_entity_schema",
-            description="Get detailed schema information for a specific entity",
+            description="Get the detailed schema for a specific D365 F&O data entity, including properties, keys, and available actions.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "entityName": {
                         "type": "string",
-                        "description": "Public name of the entity"
+                        "description": "The public name of the entity (e.g., 'CustomersV3')."
                     },
                     "include_properties": {
                         "type": "boolean",
                         "default": True,
-                        "description": "Include property details"
+                        "description": "Set to true to include detailed information about each property (field) in the entity."
                     },
                     "resolve_labels": {
                         "type": "boolean",
                         "default": True,
-                        "description": "Resolve label texts"
+                        "description": "Set to true to resolve and include human-readable labels for the entity and its properties."
                     },
                     "language": {
                         "type": "string",
                         "default": "en-US",
-                        "description": "Language for label resolution"
+                        "description": "The language to use for resolving labels (e.g., 'en-US', 'fr-FR')."
                     }
                 },
                 "required": ["entityName"]
@@ -113,31 +115,87 @@ class MetadataTools:
         """Get search actions tool definition."""
         return Tool(
             name="d365fo_search_actions",
-            description="Search for available OData actions",
+            description="Search for available OData actions in D365 F&O. Actions are operations that can be performed on entities or globally. Returns full action details including binding information for calling actions.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "Search pattern for action names"
+                        "description": "Regex pattern to search for in action names. Use this for broad or partial name searches."
                     },
                     "entityName": {
                         "type": "string",
-                        "description": "Filter by entity name"
+                        "description": "Optional. Filter actions that are bound to a specific data entity (e.g., 'CustomersV3')."
+                    },
+                    "bindingKind": {
+                        "type": "string",
+                        "description": "Optional. Filter by binding type.",
+                        "enum": ["Unbound", "BoundToEntitySet", "BoundToEntityInstance"]
                     },
                     "isFunction": {
                         "type": "boolean",
-                        "description": "Filter by function vs action"
+                        "description": "Optional. Filter by type: 'true' for functions (read-only), 'false' for actions (may have side-effects). Note: This filter may not be fully supported yet."
                     },
                     "limit": {
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 500,
                         "default": 100,
-                        "description": "Maximum number of results"
+                        "description": "Maximum number of matching actions to return."
                     }
                 },
                 "required": ["pattern"]
+            }
+        )
+    
+    def _get_search_enumerations_tool(self) -> Tool:
+        """Get search enumerations tool definition."""
+        return Tool(
+            name="d365fo_search_enumerations",
+            description="Search for enumerations (enums) in D365 F&O. Enums represent a list of named constants (e.g., NoYes, CustVendorBlocked).",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "pattern": {
+                        "type": "string",
+                        "description": "Regex pattern to search for in enumeration names (e.g., '.*Status.*')."
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 500,
+                        "default": 100,
+                        "description": "Maximum number of matching enumerations to return."
+                    }
+                },
+                "required": ["pattern"]
+            }
+        )
+    
+    def _get_enumeration_fields_tool(self) -> Tool:
+        """Get enumeration fields tool definition."""
+        return Tool(
+            name="d365fo_get_enumeration_fields",
+            description="Get the detailed members (fields) and their values for a specific D365 F&O enumeration.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "enumeration_name": {
+                        "type": "string",
+                        "description": "The exact name of the enumeration (e.g., 'NoYes', 'CustVendorBlocked')."
+                    },
+                    "resolve_labels": {
+                        "type": "boolean",
+                        "default": True,
+                        "description": "Set to true to resolve and include human-readable labels for the enumeration and its members."
+                    },
+                    "language": {
+                        "type": "string",
+                        "default": "en-US",
+                        "description": "The language to use for resolving labels (e.g., 'en-US', 'fr-FR')."
+                    }
+                },
+                "required": ["enumeration_name"]
             }
         )
     
@@ -172,8 +230,11 @@ class MetadataTools:
                 entity_dicts.append(entity_dict)
 
             # Apply limit
-            limit = arguments.get("limit", 100)
-            filtered_entities = entity_dicts[:limit]
+            limit = arguments.get("limit")
+            filtered_entities = entity_dicts
+            if limit is not None:
+                filtered_entities = entity_dicts[:limit]
+            
             search_time = time.time() - start_time
             
             response = {
@@ -257,36 +318,63 @@ class MetadataTools:
             List of TextContent responses
         """
         try:
-            client = await self.client_manager.get_client()
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
             
             start_time = time.time()
-            actions = await client.search_actions(arguments["pattern"])
+            
+            # Extract search parameters
+            pattern = arguments["pattern"]
+            entity_name = arguments.get("entityName")
+            binding_kind = arguments.get("bindingKind")
+            
+            # Search actions with full details
+            actions = await client.search_actions(
+                pattern=pattern,
+                entity_name=entity_name,
+                binding_kind=binding_kind
+            )
             
             # Apply limit
-            limit = arguments.get("limit", 100)
-            filtered_actions = actions[:limit]
+            limit = arguments.get("limit")
+            filtered_actions = actions[:limit] if limit is not None else actions
             
-            # Get detailed info for actions
+            # Convert ActionInfo objects to dictionaries for JSON serialization
             detailed_actions = []
-            for action_name in filtered_actions:
-                action_info = await client.get_action_info(action_name)
-                if action_info:
-                    detailed_actions.append({
-                        "name": action_info.name,
-                        "isFunction": getattr(action_info, 'is_function', False),
-                        "isBound": getattr(action_info, 'is_bound', False),
-                        "parameterCount": len(getattr(action_info, 'parameters', [])),
-                        "returnType": getattr(action_info, 'return_type', 'void')
-                    })
+            for action in filtered_actions:
+                action_dict = action.to_dict()
+                
+                # Add additional metadata for better usability
+                action_dict.update({
+                    "parameter_count": len(action.parameters),
+                    "has_return_value": action.return_type is not None,
+                    "return_type_name": action.return_type.type_name if action.return_type else None,
+                    "is_bound": action.binding_kind != "Unbound",
+                    "can_call_directly": action.binding_kind == "Unbound",
+                    "requires_entity_key": action.binding_kind == "BoundToEntityInstance"
+                })
+                
+                detailed_actions.append(action_dict)
             
             search_time = time.time() - start_time
             
             response = {
                 "actions": detailed_actions,
-                "totalCount": len(actions),
-                "searchTime": round(search_time, 3),
-                "pattern": arguments["pattern"],
-                "limit": limit
+                "total_count": len(actions),
+                "returned_count": len(filtered_actions),
+                "search_time": round(search_time, 3),
+                "search_parameters": {
+                    "pattern": pattern,
+                    "entity_name": entity_name,
+                    "binding_kind": binding_kind,
+                    "limit": limit
+                },
+                "summary": {
+                    "unbound_actions": len([a for a in filtered_actions if a.binding_kind == "Unbound"]),
+                    "entity_set_bound": len([a for a in filtered_actions if a.binding_kind == "BoundToEntitySet"]),
+                    "entity_instance_bound": len([a for a in filtered_actions if a.binding_kind == "BoundToEntityInstance"]),
+                    "unique_entities": len(set(a.entity_name for a in filtered_actions if a.entity_name))
+                }
             }
             
             return [TextContent(
@@ -299,6 +387,118 @@ class MetadataTools:
             error_response = {
                 "error": str(e),
                 "tool": "d365fo_search_actions", 
+                "arguments": arguments
+            }
+            return [TextContent(
+                type="text",
+                text=json.dumps(error_response, indent=2)
+            )]
+    
+    async def execute_search_enumerations(self, arguments: dict) -> List[TextContent]:
+        """Execute search enumerations tool.
+        
+        Args:
+            arguments: Tool arguments
+            
+        Returns:
+            List of TextContent responses
+        """
+        try:
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
+            
+            start_time = time.time()
+            
+            # Search for enumerations using the pattern
+            enumerations = await client.search_public_enumerations(
+                pattern=arguments["pattern"]
+            )
+            
+            # Convert EnumerationInfo objects to dictionaries for JSON serialization
+            enum_dicts = []
+            for enum in enumerations:
+                enum_dict = enum.to_dict()
+                enum_dicts.append(enum_dict)
+            
+            # Apply limit
+            limit = arguments.get("limit")
+
+            filtered_enums = enum_dicts if limit is None else enum_dicts[:limit]
+            search_time = time.time() - start_time
+            
+            response = {
+                "enumerations": filtered_enums,
+                "totalCount": len(enumerations),
+                "searchTime": round(search_time, 3),
+                "pattern": arguments["pattern"],
+                "limit": limit
+            }
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps(response, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Search enumerations failed: {e}")
+            error_response = {
+                "error": str(e),
+                "tool": "d365fo_search_enumerations",
+                "arguments": arguments
+            }
+            return [TextContent(
+                type="text",
+                text=json.dumps(error_response, indent=2)
+            )]
+    
+    async def execute_get_enumeration_fields(self, arguments: dict) -> List[TextContent]:
+        """Execute get enumeration fields tool.
+        
+        Args:
+            arguments: Tool arguments
+            
+        Returns:
+            List of TextContent responses
+        """
+        try:
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
+            
+            enumeration_name = arguments["enumeration_name"]
+            resolve_labels = arguments.get("resolve_labels", True)
+            language = arguments.get("language", "en-US")
+            
+            # Get detailed enumeration information
+            enum_info = await client.get_public_enumeration_info(
+                enumeration_name=enumeration_name,
+                resolve_labels=resolve_labels,
+                language=language
+            )
+            
+            if not enum_info:
+                raise ValueError(f"Enumeration not found: {enumeration_name}")
+            
+            # Convert to dictionary for JSON serialization
+            enum_dict = enum_info.to_dict()
+            
+            # Add additional metadata
+            response = {
+                "enumeration": enum_dict,
+                "memberCount": len(enum_info.members),
+                "hasLabels": bool(enum_info.label_text),
+                "language": language if resolve_labels else None
+            }
+            
+            return [TextContent(
+                type="text",
+                text=json.dumps(response, indent=2)
+            )]
+            
+        except Exception as e:
+            logger.error(f"Get enumeration fields failed: {e}")
+            error_response = {
+                "error": str(e),
+                "tool": "d365fo_get_enumeration_fields",
                 "arguments": arguments
             }
             return [TextContent(

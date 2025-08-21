@@ -13,6 +13,8 @@ if "%1"=="lint-fix" goto lint-fix
 if "%1"=="type-check" goto type-check
 if "%1"=="quality-check" goto quality-check
 if "%1"=="test" goto test
+if "%1"=="test-unit" goto test-unit
+if "%1"=="test-integration" goto test-integration
 if "%1"=="test-verbose" goto test-verbose
 if "%1"=="test-coverage" goto test-coverage
 if "%1"=="clean" goto clean
@@ -47,6 +49,8 @@ echo   lint-fix           Run linting with automatic fixes
 echo   type-check         Run type checking with mypy
 echo   quality-check      Run all code quality checks
 echo   test               Run tests
+echo   test-unit          Run unit tests only
+echo   test-integration   Run integration tests only
 echo   test-verbose       Run tests with verbose output
 echo   test-coverage      Run tests with coverage report
 echo   clean              Clean build artifacts
@@ -113,6 +117,14 @@ goto end
 
 :test
 uv run pytest
+goto end
+
+:test-unit
+uv run pytest tests/unit
+goto end
+
+:test-integration
+uv run pytest tests/integration
 goto end
 
 :test-verbose

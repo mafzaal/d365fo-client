@@ -288,7 +288,7 @@ class FOClient:
             use_cache_first=use_cache_first or self.config.use_cache_first
         )
     
-    async def get_entity_info(self, entity_name: str, use_cache_first: Optional[bool] = None) -> Optional[EntityInfo]:
+    async def get_entity_info(self, entity_name: str, use_cache_first: Optional[bool] = True) -> Optional[PublicEntityInfo]:
         """Get detailed entity information with cache-first approach
         
         Args:
@@ -296,79 +296,29 @@ class FOClient:
             use_cache_first: Override config setting for cache-first behavior
             
         Returns:
-            EntityInfo object or None if not found
+            PublicEntityInfo object or None if not found
         """
-        async def cache_lookup():
-            if self.metadata_cache:
-                # Try to get entity from cache (public entity first, then data entity)
-                entity = await self.metadata_cache.get_entity(entity_name, "public")
-                if not entity:
-                    entity = await self.metadata_cache.get_entity(entity_name, "data")
-                
-                if entity:
-                    # Convert to EntityInfo format for backward compatibility
-                    return EntityInfo(
-                        name=entity.name,
-                        keys=[prop.name for prop in getattr(entity, 'properties', []) if getattr(prop, 'is_key', False)],
-                        properties=[{
-                            'name': prop.name,
-                            'type': getattr(prop, 'type_name', ''),
-                            'nullable': 'true' if not getattr(prop, 'is_mandatory', False) else 'false'
-                        } for prop in getattr(entity, 'properties', [])],
-                        actions=[]  # Actions are handled separately in new system
-                    )
-            return None
-            
-        async def fallback_lookup():
-            # Use metadata API operations as fallback
-            public_entity = await self.metadata_api_ops.get_public_entity_info(entity_name, resolve_labels=False)
-            if public_entity:
-                return EntityInfo(
-                    name=public_entity.name,
-                    keys=[prop.name for prop in public_entity.properties if prop.is_key],
-                    properties=[{
-                        'name': prop.name,
-                        'type': prop.type_name,
-                        'nullable': 'true' if not prop.is_mandatory else 'false'
-                    } for prop in public_entity.properties],
-                    actions=[]
-                )
-            
-            # Try data entity if public entity not found
-            data_entity = await self.metadata_api_ops.get_data_entity_info(entity_name, resolve_labels=False)
-            if data_entity:
-                return EntityInfo(
-                    name=data_entity.name,
-                    keys=[],  # Data entities don't have key info in the same way
-                    properties=[],  # Data entities have different property structure
-                    actions=[]
-                )
-            
-            return None
-        
-        return await self._get_from_cache_first(
-            cache_lookup, fallback_lookup,
-            use_cache_first=use_cache_first
-        )
+        return await self.get_public_entity_info(entity_name, use_cache_first=use_cache_first)
     
-    async def search_actions(self, pattern: str = "", use_cache_first: Optional[bool] = None) -> List[str]:
-        """Search actions by name pattern with cache-first approach
-        
-        Note: Actions are not directly searchable in the new metadata system as they
-        are embedded within entity information. This method provides limited functionality
-        for backward compatibility.
+    async def search_actions(self, pattern: str = "", entity_name: Optional[str] = None,
+                           binding_kind: Optional[str] = None, use_cache_first: Optional[bool] = True) -> List[ActionInfo]:
+        """Search actions by name pattern and/or entity with cache-first approach
         
         Args:
-            pattern: Search pattern (regex supported)
+            pattern: Search pattern for action name (regex supported)
+            entity_name: Filter actions that are bound to a specific entity
+            binding_kind: Filter by binding type (Unbound, BoundToEntitySet, BoundToEntityInstance)
             use_cache_first: Override config setting for cache-first behavior
             
         Returns:
-            List of matching action names (limited functionality)
+            List of matching ActionInfo objects with full details
         """
+        await self._ensure_metadata_initialized()
+
         async def cache_search():
-            # Actions are not directly searchable in new cache system
-            # They are embedded in entity information
-            return []
+            if not self._metadata_initialized:
+                return []
+            return await self.metadata_cache.search_actions(pattern, entity_name, binding_kind)
             
         async def fallback_search():
             # Actions are not directly available through metadata API
@@ -376,29 +326,29 @@ class FOClient:
             # Return empty list for backward compatibility
             return []
         
-        return await self._get_from_cache_first(
+        actions = await self._get_from_cache_first(
             cache_search, fallback_search,
-            use_cache_first=use_cache_first
+            use_cache_first=use_cache_first or self.config.use_cache_first
         )
+
+        return await resolve_labels_generic(actions,self.label_ops)
     
-    async def get_action_info(self, action_name: str, use_cache_first: Optional[bool] = None) -> Optional[ActionInfo]:
+    async def get_action_info(self, action_name: str, entity_name: Optional[str] = None,
+                            use_cache_first: Optional[bool] = None) -> Optional[ActionInfo]:
         """Get detailed action information with cache-first approach
-        
-        Note: Actions are not directly accessible in the new metadata system as they
-        are embedded within entity information. This method provides limited functionality
-        for backward compatibility.
         
         Args:
             action_name: Name of the action
+            entity_name: Optional entity name for bound actions
             use_cache_first: Override config setting for cache-first behavior
             
         Returns:
-            ActionInfo object or None if not found (limited functionality)
+            ActionInfo object or None if not found
         """
         async def cache_lookup():
-            # Actions are not directly accessible in new cache system
-            # They are embedded in entity information
-            return None
+            if not self._metadata_initialized:
+                return None
+            return await self.metadata_cache.get_action_info(action_name, entity_name)
             
         async def fallback_lookup():
             # Actions are not directly available through metadata API
@@ -756,7 +706,7 @@ class FOClient:
         """
         return await self.metadata_api_ops.get_all_public_entities_with_details(resolve_labels, language)
     
-    async def get_public_enumerations(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
+    async def get_public_enumerations(self, options: Optional[QueryOptions] = None) -> List[EnumerationInfo]:
         """Get public enumerations from PublicEnumerations metadata endpoint
         
         Args:
@@ -765,9 +715,11 @@ class FOClient:
         Returns:
             Response containing public enumerations
         """
+        self._ensure_metadata_initialized()
+
         return await self.metadata_api_ops.get_public_enumerations(options)
     
-    async def search_public_enumerations(self, pattern: str = "", use_cache_first: Optional[bool] = None) -> List[EnumerationInfo]:
+    async def search_public_enumerations(self, pattern: str = "", use_cache_first: Optional[bool] = True) -> List[EnumerationInfo]:
         """Search public enumerations with filtering and cache-first approach
         
         Args:
@@ -778,20 +730,22 @@ class FOClient:
             List of matching enumerations (without detailed members)
         """
         async def cache_search():
-            if self.metadata_cache and hasattr(self.metadata_cache, 'search_public_enumerations'):
+            if self.metadata_cache:
                 return await self.metadata_cache.search_public_enumerations(pattern)
             return []
             
         async def fallback_search():
             return await self.metadata_api_ops.search_public_enumerations(pattern)
         
-        return await self._get_from_cache_first(
+        enums = await self._get_from_cache_first(
             cache_search, fallback_search,
-            use_cache_first=use_cache_first
+            use_cache_first=use_cache_first or self.config.use_cache_first
         )
+
+        return await resolve_labels_generic(enums,self.label_ops) 
     
     async def get_public_enumeration_info(self, enumeration_name: str, resolve_labels: bool = True,
-                                        language: str = "en-US", use_cache_first: Optional[bool] = None) -> Optional[EnumerationInfo]:
+                                        language: str = "en-US", use_cache_first: Optional[bool] = True) -> Optional[EnumerationInfo]:
         """Get detailed information about a specific public enumeration with cache-first approach
         
         Args:
@@ -811,10 +765,11 @@ class FOClient:
         async def fallback_lookup():
             return await self.metadata_api_ops.get_public_enumeration_info(enumeration_name, resolve_labels, language)
         
-        return await self._get_from_cache_first(
+        enum =  await self._get_from_cache_first(
             cache_lookup, fallback_lookup,
-            use_cache_first=use_cache_first
+            use_cache_first=use_cache_first or self.config.use_cache_first
         )
+        return await resolve_labels_generic(enum, self.label_ops) if enum else None
     
     async def get_all_public_enumerations_with_details(self, resolve_labels: bool = False, 
                                                      language: str = "en-US") -> List[EnumerationInfo]:
@@ -988,6 +943,164 @@ class FOClient:
                 
         except Exception as e:
             raise FOClientError(f"Failed to get application build version: {e}")
+
+    async def query_data_management_entities(self, 
+                                           category_filters: Optional[List[int]] = None,
+                                           config_key_filters: Optional[List[str]] = None,
+                                           country_region_code_filters: Optional[List[str]] = None,
+                                           is_shared_filters: Optional[List[int]] = None,
+                                           module_filters: Optional[List[str]] = None,
+                                           tag_filters: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """Query data management entities using the OData query action
+        
+        This method calls the 'query' action bound to the DataManagementEntities
+        collection to retrieve filtered data management entities based on various criteria.
+        
+        Args:
+            category_filters: Filter by entity category IDs (integers - e.g., [0, 1, 2])
+                             0=Master, 1=Configuration, 2=Transaction, 3=Reference, 4=Document, 5=Parameters
+            config_key_filters: Filter by configuration keys (strings)
+            country_region_code_filters: Filter by country/region codes (strings)
+            is_shared_filters: Filter by shared status (integers - 0=No, 1=Yes)
+            module_filters: Filter by module names (strings)
+            tag_filters: Filter by tags (strings)
+            
+        Returns:
+            List[Dict[str, Any]]: List of data management entity information
+            
+        Raises:
+            FOClientError: If the action call fails
+            
+        Note:
+            All parameters must be passed as arrays/lists since they are collection parameters in the OData action.
+            The categoryFilters and isSharedFilters parameters expect integers, while other filters expect strings.
+            To query all entities, use empty lists [] for required parameters or omit optional ones.
+            
+            Category enum values:
+            - 0 = Master
+            - 1 = Configuration  
+            - 2 = Transaction
+            - 3 = Reference
+            - 4 = Document
+            - 5 = Parameters
+            
+            IsShared enum values:
+            - 0 = No
+            - 1 = Yes
+        """
+        try:
+            # Prepare parameters for the query action
+            # All parameters are collections (arrays) as per the OData action definition
+            parameters = {}
+            
+            # Required parameters with default empty arrays if not provided
+            parameters['categoryFilters'] = category_filters if category_filters is not None else []
+            parameters['isSharedFilters'] = is_shared_filters if is_shared_filters is not None else []
+            
+            # Optional collection parameters
+            if config_key_filters is not None:
+                parameters['configKeyFilters'] = config_key_filters
+            else:
+                parameters['configKeyFilters'] = []
+                
+            if country_region_code_filters is not None:
+                parameters['countryRegionCodeFilters'] = country_region_code_filters
+            else:
+                parameters['countryRegionCodeFilters'] = []
+                
+            if module_filters is not None:
+                parameters['moduleFilters'] = module_filters
+            else:
+                parameters['moduleFilters'] = []
+                
+            if tag_filters is not None:
+                parameters['tagFilters'] = tag_filters
+            else:
+                parameters['tagFilters'] = []
+            
+            # Call the query action bound to DataManagementEntities
+            result = await self.call_action(
+                "query",
+                parameters=parameters,
+                entity_name="DataManagementEntities"
+            )
+            
+            # The action returns a collection of DataManagementEntity objects
+            if isinstance(result, dict):
+                if 'value' in result:
+                    # Standard OData response format
+                    return result['value']
+                elif '@odata.context' in result:
+                    # Response might be the entities directly
+                    entities = []
+                    for key, value in result.items():
+                        if not key.startswith('@'):
+                            entities.append(value)
+                    return entities
+                else:
+                    # Response is the result directly
+                    return [result] if result else []
+            elif isinstance(result, list):
+                # Direct list of entities
+                return result
+            else:
+                # Unexpected format, return empty list
+                self.logger.warning(f"Unexpected query response format: {type(result)}")
+                return []
+                
+        except Exception as e:
+            raise FOClientError(f"Failed to query data management entities: {e}")
+
+    async def query_data_management_entities_by_category(self, 
+                                                       categories: List[str],
+                                                       is_shared: Optional[bool] = None,
+                                                       modules: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """Query data management entities by category names (convenience method)
+        
+        This is a convenience method that converts category names to their integer enum values
+        and calls the main query_data_management_entities method.
+        
+        Args:
+            categories: List of category names (e.g., ['Master', 'Transaction'])
+                       Valid values: Master, Configuration, Transaction, Reference, Document, Parameters
+            is_shared: Optional boolean filter for shared status (True/False)
+            modules: Optional list of module names to filter by
+            
+        Returns:
+            List[Dict[str, Any]]: List of data management entity information
+            
+        Raises:
+            FOClientError: If the action call fails
+            ValueError: If invalid category names are provided
+        """
+        # Mapping of category names to enum values
+        category_map = {
+            'Master': 0,
+            'Configuration': 1,
+            'Transaction': 2,
+            'Reference': 3,
+            'Document': 4,
+            'Parameters': 5
+        }
+        
+        # Convert category names to enum values
+        category_filters = []
+        for category in categories:
+            if category not in category_map:
+                raise ValueError(f"Invalid category '{category}'. Valid categories: {list(category_map.keys())}")
+            category_filters.append(category_map[category])
+        
+        # Convert is_shared boolean to enum value
+        is_shared_filters = None
+        if is_shared is not None:
+            is_shared_filters = [1 if is_shared else 0]
+        
+        # Call the main query method with converted values
+        return await self.query_data_management_entities(
+            category_filters=category_filters,
+            is_shared_filters=is_shared_filters,
+            module_filters=modules
+        )
 
 
 # Convenience function for creating client

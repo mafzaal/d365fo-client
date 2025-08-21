@@ -7,13 +7,14 @@ from typing import Dict, List, Any, Optional
 from mcp.server import Server
 from mcp.server import Server, InitializationOptions
 from mcp.server.lowlevel.server import NotificationOptions
-from mcp import Resource, Tool
-from mcp.types import TextContent
+from mcp import Resource, Tool, GetPromptResult
+from mcp.types import TextContent, Prompt, PromptMessage, PromptArgument
 
 from .client_manager import D365FOClientManager
 from .resources import EntityResourceHandler, EnvironmentResourceHandler, MetadataResourceHandler, QueryResourceHandler
 from .tools import ConnectionTools, CrudTools, MetadataTools, LabelTools, ProfileTools
 from .models import MCPServerConfig
+from .prompts import AVAILABLE_PROMPTS
 
 
 logger = logging.getLogger(__name__)
@@ -99,6 +100,71 @@ class D365FOMCPServer:
                 logger.error(f"Error reading resource {uri}: {e}")
                 raise
         
+        # Prompt handlers
+        @self.server.list_prompts()
+        async def handle_list_prompts() -> List[Prompt]:
+            """Handle list prompts request."""
+            try:
+                logger.info("Handling list_prompts request")
+                prompts = []
+                
+                for prompt_name, prompt_config in AVAILABLE_PROMPTS.items():
+                    logger.info(f"Processing prompt: {prompt_name}")
+                    # Convert our prompt config to MCP Prompt format
+                    prompt_args = []
+                    if hasattr(prompt_config.get("arguments"), "__annotations__"):
+                        # Extract arguments from dataclass annotations
+                        annotations = prompt_config["arguments"].__annotations__
+                        for arg_name, arg_type in annotations.items():
+                            prompt_args.append(PromptArgument(
+                                name=arg_name,
+                                description=f"Parameter: {arg_name}",
+                                required=False  # Make all optional for now
+                            ))
+                    
+                    prompt = Prompt(
+                        name=prompt_name,
+                        description=prompt_config["description"],
+                        arguments=prompt_args
+                    )
+                    prompts.append(prompt)
+                
+                logger.info(f"Listed {len(prompts)} prompts")
+                return prompts
+            except Exception as e:
+                logger.error(f"Error listing prompts: {e}")
+                return []
+        
+        @self.server.get_prompt()
+        async def handle_get_prompt(name: str, arguments: Optional[Dict[str, Any]] = None) -> GetPromptResult:
+            """Handle get prompt request."""
+            try:
+                logger.info(f"Handling get_prompt request for: {name}")
+                if name not in AVAILABLE_PROMPTS:
+                    raise ValueError(f"Unknown prompt: {name}")
+                
+                prompt_config = AVAILABLE_PROMPTS[name]
+                template = prompt_config["template"]
+                
+                # For now, return the template as-is
+                # In the future, we could process arguments and customize the template
+                messages = [PromptMessage(
+                    role="user",
+                    content=TextContent(
+                        type="text", 
+                        text=template
+                    )
+                )]
+                
+                logger.info(f"Returning prompt template for: {name}")
+                return GetPromptResult(
+                    description=prompt_config["description"],
+                    messages=messages
+                )
+            except Exception as e:
+                logger.error(f"Error getting prompt {name}: {e}")
+                raise
+        
         # Tool handlers
         @self.server.list_tools()
         async def handle_list_tools() -> List[Tool]:
@@ -157,12 +223,18 @@ class D365FOMCPServer:
                     return await self.crud_tools.execute_update_entity_record(arguments)
                 elif name == "d365fo_delete_entity_record":
                     return await self.crud_tools.execute_delete_entity_record(arguments)
+                elif name == "d365fo_call_action":
+                    return await self.crud_tools.execute_call_action(arguments)
                 elif name == "d365fo_search_entities":
                     return await self.metadata_tools.execute_search_entities(arguments)
                 elif name == "d365fo_get_entity_schema":
                     return await self.metadata_tools.execute_get_entity_schema(arguments)
                 elif name == "d365fo_search_actions":
                     return await self.metadata_tools.execute_search_actions(arguments)
+                elif name == "d365fo_search_enumerations":
+                    return await self.metadata_tools.execute_search_enumerations(arguments)
+                elif name == "d365fo_get_enumeration_fields":
+                    return await self.metadata_tools.execute_get_enumeration_fields(arguments)
                 elif name == "d365fo_get_label":
                     return await self.label_tools.execute_get_label(arguments)
                 elif name == "d365fo_get_labels_batch":

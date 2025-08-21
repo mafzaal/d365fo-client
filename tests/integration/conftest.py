@@ -10,7 +10,7 @@ from .mock_server import D365MockServer
 from . import TEST_ENVIRONMENTS, INTEGRATION_TEST_LEVEL
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="function")
 async def mock_server() -> AsyncGenerator[D365MockServer, None]:
     """Start mock D365 F&O server for testing."""
     server = D365MockServer(port=8000)

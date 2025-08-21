@@ -41,7 +41,7 @@ class TestD365FOClientManager:
         
         # Test default profile
         default_config = manager._build_client_config("default")
-        assert default_config.base_url == "https://default.dynamics.com"
+        assert default_config.base_url == "https://usnconeboxax1aos.cloud.onebox.dynamics.com"
         assert default_config.use_default_credentials is True
         
         # Test specific profile
@@ -198,13 +198,15 @@ class TestMetadataTools:
         tools = MetadataTools(client_manager)
         
         tool_list = tools.get_tools()
-        assert len(tool_list) == 3
+        assert len(tool_list) == 5
         
         tool_names = [tool.name for tool in tool_list]
         expected_tools = [
             "d365fo_search_entities",
             "d365fo_get_entity_schema",
-            "d365fo_search_actions"
+            "d365fo_search_actions",
+            "d365fo_search_enumerations",
+            "d365fo_get_enumeration_fields"
         ]
         
         for expected_tool in expected_tools:

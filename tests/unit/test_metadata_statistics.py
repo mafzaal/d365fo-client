@@ -3,6 +3,7 @@
 
 import asyncio
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -29,7 +30,16 @@ class TestMetadataStatistics(unittest.IsolatedAsyncioTestCase):
     
     async def asyncTearDown(self):
         """Clean up test environment"""
-        self.temp_dir.cleanup()
+        # Add a small delay and retry mechanism for cleanup
+        for i in range(3):
+            try:
+                self.temp_dir.cleanup()
+                break
+            except PermissionError:
+                if i < 2:
+                    time.sleep(0.1) # Wait a bit before retrying
+                else:
+                    raise
     
     async def test_empty_database_statistics(self):
         """Test statistics on empty database"""

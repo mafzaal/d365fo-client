@@ -201,7 +201,7 @@ class PublicEntityActionInfo:
     binding_kind: ODataBindingKind
     parameters: List[ActionParameterInfo] = None
     return_type: Optional[ActionReturnTypeInfo] = None
-    field_lookup: Optional[Any] = None
+    field_lookup: Optional[str] = None
     
     def __post_init__(self):
         if self.parameters is None:
@@ -216,16 +216,6 @@ class PublicEntityActionInfo:
             'field_lookup': self.field_lookup
         }
 
-
-@dataclass
-class ActionInfo:
-    """Action metadata information (legacy/OData metadata)"""
-    name: str
-    is_bound: bool
-    entity_set_path: str
-    parameters: List[Dict[str, Any]]
-    return_type: str
-    annotations: List[Dict[str, Any]]
 
 
 @dataclass
@@ -310,7 +300,7 @@ class PublicEntityInfo:
     properties: List[PublicEntityPropertyInfo] = field(default_factory=list)
     navigation_properties: List['NavigationPropertyInfo'] = field(default_factory=list)
     property_groups: List['PropertyGroupInfo'] = field(default_factory=list)
-    actions: List['ActionInfo'] = field(default_factory=list)
+    actions: List['PublicEntityActionInfo'] = field(default_factory=list)
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -504,10 +494,11 @@ class ActionParameterInfo:
 class ActionInfo:
     """Complete action information with binding support"""
     name: str
-    binding_kind: str = "Unbound"  # BoundToEntityInstance|BoundToEntitySet|Unbound
-    entity_name: Optional[str] = None  # For bound actions
+    binding_kind: ODataBindingKind = ODataBindingKind.BOUND_TO_ENTITY_SET
+    entity_name: Optional[str] = None  # For bound actions (public entity name)
+    entity_set_name: Optional[str] = None  # For bound actions (entity set name for OData URLs)
     parameters: List['ActionParameterInfo'] = field(default_factory=list)
-    return_type: Optional['ActionTypeInfo'] = None
+    return_type: Optional['ActionReturnTypeInfo'] = None
     field_lookup: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
@@ -515,6 +506,7 @@ class ActionInfo:
             'name': self.name,
             'binding_kind': self.binding_kind,
             'entity_name': self.entity_name,
+            'entity_set_name': self.entity_set_name,
             'parameters': [param.to_dict() for param in self.parameters],
             'return_type': self.return_type.to_dict() if self.return_type else None,
             'field_lookup': self.field_lookup

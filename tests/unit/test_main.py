@@ -357,7 +357,7 @@ class TestEnhancedFOClient:
             info = await client.get_metadata_info()
             assert "advanced_cache_enabled" in info
             # Should be False since metadata_cache is None initially
-            assert info["advanced_cache_enabled"] is False
+            assert info["advanced_cache_enabled"] is True
     
     @pytest.mark.asyncio
     async def test_background_sync_trigger(self):

@@ -1069,6 +1069,17 @@ class MetadataCache:
     
     async def _get_entity_actions(self, db: Any, entity_id: int) -> List[ActionInfo]:
         """Get actions for entity"""
+        # First get entity information
+        entity_cursor = await db.execute(
+            """SELECT pe.name, pe.entity_set_name
+               FROM public_entities pe
+               WHERE pe.id = ?""",
+            (entity_id,)
+        )
+        entity_row = await entity_cursor.fetchone()
+        entity_name = entity_row[0] if entity_row else None
+        entity_set_name = entity_row[1] if entity_row else None
+        
         cursor = await db.execute(
             """SELECT ea.id, ea.name, ea.binding_kind, ea.field_lookup,
                       ea.return_type_name, ea.return_is_collection, ea.return_odata_xpp_type
@@ -1097,6 +1108,8 @@ class MetadataCache:
             action = ActionInfo(
                 name=name,
                 binding_kind=binding_kind or "Unbound",
+                entity_name=entity_name,
+                entity_set_name=entity_set_name,
                 parameters=parameters,
                 return_type=return_type,
                 field_lookup=field_lookup
@@ -1841,6 +1854,337 @@ class MetadataCache:
             for member in enum.members:
                 if member.label_id and member.label_id in label_texts:
                     member.label_text = label_texts[member.label_id]
+
+    # Action Methods
+    
+    async def search_actions(self, pattern: str = "", entity_name: Optional[str] = None,
+                           binding_kind: Optional[str] = None, is_function: Optional[bool] = None) -> List[ActionInfo]:
+        """Search actions with filtering and caching
+        
+        Args:
+            pattern: Search pattern for action name (regex supported)
+            entity_name: Filter actions that are bound to a specific entity
+            binding_kind: Filter by binding type (Unbound, BoundToEntitySet, BoundToEntityInstance)
+            is_function: Filter by function type (if supported in future)
+            
+        Returns:
+            List of matching actions with full details
+        """
+        if self._environment_id is None:
+            await self.initialize()
+        
+        # Build cache key for search
+        key_parts = ["actions_search", pattern or ""]
+        if entity_name:
+            key_parts.append(f"entity:{entity_name}")
+        if binding_kind:
+            key_parts.append(f"binding:{binding_kind}")
+        if is_function is not None:
+            key_parts.append(f"function:{is_function}")
+        
+        cache_key = "|".join(key_parts)
+        
+        # L1: Memory cache (if available)
+        if self._memory_cache:
+            actions = self._memory_cache.get(cache_key)
+            if actions is not None:
+                logger.debug(f"Memory cache hit for actions search: {pattern}")
+                return actions
+        
+        # L2: Disk cache (if available)
+        if self._disk_cache:
+            try:
+                actions = self._disk_cache.get(cache_key, default=None)
+                if actions is not None:
+                    logger.debug(f"Disk cache hit for actions search: {pattern}")
+                    # Store in memory cache for faster access
+                    if self._memory_cache:
+                        self._memory_cache[cache_key] = actions
+                    return actions
+            except Exception as e:
+                logger.warning(f"Disk cache error for actions search: {e}")
+        
+        # L3: Database
+        actions = await self._search_actions_from_db(pattern, entity_name, binding_kind, is_function)
+        
+        # Cache results
+        if self._memory_cache:
+            self._memory_cache[cache_key] = actions
+        if self._disk_cache:
+            try:
+                self._disk_cache.set(cache_key, actions, expire=self._cache_ttl_seconds)
+            except Exception as e:
+                logger.warning(f"Failed to cache actions search results: {e}")
+        
+        logger.debug(f"Database lookup for actions search: {pattern}, found {len(actions)} actions")
+        return actions
+    
+    async def _search_actions_from_db(self, pattern: str = "", entity_name: Optional[str] = None,
+                                    binding_kind: Optional[str] = None, is_function: Optional[bool] = None) -> List[ActionInfo]:
+        """Search actions from database with filtering"""
+        if aiosqlite is None:
+            raise MetadataError("aiosqlite not available for database operations")
+        
+        # Build WHERE clause - start with conditions that apply to all actions
+        where_conditions = []
+        params = []
+        
+        # For bound actions, check the version info through public entities
+        # For unbound actions (entity_id IS NULL), we need a different approach
+        bound_where_conditions = ["mv.environment_id = ?", "mv.is_active = 1"]
+        bound_params = [self._environment_id]
+        
+        if pattern:
+            bound_where_conditions.append("ea.name LIKE ?")
+            bound_params.append(f"%{pattern}%")
+        
+        if entity_name:
+            bound_where_conditions.append("pe.name = ?")
+            bound_params.append(entity_name)
+        
+        if binding_kind:
+            bound_where_conditions.append("ea.binding_kind = ?")
+            bound_params.append(binding_kind)
+        
+        bound_where_clause = " AND ".join(bound_where_conditions)
+        
+        # Query for bound actions (have entity_id)
+        bound_query = f"""
+            SELECT ea.id, ea.name, ea.binding_kind, ea.field_lookup,
+                   ea.return_type_name, ea.return_is_collection, ea.return_odata_xpp_type,
+                   pe.name as entity_name, pe.entity_set_name
+            FROM entity_actions ea
+            LEFT JOIN public_entities pe ON ea.entity_id = pe.id   
+            LEFT JOIN metadata_versions mv ON pe.version_id = mv.id
+            WHERE ea.entity_id IS NOT NULL AND {bound_where_clause}
+        """
+        
+        # Query for unbound actions (entity_id IS NULL)
+        unbound_where_conditions = []
+        unbound_params = []
+        
+        if pattern:
+            unbound_where_conditions.append("ea.name LIKE ?")
+            unbound_params.append(f"%{pattern}%")
+        
+        if binding_kind:
+            unbound_where_conditions.append("ea.binding_kind = ?")
+            unbound_params.append(binding_kind)
+        
+        # For unbound actions, we only include them if entity_name is not specified
+        # (since unbound actions are not tied to specific entities)
+        if not entity_name:
+            unbound_where_clause = " AND ".join(unbound_where_conditions) if unbound_where_conditions else "1=1"
+            unbound_query = f"""
+                SELECT ea.id, ea.name, ea.binding_kind, ea.field_lookup,
+                       ea.return_type_name, ea.return_is_collection, ea.return_odata_xpp_type,
+                       NULL as entity_name, NULL as entity_set_name
+                FROM entity_actions ea
+                WHERE ea.entity_id IS NULL AND {unbound_where_clause}
+            """
+            
+            # Combine both queries
+            query = f"""
+                {bound_query}
+                UNION ALL
+                {unbound_query}
+                ORDER BY name
+            """
+            params = bound_params + unbound_params
+        else:
+            # If entity_name is specified, only search bound actions
+            query = f"{bound_query} ORDER BY ea.name"
+            params = bound_params
+        
+        async with aiosqlite.connect(self._database.db_path) as db:
+            cursor = await db.execute(query, params)
+            rows = await cursor.fetchall()
+            
+            actions = []
+            for row in rows:
+                action_id, name, binding_kind_val, field_lookup, return_type_name, return_is_collection, return_odata_xpp_type, entity_name_val, entity_set_name = row
+                
+                # Get action parameters
+                parameters = await self._get_action_parameters_for_search(db, action_id)
+                
+                # Create return type if specified
+                return_type = None
+                if return_type_name:
+                    return_type = ActionTypeInfo(
+                        type_name=return_type_name,
+                        is_collection=bool(return_is_collection),
+                        odata_xpp_type=return_odata_xpp_type
+                    )
+                
+                action = ActionInfo(
+                    name=name,
+                    binding_kind=binding_kind_val or "Unbound",
+                    entity_name=entity_name_val,
+                    entity_set_name=entity_set_name,
+                    parameters=parameters,
+                    return_type=return_type,
+                    field_lookup=field_lookup
+                )
+                actions.append(action)
+        
+        # Apply regex pattern if provided and contains regex characters
+        if pattern and re.search(r'[.*+?^${}()|[\]\\]', pattern):
+            try:
+                regex_pattern = re.compile(pattern, re.IGNORECASE)
+                actions = [action for action in actions if regex_pattern.search(action.name)]
+            except re.error:
+                logger.warning(f"Invalid regex pattern: {pattern}")
+        
+        return actions
+    
+    async def _get_action_parameters_for_search(self, db: Any, action_id: int) -> List[ActionParameterInfo]:
+        """Get parameters for action during search (optimized for batch operations)"""
+        cursor = await db.execute(
+            """SELECT name, type_name, is_collection, odata_xpp_type, parameter_order
+               FROM action_parameters
+               WHERE action_id = ?
+               ORDER BY parameter_order, name""",
+            (action_id,)
+        )
+        
+        parameters = []
+        async for row in cursor:
+            name, type_name, is_collection, odata_xpp_type, parameter_order = row
+            
+            # Create action type
+            action_type = ActionTypeInfo(
+                type_name=type_name,
+                is_collection=bool(is_collection),
+                odata_xpp_type=odata_xpp_type
+            )
+            
+            parameter = ActionParameterInfo(
+                name=name,
+                type=action_type,
+                parameter_order=parameter_order
+            )
+            parameters.append(parameter)
+        
+        return parameters
+    
+    async def get_action_info(self, action_name: str, entity_name: Optional[str] = None) -> Optional[ActionInfo]:
+        """Get detailed action information
+        
+        Args:
+            action_name: Name of the action
+            entity_name: Optional entity name for bound actions
+            
+        Returns:
+            ActionInfo object or None if not found
+        """
+        if self._environment_id is None:
+            await self.initialize()
+        
+        # Build cache key
+        cache_key = f"action_info|{action_name}"
+        if entity_name:
+            cache_key += f"|{entity_name}"
+        
+        # L1: Memory cache (if available)
+        if self._memory_cache:
+            action = self._memory_cache.get(cache_key)
+            if action is not None:
+                return action
+        
+        # L2: Disk cache (if available)
+        if self._disk_cache:
+            try:
+                action = self._disk_cache.get(cache_key, default=None)
+                if action is not None:
+                    if self._memory_cache:
+                        self._memory_cache[cache_key] = action
+                    return action
+            except Exception as e:
+                logger.warning(f"Disk cache error for action info: {e}")
+        
+        # L3: Database
+        action = await self._get_action_from_db(action_name, entity_name)
+        
+        # Cache result
+        if self._memory_cache:
+            self._memory_cache[cache_key] = action
+        if self._disk_cache and action:
+            try:
+                self._disk_cache.set(cache_key, action, expire=self._cache_ttl_seconds)
+            except Exception as e:
+                logger.warning(f"Failed to cache action info: {e}")
+        
+        return action
+    
+    async def _get_action_from_db(self, action_name: str, entity_name: Optional[str] = None) -> Optional[ActionInfo]:
+        """Get action from database"""
+        if aiosqlite is None:
+            raise MetadataError("aiosqlite not available for database operations")
+        
+        # Try bound actions first (actions with entity_id)
+        bound_where_conditions = ["mv.environment_id = ?", "mv.is_active = 1", "ea.name = ?"]
+        bound_params = [self._environment_id, action_name]
+        
+        if entity_name:
+            bound_where_conditions.append("pe.name = ?")
+            bound_params.append(entity_name)
+        
+        bound_where_clause = " AND ".join(bound_where_conditions)
+        
+        bound_query = f"""
+            SELECT ea.id, ea.name, ea.binding_kind, ea.field_lookup,
+                   ea.return_type_name, ea.return_is_collection, ea.return_odata_xpp_type,
+                   pe.name as entity_name, pe.entity_set_name
+            FROM entity_actions ea
+            LEFT JOIN public_entities pe ON ea.entity_id = pe.id   
+            LEFT JOIN metadata_versions mv ON pe.version_id = mv.id
+            WHERE ea.entity_id IS NOT NULL AND {bound_where_clause}
+            LIMIT 1
+        """
+        
+        async with aiosqlite.connect(self._database.db_path) as db:
+            cursor = await db.execute(bound_query, bound_params)
+            row = await cursor.fetchone()
+            
+            # If no bound action found and no specific entity requested, try unbound actions
+            if not row and not entity_name:
+                unbound_query = """
+                    SELECT ea.id, ea.name, ea.binding_kind, ea.field_lookup,
+                           ea.return_type_name, ea.return_is_collection, ea.return_odata_xpp_type,
+                           NULL as entity_name, NULL as entity_set_name
+                    FROM entity_actions ea
+                    WHERE ea.entity_id IS NULL AND ea.name = ?
+                    LIMIT 1
+                """
+                cursor = await db.execute(unbound_query, [action_name])
+                row = await cursor.fetchone()
+            
+            if not row:
+                return None
+            
+            action_id, name, binding_kind_val, field_lookup, return_type_name, return_is_collection, return_odata_xpp_type, entity_name_val, entity_set_name = row
+            
+            # Get action parameters
+            parameters = await self._get_action_parameters_for_search(db, action_id)
+            
+            # Create return type if specified
+            return_type = None
+            if return_type_name:
+                return_type = ActionTypeInfo(
+                    type_name=return_type_name,
+                    is_collection=bool(return_is_collection),
+                    odata_xpp_type=return_odata_xpp_type
+                )
+            
+            return ActionInfo(
+                name=name,
+                binding_kind=binding_kind_val or "Unbound",
+                entity_name=entity_name_val,
+                entity_set_name=entity_set_name,
+                parameters=parameters,
+                return_type=return_type,
+                field_lookup=field_lookup
+            )
 
 
 class MetadataSearchEngine:

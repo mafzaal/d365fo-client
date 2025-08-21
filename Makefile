@@ -45,6 +45,12 @@ quality-check: format-check lint type-check ## Run all code quality checks
 test: ## Run tests
 	uv run pytest
 
+test-unit: ## Run unit tests only
+	uv run pytest tests/unit
+
+test-integration: ## Run integration tests only
+	uv run pytest tests/integration
+
 test-verbose: ## Run tests with verbose output
 	uv run pytest -v
 
