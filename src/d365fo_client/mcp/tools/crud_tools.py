@@ -3,7 +3,7 @@
 import json
 import logging
 import time
-from typing import List, Dict, Any, Union
+from typing import List
 from mcp import Tool
 from mcp.types import TextContent
 
@@ -44,52 +44,52 @@ class CrudTools:
         """Get query entities tool definition."""
         return Tool(
             name="d365fo_query_entities",
-            description="Query D365FO entities with advanced OData parameters",
+            description="Query and retrieve multiple records from D365 Finance & Operations data entities using OData standards. Supports advanced filtering, sorting, field selection, and pagination. Use this tool to search for specific records, generate reports, or perform bulk data analysis. Returns structured JSON data with optional metadata like record counts and pagination links.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "entityName": {
                         "type": "string",
-                        "description": "Name of the entity to query"
+                        "description": "The name of the D365FO data entity to query. This should be the public collection name or the entity set name (e.g., 'CustomersV3', 'SalesOrderHeadersV2', 'ItemsV2'). Use metadata discovery tools first to find the correct entity name if unsure."
                     },
                     "profile": {
                         "type": "string",
-                        "description": "Configuration profile to use",
+                        "description": "Configuration profile name containing connection details and authentication settings. Use 'default' if not specified or when working with a single environment.",
                         "default": "default"
                     },
                     "select": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Fields to select"
+                        "description": "Array of field names to include in the response (OData $select). Only specified fields will be returned, improving performance and reducing payload size. Example: ['CustomerAccount', 'Name', 'PrimaryContactEmail']. If omitted, all fields are returned."
                     },
                     "filter": {
                         "type": "string",
-                        "description": "OData filter expression"
+                        "description": "OData filter expression to restrict which records are returned (OData $filter). Supports standard OData operators: eq (equals), ne (not equals), gt (greater than), ge (greater or equal), lt (less than), le (less or equal), and (), or, not. Examples: \"CustomerAccount eq 'CUST001'\", \"CreditLimit gt 10000\", \"Name contains 'Corp'\"."
                     },
                     "expand": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Related entities to expand"
+                        "description": "Array of navigation property names to expand and include related entity data (OData $expand). This fetches related records in a single request. Example: ['PrimaryAddress', 'SalesOrders']. Use sparingly as it increases response size and processing time."
                     },
                     "orderBy": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Order by fields"
+                        "description": "Array of field names for sorting results (OData $orderby). Add 'desc' suffix for descending order. Examples: ['Name'], ['CreditLimit desc'], ['CustomerAccount', 'Name desc']. Default order is ascending."
                     },
                     "top": {
                         "type": "integer",
                         "minimum": 1,
                         "maximum": 1000,
-                        "description": "Number of records to return"
+                        "description": "Maximum number of records to return (OData $top). Use for pagination and performance optimization. D365FO has built-in limits, typically 1000 records maximum per request. Combine with 'skip' for pagination."
                     },
                     "skip": {
                         "type": "integer",
                         "minimum": 0,
-                        "description": "Number of records to skip"
+                        "description": "Number of records to skip before returning results (OData $skip). Used for pagination - skip N records to get the next page. Example: skip=100 with top=50 gets records 101-150."
                     },
                     "count": {
                         "type": "boolean",
-                        "description": "Include total count in response"
+                        "description": "Whether to include the total count of matching records in the response (OData $count). Useful for pagination UI and progress indicators. May impact performance on large datasets as it requires counting all matching records."
                     }
                 },
                 "required": ["entityName"]
@@ -100,30 +100,37 @@ class CrudTools:
         """Get entity record tool definition."""
         return Tool(
             name="d365fo_get_entity_record",
-            description="Get a specific entity record by key",
+            description="Retrieve a single specific record from a D365 Finance & Operations data entity using its primary key. This is the most efficient way to fetch a known record when you have its unique identifier. Supports field selection and expanding related data. Use this when you need details for one specific record rather than searching through multiple records.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "entityName": {
                         "type": "string",
-                        "description": "Name of the entity"
+                        "description": "The name of the D365FO data entity containing the record. This should be the public entity name (e.g., 'CustomersV3', 'SalesOrderHeadersV2'). Use metadata discovery tools to find the correct entity name and identify key fields."
                     },
                     "key": {
                         "oneOf": [
-                            {"type": "string"},
-                            {"type": "object"}
+                            {
+                                "type": "string",
+                                "description": "Single string key value for entities with simple primary keys"
+                            },
+                            {
+                                "type": "object",
+                                "description": "Composite key object for entities with multiple key fields",
+                                "additionalProperties": {"type": "string"}
+                            }
                         ],
-                        "description": "Record key (string or object)"
+                        "description": "Primary key value(s) that uniquely identify the record. For single-key entities, provide a string value (e.g., 'CUST001'). For composite-key entities, provide an object with key field names and values (e.g., {'DataArea': 'USMF', 'CustomerAccount': 'CUST001'}). Use entity schema discovery to identify key fields."
                     },
                     "select": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Fields to select"
+                        "description": "Array of specific field names to include in the response (OData $select). Only specified fields will be returned, improving performance and reducing response size. Example: ['CustomerAccount', 'Name', 'PrimaryContactEmail']. If omitted, all fields are returned."
                     },
                     "expand": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Related entities to expand"
+                        "description": "Array of navigation property names to expand and include related entity data in the response (OData $expand). This allows fetching related records in a single request. Example: ['PrimaryAddress', 'ContactDetails']. Use entity schema discovery to identify available navigation properties."
                     }
                 },
                 "required": ["entityName", "key"]
@@ -134,21 +141,21 @@ class CrudTools:
         """Get create record tool definition."""
         return Tool(
             name="d365fo_create_entity_record",
-            description="Create a new entity record",
+            description="Create a new record in a D365 Finance & Operations data entity. This operation performs data validation and may trigger business logic, workflows, and number sequences. The entity must support write operations (not read-only). Use entity schema discovery to identify required fields, data types, and validation rules before creating records.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "entityName": {
                         "type": "string",
-                        "description": "Name of the entity"
+                        "description": "The name of the D365FO data entity where the new record will be created. This should be the public collection name or the entity set name (e.g., 'CustomersV3', 'SalesOrderHeadersV2'). Verify the entity supports create operations by checking it's not read-only using metadata discovery tools."
                     },
                     "data": {
                         "type": "object",
-                        "description": "Record data to create"
+                        "description": "Record data object containing field names and values for the new record. Must include all mandatory fields as defined in the entity schema. Field names are case-sensitive and must match the entity's property names exactly. Example: {'CustomerAccount': 'CUST001', 'Name': 'Example Corp', 'CustomerGroupId': 'DEFAULT'}. Use entity schema discovery to identify required fields and their data types."
                     },
                     "returnRecord": {
                         "type": "boolean",
-                        "description": "Return the created record",
+                        "description": "Whether to return the complete created record in the response. Set to true to get the full record with system-generated values (like IDs, timestamps, calculated fields). Set to false for better performance when you only need confirmation of creation success.",
                         "default": False
                     }
                 },
@@ -160,33 +167,40 @@ class CrudTools:
         """Get update record tool definition."""
         return Tool(
             name="d365fo_update_entity_record",
-            description="Update an existing entity record",
+            description="Update an existing record in a D365 Finance & Operations data entity. This operation modifies specific fields while preserving others, performs validation, and may trigger business logic and workflows. The entity must support write operations. Use partial updates by including only the fields you want to change - omitted fields remain unchanged.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "entityName": {
                         "type": "string",
-                        "description": "Name of the entity"
+                        "description": "The name of the D365FO data entity containing the record to update. This should be the public entity name (e.g., 'CustomersV3', 'SalesOrderHeadersV2'). Verify the entity supports update operations by checking it's not read-only using metadata discovery tools."
                     },
                     "key": {
                         "oneOf": [
-                            {"type": "string"},
-                            {"type": "object"}
+                            {
+                                "type": "string",
+                                "description": "Single string key value for entities with simple primary keys"
+                            },
+                            {
+                                "type": "object",
+                                "description": "Composite key object for entities with multiple key fields",
+                                "properties": {}
+                            }
                         ],
-                        "description": "Record key (string or object)"
+                        "description": "Primary key value(s) that uniquely identify the record to update. For single-key entities, provide a string value (e.g., 'CUST001'). For composite-key entities, provide an object with key field names and values (e.g., {'DataArea': 'USMF', 'CustomerAccount': 'CUST001'}). The record must exist or the operation will fail."
                     },
                     "data": {
                         "type": "object",
-                        "description": "Record data to update"
+                        "description": "Record data object containing only the fields and values to update. This is a partial update - only include fields you want to change. Field names are case-sensitive and must match the entity's property names exactly. Example: {'Name': 'Updated Corp Name', 'CreditLimit': 50000}. Key fields typically cannot be updated."
                     },
                     "returnRecord": {
                         "type": "boolean",
-                        "description": "Return the updated record",
+                        "description": "Whether to return the complete updated record in the response. Set to true to get the full record with all current values after the update. Set to false for better performance when you only need confirmation of update success.",
                         "default": False
                     },
                     "ifMatch": {
                         "type": "string",
-                        "description": "ETag for optimistic concurrency"
+                        "description": "ETag value for optimistic concurrency control (optional). If provided, the update will only succeed if the record hasn't been modified by another process since the ETag was obtained. This prevents conflicting updates in multi-user scenarios. Get the ETag from a previous read operation."
                     }
                 },
                 "required": ["entityName", "key", "data"]
@@ -197,24 +211,31 @@ class CrudTools:
         """Get delete record tool definition."""
         return Tool(
             name="d365fo_delete_entity_record",
-            description="Delete an entity record",
+            description="Permanently delete a record from a D365 Finance & Operations data entity. This operation removes the record completely and may trigger cascading deletes, business logic, and workflows. The entity must support delete operations. Use with caution as this action cannot be undone. Verify business rules allow deletion before proceeding.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "entityName": {
                         "type": "string",
-                        "description": "Name of the entity"
+                        "description": "The name of the D365FO data entity containing the record to delete. This should be the public entity name (e.g., 'CustomersV3', 'SalesOrderHeadersV2'). Verify the entity supports delete operations and check for any business constraints that might prevent deletion."
                     },
                     "key": {
                         "oneOf": [
-                            {"type": "string"},
-                            {"type": "object"}
+                            {
+                                "type": "string",
+                                "description": "Single string key value for entities with simple primary keys"
+                            },
+                            {
+                                "type": "object",
+                                "description": "Composite key object for entities with multiple key fields",
+                                "properties": {}
+                            }
                         ],
-                        "description": "Record key (string or object)"
+                        "description": "Primary key value(s) that uniquely identify the record to delete. For single-key entities, provide a string value (e.g., 'CUST001'). For composite-key entities, provide an object with key field names and values (e.g., {'DataArea': 'USMF', 'CustomerAccount': 'CUST001'}). The record must exist or the operation will fail."
                     },
                     "ifMatch": {
                         "type": "string",
-                        "description": "ETag for optimistic concurrency"
+                        "description": "ETag value for optimistic concurrency control (optional). If provided, the delete will only succeed if the record hasn't been modified by another process since the ETag was obtained. This prevents accidental deletion of records that have been updated by other users. Get the ETag from a previous read operation."
                     }
                 },
                 "required": ["entityName", "key"]
@@ -225,37 +246,44 @@ class CrudTools:
         """Get call action tool definition."""
         return Tool(
             name="d365fo_call_action",
-            description="Call/invoke a D365FO OData action with optional parameters and entity binding",
+            description="Execute/invoke a D365 Finance & Operations OData action method. Actions are server-side operations that perform business logic, calculations, or complex operations beyond standard CRUD. Actions can be unbound (standalone), bound to entity collections, or bound to specific entity instances. Use action discovery tools to find available actions and their parameters before calling.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "actionName": {
                         "type": "string",
-                        "description": "Name of the action to call (e.g., 'Microsoft.Dynamics.DataEntities.GetKeys')"
+                        "description": "The full name of the OData action to invoke. This is typically in the format 'Microsoft.Dynamics.DataEntities.ActionName' for system actions, or a simple name for custom actions. Examples: 'Microsoft.Dynamics.DataEntities.GetKeys', 'Microsoft.Dynamics.DataEntities.GetApplicationVersion'. Use action search tools to discover available actions and their exact names."
                     },
                     "profile": {
                         "type": "string",
-                        "description": "Configuration profile to use",
+                        "description": "Configuration profile name containing connection details and authentication settings for the D365FO environment. Use 'default' if not specified or when working with a single environment. Different profiles allow connecting to multiple D365FO environments (dev, test, prod).",
                         "default": "default"
                     },
                     "parameters": {
                         "type": "object",
-                        "description": "Action parameters as key-value pairs"
+                        "description": "Action parameters as key-value pairs (optional). Parameter names and types must match the action definition exactly. Use action discovery tools to identify required and optional parameters. Examples: {'entityName': 'CustomersV3'}, {'startDate': '2024-01-01', 'endDate': '2024-12-31'}. Leave empty {} for actions that require no parameters."
                     },
                     "entityName": {
                         "type": "string",
-                        "description": "Entity name for bound actions (optional)"
+                        "description": "The name of the data entity for entity-bound actions (optional). Required for actions with bindingKind 'BoundToEntitySet' or 'BoundToEntity'. This should be the public entity name or collection name. Use metadata discovery to identify the correct entity name for bound actions."
                     },
                     "entityKey": {
                         "oneOf": [
-                            {"type": "string"},
-                            {"type": "object"}
+                            {
+                                "type": "string",
+                                "description": "Single string key value for simple primary keys"
+                            },
+                            {
+                                "type": "object",
+                                "description": "Composite key object for multiple key fields",
+                                "properties": {}
+                            }
                         ],
-                        "description": "Entity key for bound actions (optional, string or composite key object)"
+                        "description": "Primary key value(s) identifying a specific entity instance for 'BoundToEntity' actions (optional). For single-key entities, provide a string. For composite keys, provide an object with key field names and values. Only required when bindingKind is 'BoundToEntity'."
                     },
                     "bindingKind": {
                         "type": "string",
-                        "description": "Specify binding kind if known: 'Unbound', 'BoundToEntitySet', 'BoundToEntity'",
+                        "description": "Explicitly specify the action's binding type if known (optional). Helps the system determine how to invoke the action. 'Unbound' actions are called directly. 'BoundToEntitySet' actions operate on entity collections. 'BoundToEntity' actions operate on specific entity instances. If not provided, the system will attempt to determine the binding automatically.",
                         "enum": ["Unbound", "BoundToEntitySet", "BoundToEntity"]
                     },
                     "timeout": {
@@ -263,7 +291,7 @@ class CrudTools:
                         "minimum": 1,
                         "maximum": 300,
                         "default": 30,
-                        "description": "Request timeout in seconds"
+                        "description": "Request timeout in seconds. Actions may take longer than normal CRUD operations, especially complex business calculations or batch operations. Increase timeout for long-running actions. Default is 30 seconds, maximum is 300 seconds (5 minutes)."
                     }
                 },
                 "required": ["actionName"]
