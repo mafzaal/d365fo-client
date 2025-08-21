@@ -27,7 +27,7 @@ class SessionManager:
         Returns:
             Configured aiohttp ClientSession
         """
-        if not self._session:
+        if self._session is None or self._session.closed:
             connector = aiohttp.TCPConnector(ssl=self.config.verify_ssl)
             timeout = aiohttp.ClientTimeout(total=self.config.timeout)
             self._session = aiohttp.ClientSession(

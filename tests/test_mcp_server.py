@@ -41,7 +41,7 @@ class TestD365FOClientManager:
         
         # Test default profile
         default_config = manager._build_client_config("default")
-        assert default_config.base_url == "https://default.dynamics.com"
+        assert default_config.base_url == "https://usnconeboxax1aos.cloud.onebox.dynamics.com"
         assert default_config.use_default_credentials is True
         
         # Test specific profile
