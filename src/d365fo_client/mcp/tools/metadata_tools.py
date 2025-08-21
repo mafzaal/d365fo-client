@@ -115,21 +115,26 @@ class MetadataTools:
         """Get search actions tool definition."""
         return Tool(
             name="d365fo_search_actions",
-            description="Search for available OData actions in D365 F&O. Actions are operations that can be performed on entities or globally.",
+            description="Search for available OData actions in D365 F&O. Actions are operations that can be performed on entities or globally. Returns full action details including binding information for calling actions.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "Regex pattern to search for in action names."
+                        "description": "Regex pattern to search for in action names. Use this for broad or partial name searches."
                     },
                     "entityName": {
                         "type": "string",
-                        "description": "Optional. Filter actions that are bound to a specific data entity."
+                        "description": "Optional. Filter actions that are bound to a specific data entity (e.g., 'CustomersV3')."
+                    },
+                    "bindingKind": {
+                        "type": "string",
+                        "description": "Optional. Filter by binding type.",
+                        "enum": ["Unbound", "BoundToEntitySet", "BoundToEntityInstance"]
                     },
                     "isFunction": {
                         "type": "boolean",
-                        "description": "Optional. Filter by type: 'true' for functions (read-only), 'false' for actions (may have side-effects)."
+                        "description": "Optional. Filter by type: 'true' for functions (read-only), 'false' for actions (may have side-effects). Note: This filter may not be fully supported yet."
                     },
                     "limit": {
                         "type": "integer",
@@ -313,36 +318,63 @@ class MetadataTools:
             List of TextContent responses
         """
         try:
-            client = await self.client_manager.get_client()
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
             
             start_time = time.time()
-            actions = await client.search_actions(arguments["pattern"])
+            
+            # Extract search parameters
+            pattern = arguments["pattern"]
+            entity_name = arguments.get("entityName")
+            binding_kind = arguments.get("bindingKind")
+            
+            # Search actions with full details
+            actions = await client.search_actions(
+                pattern=pattern,
+                entity_name=entity_name,
+                binding_kind=binding_kind
+            )
             
             # Apply limit
-            limit = arguments.get("limit", 100)
-            filtered_actions = actions[:limit]
+            limit = arguments.get("limit")
+            filtered_actions = actions[:limit] if limit is not None else actions
             
-            # Get detailed info for actions
+            # Convert ActionInfo objects to dictionaries for JSON serialization
             detailed_actions = []
-            for action_name in filtered_actions:
-                action_info = await client.get_action_info(action_name)
-                if action_info:
-                    detailed_actions.append({
-                        "name": action_info.name,
-                        "isFunction": getattr(action_info, 'is_function', False),
-                        "isBound": getattr(action_info, 'is_bound', False),
-                        "parameterCount": len(getattr(action_info, 'parameters', [])),
-                        "returnType": getattr(action_info, 'return_type', 'void')
-                    })
+            for action in filtered_actions:
+                action_dict = action.to_dict()
+                
+                # Add additional metadata for better usability
+                action_dict.update({
+                    "parameter_count": len(action.parameters),
+                    "has_return_value": action.return_type is not None,
+                    "return_type_name": action.return_type.type_name if action.return_type else None,
+                    "is_bound": action.binding_kind != "Unbound",
+                    "can_call_directly": action.binding_kind == "Unbound",
+                    "requires_entity_key": action.binding_kind == "BoundToEntityInstance"
+                })
+                
+                detailed_actions.append(action_dict)
             
             search_time = time.time() - start_time
             
             response = {
                 "actions": detailed_actions,
-                "totalCount": len(actions),
-                "searchTime": round(search_time, 3),
-                "pattern": arguments["pattern"],
-                "limit": limit
+                "total_count": len(actions),
+                "returned_count": len(filtered_actions),
+                "search_time": round(search_time, 3),
+                "search_parameters": {
+                    "pattern": pattern,
+                    "entity_name": entity_name,
+                    "binding_kind": binding_kind,
+                    "limit": limit
+                },
+                "summary": {
+                    "unbound_actions": len([a for a in filtered_actions if a.binding_kind == "Unbound"]),
+                    "entity_set_bound": len([a for a in filtered_actions if a.binding_kind == "BoundToEntitySet"]),
+                    "entity_instance_bound": len([a for a in filtered_actions if a.binding_kind == "BoundToEntityInstance"]),
+                    "unique_entities": len(set(a.entity_name for a in filtered_actions if a.entity_name))
+                }
             }
             
             return [TextContent(

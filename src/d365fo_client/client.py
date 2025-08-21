@@ -300,24 +300,25 @@ class FOClient:
         """
         return await self.get_public_entity_info(entity_name, use_cache_first=use_cache_first)
     
-    async def search_actions(self, pattern: str = "", use_cache_first: Optional[bool] = True) -> List[str]:
-        """Search actions by name pattern with cache-first approach
-        
-        Note: Actions are not directly searchable in the new metadata system as they
-        are embedded within entity information. This method provides limited functionality
-        for backward compatibility.
+    async def search_actions(self, pattern: str = "", entity_name: Optional[str] = None,
+                           binding_kind: Optional[str] = None, use_cache_first: Optional[bool] = True) -> List[ActionInfo]:
+        """Search actions by name pattern and/or entity with cache-first approach
         
         Args:
-            pattern: Search pattern (regex supported)
+            pattern: Search pattern for action name (regex supported)
+            entity_name: Filter actions that are bound to a specific entity
+            binding_kind: Filter by binding type (Unbound, BoundToEntitySet, BoundToEntityInstance)
             use_cache_first: Override config setting for cache-first behavior
             
         Returns:
-            List of matching action names (limited functionality)
+            List of matching ActionInfo objects with full details
         """
+        await self._ensure_metadata_initialized()
+
         async def cache_search():
-            # Actions are not directly searchable in new cache system
-            # They are embedded in entity information
-            return []
+            if not self._metadata_initialized:
+                return []
+            return await self.metadata_cache.search_actions(pattern, entity_name, binding_kind)
             
         async def fallback_search():
             # Actions are not directly available through metadata API
@@ -325,29 +326,29 @@ class FOClient:
             # Return empty list for backward compatibility
             return []
         
-        return await self._get_from_cache_first(
+        actions = await self._get_from_cache_first(
             cache_search, fallback_search,
-            use_cache_first=use_cache_first
+            use_cache_first=use_cache_first or self.config.use_cache_first
         )
+
+        return await resolve_labels_generic(actions,self.label_ops)
     
-    async def get_action_info(self, action_name: str, use_cache_first: Optional[bool] = None) -> Optional[ActionInfo]:
+    async def get_action_info(self, action_name: str, entity_name: Optional[str] = None,
+                            use_cache_first: Optional[bool] = None) -> Optional[ActionInfo]:
         """Get detailed action information with cache-first approach
-        
-        Note: Actions are not directly accessible in the new metadata system as they
-        are embedded within entity information. This method provides limited functionality
-        for backward compatibility.
         
         Args:
             action_name: Name of the action
+            entity_name: Optional entity name for bound actions
             use_cache_first: Override config setting for cache-first behavior
             
         Returns:
-            ActionInfo object or None if not found (limited functionality)
+            ActionInfo object or None if not found
         """
         async def cache_lookup():
-            # Actions are not directly accessible in new cache system
-            # They are embedded in entity information
-            return None
+            if not self._metadata_initialized:
+                return None
+            return await self.metadata_cache.get_action_info(action_name, entity_name)
             
         async def fallback_lookup():
             # Actions are not directly available through metadata API
