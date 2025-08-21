@@ -19,6 +19,8 @@ function Show-Help {
     Write-Host "  type-check         Run type checking with mypy" -ForegroundColor Gray
     Write-Host "  quality-check      Run all code quality checks" -ForegroundColor Gray
     Write-Host "  test               Run tests" -ForegroundColor Gray
+    Write-Host "  test-unit          Run unit tests only" -ForegroundColor Gray
+    Write-Host "  test-integration   Run integration tests only" -ForegroundColor Gray
     Write-Host "  test-verbose       Run tests with verbose output" -ForegroundColor Gray
     Write-Host "  test-coverage      Run tests with coverage report" -ForegroundColor Gray
     Write-Host "  clean              Clean build artifacts" -ForegroundColor Gray
@@ -85,6 +87,14 @@ function Invoke-QualityCheck {
 
 function Invoke-Test {
     uv run pytest
+}
+
+function Invoke-TestUnit {
+    uv run pytest tests/unit
+}
+
+function Invoke-TestIntegration {
+    uv run pytest tests/integration
 }
 
 function Invoke-TestVerbose {
@@ -186,6 +196,8 @@ switch ($Target.ToLower()) {
     "type-check" { Invoke-TypeCheck }
     "quality-check" { Invoke-QualityCheck }
     "test" { Invoke-Test }
+    "test-unit" { Invoke-TestUnit }
+    "test-integration" { Invoke-TestIntegration }
     "test-verbose" { Invoke-TestVerbose }
     "test-coverage" { Invoke-TestCoverage }
     "clean" { Invoke-Clean }
