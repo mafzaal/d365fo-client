@@ -95,7 +95,7 @@ class TestSandboxMetadataOperations:
         assert len(entities) > 0
         
         # Should find entities containing "Customer"
-        customer_entities = [e for e in entities if 'customer' in e.lower()]
+        customer_entities = [e for e in entities if 'customer' in e.name.lower()]
         assert len(customer_entities) > 0
     
     @pytest.mark.asyncio
