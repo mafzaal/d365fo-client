@@ -42,13 +42,13 @@ class MetadataTools:
         """Get search entities tool definition."""
         return Tool(
             name="d365fo_search_entities",
-            description="Search for D365 F&O data entities by name, pattern, or properties. Use this to discover available entities for data operations.",
+            description="Search for D365 F&O data entities by name, pattern, or properties. D365 F&O entity names follow specific patterns - try multiple search strategies for best results. For customer groups, try patterns like 'Customer.*Group', 'Cust.*Group', '.*CustomerGroup.*', or search for 'Group' alone to find all group-related entities.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "Regex pattern to search for in entity names. Use this for broad or partial name searches."
+                        "description": "Regex pattern to search for in entity names. IMPORTANT: D365 F&O entity names have specific conventions. For customer groups, try: 'Customer.*Group', 'Cust.*Group', '.*CustomerGroup.*', 'Commission.*Group', or just 'Group' to find all group entities. For broader searches, use '.*Customer.*' or '.*' (with limit). Case-sensitive regex matching."
                     },
                     "entity_category": {
                         "type": "string",
@@ -72,7 +72,7 @@ class MetadataTools:
                         "minimum": 1,
                         "maximum": 500,
                         "default": 100,
-                        "description": "Maximum number of matching entities to return."
+                        "description": "Maximum number of matching entities to return. Use smaller values (10-50) for initial exploration, larger values (100-500) for comprehensive searches."
                     }
                 },
                 "required": ["pattern"]
@@ -129,7 +129,7 @@ class MetadataTools:
                     },
                     "bindingKind": {
                         "type": "string",
-                        "description": "Optional. Filter by binding type.",
+                        "description": "Optional. Filter by binding type: 'Unbound' (can call directly), 'BoundToEntitySet' (operates on entity collections), 'BoundToEntityInstance' (requires specific entity key).",
                         "enum": ["Unbound", "BoundToEntitySet", "BoundToEntityInstance"]
                     },
                     "isFunction": {
@@ -199,6 +199,97 @@ class MetadataTools:
             }
         )
     
+    async def _try_fts_search(self, client, pattern: str) -> List[dict]:
+        """Try FTS5 full-text search when regex search fails
+        
+        Args:
+            client: FOClient instance with metadata cache
+            pattern: Original search pattern
+            
+        Returns:
+            List of entity dictionaries from FTS search
+        """
+        try:
+            # Import here to avoid circular imports
+            from ...metadata_cache import MetadataSearchEngine
+            from ...models import SearchQuery
+            
+            # Create search engine if metadata cache is available
+            if not client.metadata_cache:
+                return []
+                
+            search_engine = MetadataSearchEngine(client.metadata_cache)
+            
+            # Extract search terms from regex pattern
+            search_text = self._extract_search_terms(pattern)
+            if not search_text:
+                return []
+            
+            # Create search query for data entities
+            query = SearchQuery(
+                text=search_text,
+                entity_types=["data_entity"],
+                limit=5,  # Limit FTS suggestions
+                use_fulltext=True
+            )
+            
+            # Execute FTS search
+            fts_results = await search_engine.search(query)
+            
+            # Convert search results to entity info
+            fts_entities = []
+            for result in fts_results.results:
+                try:
+                    # Get full entity info for each FTS result
+                    entity_info = await client.get_data_entity_info(result.name)
+                    if entity_info:
+                        entity_dict = entity_info.to_dict()
+                        # Add FTS metadata
+                        entity_dict["fts_relevance"] = result.relevance
+                        entity_dict["fts_snippet"] = result.snippet
+                        fts_entities.append(entity_dict)
+                except Exception:
+                    # If entity info retrieval fails, skip this result
+                    continue
+            
+            return fts_entities
+            
+        except Exception as e:
+            logger.debug(f"FTS search failed: {e}")
+            return []
+    
+    def _extract_search_terms(self, pattern: str) -> str:
+        """Extract meaningful search terms from regex pattern
+        
+        Args:
+            pattern: Regex pattern to extract terms from
+            
+        Returns:
+            Space-separated search terms
+        """
+        import re
+        
+        # Remove regex operators and extract word-like terms
+        # First, handle character classes like [Cc] -> C, [Gg] -> G
+        cleaned = re.sub(r'\[([A-Za-z])\1\]', r'\1', pattern.replace('[Cc]', 'C').replace('[Gg]', 'G'))
+        
+        # Remove other regex characters
+        cleaned = re.sub(r'[.*\\{}()|^$+?]', ' ', cleaned)
+        
+        # Extract words (sequences of letters, minimum 3 chars)
+        words = re.findall(r'[A-Za-z]{3,}', cleaned)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_words = []
+        for word in words:
+            word_lower = word.lower()
+            if word_lower not in seen and len(word) >= 3:
+                seen.add(word_lower)
+                unique_words.append(word)
+        
+        return ' '.join(unique_words[:3])  # Limit to first 3 unique terms
+    
     async def execute_search_entities(self, arguments: dict) -> List[TextContent]:
         """Execute search entities tool.
         
@@ -235,11 +326,41 @@ class MetadataTools:
             if limit is not None:
                 filtered_entities = entity_dicts[:limit]
             
+            # If no results and pattern seems specific, try a broader search for suggestions
+            broader_suggestions = []
+            fts_suggestions = []
+            if len(filtered_entities) == 0:
+                try:
+                    # Try FTS5 search if metadata cache is available
+                    if client.metadata_cache:
+                        fts_suggestions = await self._try_fts_search(client, arguments["pattern"])
+                        
+                except Exception:
+                    pass  # Ignore errors in suggestion search
+            
             search_time = time.time() - start_time
+            
+            # Add helpful guidance when no results found
+            suggestions = []
+            if len(filtered_entities) == 0:
+                suggestions = [
+                    "Try broader patterns like '.*Customer.*', '.*Group.*', or '.*' (with small limit)",
+                    "Use category filters: entity_category='Master' for customer groups",
+                    "Check data_service_enabled=True for API-accessible entities",
+                    "Common D365 F&O patterns: 'Cust' for Customer, 'Vend' for Vendor, 'Ledger' for GL"
+                ]
+                
+                # Add FTS-specific suggestions if FTS results were found
+                if fts_suggestions:
+                    suggestions.insert(0, f"Found {len(fts_suggestions)} entities using full-text search (see ftsMatches below)")
+                elif client.metadata_cache:
+                    suggestions.append("Full-text search attempted but found no matches - try simpler terms")
+            
             
             response = {
                 "entities": filtered_entities,
                 "totalCount": len(entities),
+                "returnedCount": len(filtered_entities),
                 "searchTime": round(search_time, 3),
                 "pattern": arguments["pattern"],
                 "limit": limit,
@@ -248,7 +369,10 @@ class MetadataTools:
                     "data_Service_Enabled": arguments.get("data_Service_Enabled"),
                     "data_Management_Enabled": arguments.get("data_Management_Enabled"),
                     "is_Read_Only": arguments.get("is_Read_Only")
-                }
+                },
+                "suggestions": suggestions if suggestions else None,
+                "broaderMatches": broader_suggestions if broader_suggestions else None,
+                "ftsMatches": fts_suggestions if fts_suggestions else None
             }
             
             return [TextContent(
