@@ -376,19 +376,42 @@ class FOClient:
         """
         return await self.crud_ops.get_entities(entity_name, options)
     
-    async def get_entity(self, entity_name: str, key: str, 
+    async def get_entity(self, entity_name: str, key: Union[str, Dict[str, Any]], 
                         options: Optional[QueryOptions] = None) -> Dict[str, Any]:
         """Get single entity by key
         
         Args:
             entity_name: Name of the entity set
-            key: Entity key value
+            key: Entity key value (string for simple keys, dict for composite keys)
             options: OData query options
             
         Returns:
             Entity data
         """
         return await self.crud_ops.get_entity(entity_name, key, options)
+    
+    async def get_entity_by_key(self, entity_name: str, key: Union[str, Dict[str, Any]], 
+                               select: Optional[List[str]] = None, 
+                               expand: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
+        """Get single entity by key with optional field selection and expansion
+        
+        Args:
+            entity_name: Name of the entity set
+            key: Entity key value (string for simple keys, dict for composite keys)
+            select: Optional list of fields to select
+            expand: Optional list of navigation properties to expand
+            
+        Returns:
+            Entity data or None if not found
+        """
+        try:
+            options = QueryOptions(select=select, expand=expand) if select or expand else None
+            return await self.crud_ops.get_entity(entity_name, key, options)
+        except Exception as e:
+            # If the entity is not found, return None instead of raising exception
+            if "404" in str(e):
+                return None
+            raise
     
     async def create_entity(self, entity_name: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """Create new entity
@@ -402,13 +425,13 @@ class FOClient:
         """
         return await self.crud_ops.create_entity(entity_name, data)
     
-    async def update_entity(self, entity_name: str, key: str, data: Dict[str, Any], 
+    async def update_entity(self, entity_name: str, key: Union[str, Dict[str, Any]], data: Dict[str, Any], 
                            method: str = 'PATCH') -> Dict[str, Any]:
         """Update existing entity
         
         Args:
             entity_name: Name of the entity set
-            key: Entity key value
+            key: Entity key value (string for simple keys, dict for composite keys)
             data: Updated entity data
             method: HTTP method (PATCH or PUT)
             
@@ -417,12 +440,12 @@ class FOClient:
         """
         return await self.crud_ops.update_entity(entity_name, key, data, method)
     
-    async def delete_entity(self, entity_name: str, key: str) -> bool:
+    async def delete_entity(self, entity_name: str, key: Union[str, Dict[str, Any]]) -> bool:
         """Delete entity
         
         Args:
             entity_name: Name of the entity set
-            key: Entity key value
+            key: Entity key value (string for simple keys, dict for composite keys)
             
         Returns:
             True if successful
@@ -431,14 +454,14 @@ class FOClient:
     
     async def call_action(self, action_name: str, parameters: Optional[Dict[str, Any]] = None,
                          entity_name: Optional[str] = None, 
-                         entity_key: Optional[str] = None) -> Any:
+                         entity_key: Optional[Union[str, Dict[str, Any]]] = None) -> Any:
         """Call OData action method
         
         Args:
             action_name: Name of the action
             parameters: Action parameters
             entity_name: Entity name for bound actions
-            entity_key: Entity key for bound actions
+            entity_key: Entity key for bound actions (string for simple keys, dict for composite keys)
             
         Returns:
             Action result
@@ -747,12 +770,12 @@ class FOClient:
             "enabled": True,
         }
     
-    def get_entity_url(self, entity_name: str, key: Optional[str] = None) -> str:
+    def get_entity_url(self, entity_name: str, key: Optional[Union[str, Dict[str, Any]]] = None) -> str:
         """Get entity URL
         
         Args:
             entity_name: Entity set name
-            key: Optional entity key
+            key: Optional entity key (string for simple keys, dict for composite keys)
             
         Returns:
             Complete entity URL
@@ -760,13 +783,13 @@ class FOClient:
         return QueryBuilder.build_entity_url(self.config.base_url, entity_name, key)
     
     def get_action_url(self, action_name: str, entity_name: Optional[str] = None, 
-                      entity_key: Optional[str] = None) -> str:
+                      entity_key: Optional[Union[str, Dict[str, Any]]] = None) -> str:
         """Get action URL
         
         Args:
             action_name: Action name
             entity_name: Optional entity name for bound actions
-            entity_key: Optional entity key for bound actions
+            entity_key: Optional entity key for bound actions (string for simple keys, dict for composite keys)
             
         Returns:
             Complete action URL

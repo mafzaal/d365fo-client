@@ -1,6 +1,6 @@
 """CRUD operations for D365 F&O client."""
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 import aiohttp
 
 from .models import QueryOptions
@@ -43,13 +43,13 @@ class CrudOperations:
                 error_text = await response.text()
                 raise Exception(f"GET {entity_name} failed: {response.status} - {error_text}")
     
-    async def get_entity(self, entity_name: str, key: str, 
+    async def get_entity(self, entity_name: str, key: Union[str, Dict[str, Any]], 
                         options: Optional[QueryOptions] = None) -> Dict[str, Any]:
         """Get single entity by key
         
         Args:
             entity_name: Name of the entity set
-            key: Entity key value
+            key: Entity key value (string for simple keys, dict for composite keys)
             options: OData query options
             
         Returns:
@@ -87,13 +87,13 @@ class CrudOperations:
                 error_text = await response.text()
                 raise Exception(f"CREATE {entity_name} failed: {response.status} - {error_text}")
     
-    async def update_entity(self, entity_name: str, key: str, data: Dict[str, Any], 
+    async def update_entity(self, entity_name: str, key: Union[str, Dict[str, Any]], data: Dict[str, Any], 
                            method: str = 'PATCH') -> Dict[str, Any]:
         """Update existing entity
         
         Args:
             entity_name: Name of the entity set
-            key: Entity key value
+            key: Entity key value (string for simple keys, dict for composite keys)
             data: Updated entity data
             method: HTTP method (PATCH or PUT)
             
@@ -112,12 +112,12 @@ class CrudOperations:
                 error_text = await response.text()
                 raise Exception(f"{method} {entity_name}({key}) failed: {response.status} - {error_text}")
     
-    async def delete_entity(self, entity_name: str, key: str) -> bool:
+    async def delete_entity(self, entity_name: str, key: Union[str, Dict[str, Any]]) -> bool:
         """Delete entity
         
         Args:
             entity_name: Name of the entity set
-            key: Entity key value
+            key: Entity key value (string for simple keys, dict for composite keys)
             
         Returns:
             True if successful
@@ -134,14 +134,14 @@ class CrudOperations:
     
     async def call_action(self, action_name: str, parameters: Optional[Dict[str, Any]] = None,
                          entity_name: Optional[str] = None, 
-                         entity_key: Optional[str] = None) -> Any:
+                         entity_key: Optional[Union[str, Dict[str, Any]]] = None) -> Any:
         """Call OData action method
         
         Args:
             action_name: Name of the action
             parameters: Action parameters
             entity_name: Entity name for bound actions
-            entity_key: Entity key for bound actions
+            entity_key: Entity key for bound actions (string for simple keys, dict for composite keys)
             
         Returns:
             Action result

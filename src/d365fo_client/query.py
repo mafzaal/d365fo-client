@@ -1,6 +1,6 @@
 """OData query utilities for D365 F&O client."""
 
-from typing import Optional
+from typing import Optional, Union, Dict, Any
 from urllib.parse import quote, urlencode
 
 from .models import QueryOptions
@@ -70,25 +70,34 @@ class QueryBuilder:
         return params
     
     @staticmethod
-    def encode_key(key: str) -> str:
+    def encode_key(key: Union[str, Dict[str, Any]]) -> str:
         """Encode entity key for URL
         
         Args:
-            key: Entity key value
+            key: Entity key value (string for simple keys, dict for composite keys)
             
         Returns:
             URL-encoded key
         """
-        return quote(str(key), safe='')
+        if isinstance(key, dict):
+            # Format composite key: key1=value1,key2=value2
+            key_parts = []
+            for key_name, key_value in key.items():
+                encoded_value = quote(str(key_value), safe='')
+                key_parts.append(f"{key_name}='{encoded_value}'")
+            return ",".join(key_parts)
+        else:
+            # Simple string key
+            return quote(str(key), safe='')
     
     @staticmethod
-    def build_entity_url(base_url: str, entity_name: str, key: Optional[str] = None) -> str:
+    def build_entity_url(base_url: str, entity_name: str, key: Optional[Union[str, Dict[str, Any]]] = None) -> str:
         """Build entity URL
         
         Args:
             base_url: Base F&O URL
             entity_name: Entity set name
-            key: Optional entity key
+            key: Optional entity key (string for simple keys, dict for composite keys)
             
         Returns:
             Complete entity URL
@@ -96,20 +105,25 @@ class QueryBuilder:
         base = f"{base_url.rstrip('/')}/data/{entity_name}"
         if key:
             encoded_key = QueryBuilder.encode_key(key)
-            return f"{base}('{encoded_key}')"
+            if isinstance(key, dict):
+                # For composite keys, don't wrap in additional quotes
+                return f"{base}({encoded_key})"
+            else:
+                # For simple string keys, wrap in quotes
+                return f"{base}('{encoded_key}')"
         return base
     
     @staticmethod
     def build_action_url(base_url: str, action_name: str, 
                         entity_name: Optional[str] = None, 
-                        entity_key: Optional[str] = None) -> str:
+                        entity_key: Optional[Union[str, Dict[str, Any]]] = None) -> str:
         """Build action URL
         
         Args:
             base_url: Base F&O URL
             action_name: Action name
             entity_name: Optional entity name for bound actions
-            entity_key: Optional entity key for bound actions
+            entity_key: Optional entity key for bound actions (string for simple keys, dict for composite keys)
             
         Returns:
             Complete action URL
@@ -119,7 +133,12 @@ class QueryBuilder:
         if entity_name and entity_key:
             # Bound action on specific entity
             encoded_key = QueryBuilder.encode_key(entity_key)
-            return f"{base}/data/{entity_name}('{encoded_key}')/Microsoft.Dynamics.DataEntities.{action_name}"
+            if isinstance(entity_key, dict):
+                # For composite keys, don't wrap in additional quotes
+                return f"{base}/data/{entity_name}({encoded_key})/Microsoft.Dynamics.DataEntities.{action_name}"
+            else:
+                # For simple string keys, wrap in quotes
+                return f"{base}/data/{entity_name}('{encoded_key}')/Microsoft.Dynamics.DataEntities.{action_name}"
         elif entity_name:
             # Bound action on entity set
             return f"{base}/data/{entity_name}/Microsoft.Dynamics.DataEntities.{action_name}"
