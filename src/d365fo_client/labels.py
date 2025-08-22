@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, List, Optional, Any, Union
 
-from .models import LabelInfo, EntityInfo, EntityPropertyInfo
+from .models import LabelInfo, PublicEntityInfo
 from .metadata_cache import MetadataCache
 from .session import SessionManager
 
@@ -122,20 +122,14 @@ class LabelOperations:
                 await self.metadata_cache.set_labels_batch(fetched_labels)
         
         return results
-    
+   
 
-    
 
-    
-
-    
-
-    
-    async def resolve_entity_labels(self, entity_info: EntityInfo, language: str):
-        """Resolve all label IDs in an entity to actual text
+    async def resolve_public_entity_labels(self, entity_info: PublicEntityInfo, language: str):
+        """Resolve all label IDs in a public entity to actual text
         
         Args:
-            entity_info: Entity information object to update
+            entity_info: Public entity information object to update
             language: Language code
         """
         # Collect all label IDs
@@ -143,7 +137,7 @@ class LabelOperations:
         if entity_info.label_id:
             label_ids.append(entity_info.label_id)
         
-        for prop in entity_info.enhanced_properties:
+        for prop in entity_info.properties:
             if prop.label_id:
                 label_ids.append(prop.label_id)
         
@@ -155,7 +149,7 @@ class LabelOperations:
             if entity_info.label_id:
                 entity_info.label_text = labels_map.get(entity_info.label_id)
             
-            for prop in entity_info.enhanced_properties:
+            for prop in entity_info.properties:
                 if prop.label_id:
                     prop.label_text = labels_map.get(prop.label_id)
 

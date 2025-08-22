@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 import re
 from typing import Dict, List, Optional, Any
 
-from .models import EntityInfo, ActionInfo
+from .models import PublicEntityInfo, ActionInfo
 from .utils import ensure_directory_exists
 
 
@@ -161,14 +161,14 @@ class MetadataManager:
         return sorted([name for name in entities.keys() 
                       if re.search(pattern, name, flags)])
     
-    def get_entity_info(self, entity_name: str) -> Optional[EntityInfo]:
+    def get_entity_info(self, entity_name: str) -> Optional[PublicEntityInfo]:
         """Get detailed entity information
         
         Args:
             entity_name: Name of the entity
             
         Returns:
-            EntityInfo object or None if not found
+            PublicEntityInfo object or None if not found
         """
         if not os.path.exists(self.entities_cache):
             return None
@@ -180,10 +180,16 @@ class MetadataManager:
             return None
         
         entity_data = entities[entity_name]
-        return EntityInfo(
+        return PublicEntityInfo(
             name=entity_data['name'],
-            keys=entity_data['keys'],
-            properties=entity_data['properties'],
+            entity_set_name=entity_data.get('entity_set_name', entity_name),
+            label_id=entity_data.get('label_id'),
+            label_text=entity_data.get('label_text'),
+            is_read_only=entity_data.get('is_read_only', False),
+            configuration_enabled=entity_data.get('configuration_enabled', True),
+            properties=[],  # Legacy cache may not have detailed properties
+            navigation_properties=[],
+            property_groups=[],
             actions=[]  # Will be populated when needed
         )
     

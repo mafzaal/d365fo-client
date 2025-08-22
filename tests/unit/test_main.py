@@ -5,7 +5,7 @@ import pytest_asyncio
 from pathlib import Path
 from unittest.mock import patch, AsyncMock, MagicMock
 from d365fo_client import FOClient, FOClientConfig, create_client
-from d365fo_client.models import QueryOptions, LabelInfo, EntityInfo
+from d365fo_client.models import QueryOptions, LabelInfo, PublicEntityInfo
 
 
 def test_create_client():
@@ -85,19 +85,25 @@ def test_label_info():
     assert label_dict["value"] == "Customer"
 
 
-def test_entity_info():
-    """Test EntityInfo model."""
-    entity = EntityInfo(
+def test_public_entity_info():
+    """Test PublicEntityInfo model."""
+    entity = PublicEntityInfo(
         name="Customers",
-        keys=["CustomerAccount"],
-        properties=[{"name": "CustomerAccount", "type": "Edm.String"}],
+        entity_set_name="CustomersV3",
+        label_id="@SYS123",
+        label_text="Customers",
+        is_read_only=False,
+        configuration_enabled=True,
+        properties=[],
+        navigation_properties=[],
+        property_groups=[],
         actions=[]
     )
     
     assert entity.name == "Customers"
-    assert entity.keys == ["CustomerAccount"]
-    assert len(entity.properties) == 1
-    assert entity.enhanced_properties == []  # Should be initialized by __post_init__
+    assert entity.entity_set_name == "CustomersV3"
+    assert entity.label_text == "Customers"
+    assert not entity.is_read_only
 
 
 def test_url_builders():
@@ -309,10 +315,16 @@ class TestEnhancedFOClient:
             use_cache_first=False
         )
         
-        mock_entity = EntityInfo(
+        mock_entity = PublicEntityInfo(
             name="TestEntity",
-            keys=["Id"],
-            properties=[{"name": "Id", "type": "Edm.String"}],
+            entity_set_name="TestEntities",
+            label_id="@TEST123",
+            label_text="Test Entity",
+            is_read_only=False,
+            configuration_enabled=True,
+            properties=[],
+            navigation_properties=[],
+            property_groups=[],
             actions=[]
         )
         

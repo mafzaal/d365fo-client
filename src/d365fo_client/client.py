@@ -6,7 +6,7 @@ import os
 from typing import Dict, List, Optional, Any, Union
 
 from .models import (
-    FOClientConfig, QueryOptions, LabelInfo, EntityInfo, ActionInfo, EntityPropertyInfo,
+    FOClientConfig, QueryOptions, LabelInfo, ActionInfo,
     DataEntityInfo, PublicEntityInfo, EnumerationInfo, SearchQuery
 )
 from .auth import AuthenticationManager
@@ -475,7 +475,7 @@ class FOClient:
     # Enhanced Entity Operations with Labels
     
     async def get_entity_info_with_labels(self, entity_name: str, 
-                                         language: str = "en-US") -> Optional[EntityInfo]:
+                                         language: str = "en-US") -> Optional[PublicEntityInfo]:
         """Get entity metadata with resolved label text from Metadata API
         
         Args:
@@ -483,65 +483,10 @@ class FOClient:
             language: Language code for label resolution
             
         Returns:
-            EntityInfo object with resolved labels
+            PublicEntityInfo object with resolved labels
         """
-        try:
-            session = await self.session_manager.get_session()
-            
-            # Get entity metadata from Metadata API
-            url = f"{self.metadata_url}/PublicEntities('{entity_name}')"
-        
-            
-            async with session.get(url) as response:
-                if response.status == 200:
-                    entity_data = await response.json()
-                    
-                    # Create basic EntityInfo structure
-                    entity_info = EntityInfo(
-                        name=entity_data.get('Name', entity_name),
-                        keys=[],  # Will be populated from properties
-                        properties=[],  # Will be populated from properties
-                        actions=[],  # Not available from PublicEntities
-                        label_id=entity_data.get('LabelId'),
-                        entity_set_name=entity_data.get('EntitySetName'),
-                        is_read_only=entity_data.get('IsReadOnly', False)
-                    )
-                    
-                    # Process properties
-                    properties = entity_data.get('Properties', [])
-                    for prop_data in properties:
-                        prop_info = EntityPropertyInfo(
-                            name=prop_data.get('Name', ''),
-                            type_name=prop_data.get('TypeName', ''),
-                            label_id=prop_data.get('LabelId'),
-                            is_key=prop_data.get('IsKey', False),
-                            is_mandatory=prop_data.get('IsMandatory', False),
-                            allow_edit=prop_data.get('AllowEdit', True)
-                        )
-                        entity_info.enhanced_properties.append(prop_info)
-                        
-                        # Add to keys list if it's a key
-                        if prop_info.is_key:
-                            entity_info.keys.append(prop_info.name)
-                        
-                        # Add to basic properties structure
-                        entity_info.properties.append({
-                            'name': prop_info.name,
-                            'type': prop_info.type_name,
-                            'nullable': 'true' if not prop_info.is_mandatory else 'false'
-                        })
-                    
-                    # Resolve all label IDs to text
-                    await self.label_ops.resolve_entity_labels(entity_info, language)
-                    
-                    return entity_info
-                else:
-                    print(f"Error fetching entity metadata: {response.status} - {await response.text()} ")
-                    
-        except Exception as e:
-            print(f"Exception fetching entity metadata: {e}")
-        
-        return None
+        # Use the existing get_public_entity_info method which already handles labels
+        return await self.get_public_entity_info(entity_name, language=language)
     
     # Metadata API Operations
     

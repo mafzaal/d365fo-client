@@ -107,46 +107,59 @@ class LabelInfo:
         }
 
 
-@dataclass
-class EntityPropertyInfo:
-    """Information about an entity property with label"""
-    name: str
-    type_name: ODataXppType
-    label_id: Optional[str] = None
-    label_text: Optional[str] = None
-    is_key: bool = False
-    is_mandatory: bool = False
-    allow_edit: bool = True
+# @dataclass
+# class EntityPropertyInfo:
+#     """Information about an entity property with label"""
+#     name: str
+#     type_name: ODataXppType
+#     label_id: Optional[str] = None
+#     label_text: Optional[str] = None
+#     is_key: bool = False
+#     is_mandatory: bool = False
+#     allow_edit: bool = True
     
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            'name': self.name,
-            'type_name': self.type_name,
-            'label_id': self.label_id,
-            'label_text': self.label_text,
-            'is_key': self.is_key,
-            'is_mandatory': self.is_mandatory,
-            'allow_edit': self.allow_edit
-        }
+#     def to_dict(self) -> Dict[str, Any]:
+#         return {
+#             'name': self.name,
+#             'type_name': self.type_name,
+#             'label_id': self.label_id,
+#             'label_text': self.label_text,
+#             'is_key': self.is_key,
+#             'is_mandatory': self.is_mandatory,
+#             'allow_edit': self.allow_edit
+#         }
 
 
-@dataclass
-class EntityInfo:
-    """Entity metadata information"""
-    name: str
-    keys: List[str]
-    properties: List[Dict[str, Any]]
-    actions: List[str]
-    # Enhanced with label information
-    label_id: Optional[str] = None
-    label_text: Optional[str] = None
-    entity_set_name: Optional[str] = None
-    is_read_only: bool = False
-    enhanced_properties: List[EntityPropertyInfo] = None
+# @dataclass
+# class EntityInfo:
+#     """Entity metadata information (deprecated - use PublicEntityInfo instead)"""
+#     name: str
+#     keys: List[str]
+#     properties: List[Dict[str, Any]]
+#     actions: List[str]
+#     # Enhanced with label information
+#     label_id: Optional[str] = None
+#     label_text: Optional[str] = None
+#     entity_set_name: Optional[str] = None
+#     is_read_only: bool = False
+#     enhanced_properties: List[EntityPropertyInfo] = None
     
-    def __post_init__(self):
-        if self.enhanced_properties is None:
-            self.enhanced_properties = []
+#     def __post_init__(self):
+#         if self.enhanced_properties is None:
+#             self.enhanced_properties = []
+    
+#     def to_dict(self) -> Dict[str, Any]:
+#         return {
+#             'name': self.name,
+#             'keys': self.keys,
+#             'properties': self.properties,
+#             'actions': self.actions,
+#             'label_id': self.label_id,
+#             'label_text': self.label_text,
+#             'entity_set_name': self.entity_set_name,
+#             'is_read_only': self.is_read_only,
+#             'enhanced_properties': [prop.to_dict() for prop in self.enhanced_properties]
+#         }
 
 
 @dataclass

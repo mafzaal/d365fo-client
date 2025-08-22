@@ -145,7 +145,7 @@ from .metadata_cache import MetadataCache, MetadataSearchEngine
 from .labels import resolve_labels_generic, resolve_labels_generic_with_cache
 from .models import (
     FOClientConfig, QueryOptions, LabelInfo, 
-    EntityInfo, EntityPropertyInfo, ActionInfo,
+    ActionInfo,
     DataEntityInfo, PublicEntityInfo, EnumerationInfo,
     PublicEntityPropertyInfo, EnumerationMemberInfo
 )
@@ -186,8 +186,6 @@ __all__ = [
     "FOClientConfig",
     "QueryOptions",
     "LabelInfo",
-    "EntityInfo", 
-    "EntityPropertyInfo",
     "ActionInfo",
     "DataEntityInfo",
     "PublicEntityInfo", 

@@ -4,7 +4,7 @@ import pytest
 import pytest_asyncio
 from unittest.mock import patch, AsyncMock, MagicMock
 from d365fo_client import FOClient, FOClientConfig
-from d365fo_client.models import EntityInfo, DataEntityInfo
+from d365fo_client.models import PublicEntityInfo, DataEntityInfo
 
 
 class TestCacheFirstFunctionality:
@@ -83,10 +83,16 @@ class TestCacheFirstFunctionality:
             use_cache_first=True
         )
         
-        mock_entity = EntityInfo(
+        mock_entity = PublicEntityInfo(
             name="TestEntity",
-            keys=["Id"],
-            properties=[{"name": "Id", "type": "Edm.String"}],
+            entity_set_name="TestEntities",
+            label_id="@TEST123",
+            label_text="Test Entity",
+            is_read_only=False,
+            configuration_enabled=True,
+            properties=[],
+            navigation_properties=[],
+            property_groups=[],
             actions=[]
         )
         
@@ -311,8 +317,9 @@ class TestCacheFirstIntegration:
                 # Test multiple operations in sequence
                 operations = [
                     ('search_entities', client.search_entities, ["TestEntity"]),
-                    ('get_entity_info', client.get_entity_info, EntityInfo(
-                        name="TestEntity", keys=[], properties=[], actions=[]
+                    ('get_entity_info', client.get_entity_info, PublicEntityInfo(
+                        name="TestEntity", entity_set_name="TestEntities", 
+                        properties=[], navigation_properties=[], property_groups=[], actions=[]
                     )),
                     ('search_data_entities', client.search_data_entities, []),
                 ]
