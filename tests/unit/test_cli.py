@@ -205,10 +205,13 @@ class TestCLIManager:
             output="json"
         )
         
-        # Capture stdout
-        captured_output = StringIO()
-        with patch('sys.stdout', captured_output):
-            result = await cli_manager.execute_command(args)
+        # Mock the config manager to return empty profiles
+        with patch.object(cli_manager.config_manager, 'list_profiles', return_value={}), \
+             patch.object(cli_manager.config_manager, 'get_default_profile', return_value=None):
+            # Capture stdout
+            captured_output = StringIO()
+            with patch('sys.stdout', captured_output):
+                result = await cli_manager.execute_command(args)
         
         assert result == 0
         assert "No configuration profiles found" in captured_output.getvalue()
@@ -226,10 +229,17 @@ class TestCLIManager:
             profile=None
         )
         
-        # Capture stdout
-        captured_output = StringIO()
-        with patch('sys.stdout', captured_output):
-            result = await cli_manager.execute_command(args)
+        # Mock the config manager to return a config with no base URL
+        mock_config = FOClientConfig(
+            base_url=None,
+            use_default_credentials=True
+        )
+        
+        with patch.object(cli_manager.config_manager, 'get_effective_config', return_value=mock_config):
+            # Capture stdout
+            captured_output = StringIO()
+            with patch('sys.stdout', captured_output):
+                result = await cli_manager.execute_command(args)
         
         assert result == 1
         assert "Base URL is required" in captured_output.getvalue()
