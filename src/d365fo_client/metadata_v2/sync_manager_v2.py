@@ -731,29 +731,29 @@ class SmartSyncManagerV2:
         # Collect label IDs from data entities
         if entities:
             for entity in entities:
-                if entity.label_id:
+                if entity.label_id and entity.label_id.startswith("@"):
                     label_ids.add(entity.label_id)
         
         # Collect label IDs from public entities and their properties
         if public_entities:
             for entity in public_entities:
-                if entity.label_id:
+                if entity.label_id and entity.label_id.startswith("@"):
                     label_ids.add(entity.label_id)
                 
                 # Collect from properties
                 for prop in entity.properties:
-                    if prop.label_id:
+                    if prop.label_id and prop.label_id.startswith("@"):
                         label_ids.add(prop.label_id)
         
         # Collect label IDs from enumerations and their members
         if enumerations:
             for enum in enumerations:
-                if enum.label_id:
+                if enum.label_id and enum.label_id.startswith("@"):
                     label_ids.add(enum.label_id)
                 
                 # Collect from members
                 for member in enum.members:
-                    if member.label_id:
+                    if member.label_id and member.label_id.startswith("@"):
                         label_ids.add(member.label_id)
         
         # Remove empty/None labels

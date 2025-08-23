@@ -285,9 +285,78 @@ class MetadataCacheV2:
             entity_schema: Public entity schema information
         """
         async with aiosqlite.connect(self.db_path) as db:
-            # Insert/update entity
+            # First, get existing entity ID if it exists for this name and version
             cursor = await db.execute(
-                """INSERT OR REPLACE INTO public_entities
+                """SELECT id FROM public_entities 
+                   WHERE name = ? AND global_version_id = ?""",
+                (entity_schema.name, global_version_id)
+            )
+            
+            existing_entity = await cursor.fetchone()
+            existing_entity_id = existing_entity[0] if existing_entity else None
+            
+            # Clear existing related data for this entity and version
+            if existing_entity_id:
+                logger.debug(f"Clearing existing data for entity {entity_schema.name} (ID: {existing_entity_id})")
+                
+                # Delete related data in correct order (respecting foreign key constraints)
+                # 1. Delete relation constraints first
+                await db.execute(
+                    """DELETE FROM relation_constraints 
+                       WHERE navigation_property_id IN (
+                           SELECT id FROM navigation_properties 
+                           WHERE entity_id = ? AND global_version_id = ?
+                       )""",
+                    (existing_entity_id, global_version_id)
+                )
+                
+                # 2. Delete action parameters
+                await db.execute(
+                    """DELETE FROM action_parameters 
+                       WHERE action_id IN (
+                           SELECT id FROM entity_actions 
+                           WHERE entity_id = ? AND global_version_id = ?
+                       )""",
+                    (existing_entity_id, global_version_id)
+                )
+                
+                # 3. Delete property group members
+                await db.execute(
+                    """DELETE FROM property_group_members 
+                       WHERE property_group_id IN (
+                           SELECT id FROM property_groups 
+                           WHERE entity_id = ? AND global_version_id = ?
+                       )""",
+                    (existing_entity_id, global_version_id)
+                )
+                
+                # 4. Delete direct child records
+                await db.execute(
+                    "DELETE FROM entity_properties WHERE entity_id = ? AND global_version_id = ?",
+                    (existing_entity_id, global_version_id)
+                )
+                await db.execute(
+                    "DELETE FROM navigation_properties WHERE entity_id = ? AND global_version_id = ?",
+                    (existing_entity_id, global_version_id)
+                )
+                await db.execute(
+                    "DELETE FROM property_groups WHERE entity_id = ? AND global_version_id = ?",
+                    (existing_entity_id, global_version_id)
+                )
+                await db.execute(
+                    "DELETE FROM entity_actions WHERE entity_id = ? AND global_version_id = ?",
+                    (existing_entity_id, global_version_id)
+                )
+                
+                # 5. Finally delete the entity itself
+                await db.execute(
+                    "DELETE FROM public_entities WHERE id = ? AND global_version_id = ?",
+                    (existing_entity_id, global_version_id)
+                )
+            
+            # Insert new entity
+            cursor = await db.execute(
+                """INSERT INTO public_entities
                    (global_version_id, name, entity_set_name, label_id, label_text,
                     is_read_only, configuration_enabled)
                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
@@ -299,20 +368,6 @@ class MetadataCacheV2:
             )
             
             entity_id = cursor.lastrowid
-            
-            # Clear existing related data
-            await db.execute(
-                "DELETE FROM entity_properties WHERE entity_id = ?",
-                (entity_id,)
-            )
-            await db.execute(
-                "DELETE FROM navigation_properties WHERE entity_id = ?",
-                (entity_id,)
-            )
-            await db.execute(
-                "DELETE FROM entity_actions WHERE entity_id = ?",
-                (entity_id,)
-            )
             
             # Store properties
             prop_order = 0
@@ -329,7 +384,7 @@ class MetadataCacheV2:
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         entity_id, global_version_id, prop.name, prop.type_name,
-                        prop.data_type, prop.data_type, prop.label_id,
+                        prop.data_type, prop.odata_xpp_type, prop.label_id,
                         prop.label_text, prop.is_key, prop.is_mandatory,
                         prop.configuration_enabled, prop.allow_edit,
                         prop.allow_edit_on_create, prop.is_dimension,
@@ -365,7 +420,6 @@ class MetadataCacheV2:
                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                         (
                             nav_prop_id, global_version_id, constraint.constraint_type,
-                            
                             getattr(constraint, 'property', None),
                             getattr(constraint, 'referenced_property', None),
                             getattr(constraint, 'related_property', None), 

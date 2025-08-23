@@ -89,12 +89,12 @@ class FOClient:
                 # Initialize metadata cache v2
                 self.metadata_cache = MetadataCacheV2(cache_dir, self.config.base_url, self.metadata_api_ops)
                 # Initialize label operations v2 with cache support
-                self.label_ops.set_metadata_cache(self.metadata_cache)
+                self.label_ops.set_label_cache(self.metadata_cache)
 
                 await self.metadata_cache.initialize()
                 
                 
-
+    
                 
                 # Initialize sync manager v2
                 self.sync_manager = SmartSyncManagerV2(self.metadata_cache, self.metadata_api_ops)
