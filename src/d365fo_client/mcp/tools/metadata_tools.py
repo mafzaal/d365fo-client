@@ -48,7 +48,7 @@ class MetadataTools:
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "Regex pattern to search for in entity names. IMPORTANT: D365 F&O entity names have specific conventions. For customer groups, try: 'Customer.*Group', 'Cust.*Group', '.*CustomerGroup.*', 'Commission.*Group', or just 'Group' to find all group entities. For broader searches, use '.*Customer.*' or '.*' (with limit). Case-sensitive regex matching."
+                        "description": "Pattern to search for in entity names. IMPORTANT: D365 F&O entity names have specific conventions. For customer groups, try: 'Customer.*Group', 'Cust.*Group', '.*CustomerGroup.*', 'Commission.*Group', or just 'Group' to find all group entities. For broader searches, use '.*Customer.*' or '.*' (with limit). Case-sensitive regex matching."
                     },
                     "entity_category": {
                         "type": "string",
@@ -121,7 +121,7 @@ class MetadataTools:
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "Regex pattern to search for in action names. Use this for broad or partial name searches."
+                        "description": "Pattern to search for in action names. Use this for broad or partial name searches."
                     },
                     "entityName": {
                         "type": "string",
@@ -158,7 +158,7 @@ class MetadataTools:
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "Regex pattern to search for in enumeration names (e.g., '.*Status.*')."
+                        "description": "Pattern to search for in enumeration names (e.g., '.*Status.*')."
                     },
                     "limit": {
                         "type": "integer",

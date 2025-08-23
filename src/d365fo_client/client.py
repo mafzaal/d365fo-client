@@ -12,8 +12,7 @@ from .models import (
 from .auth import AuthenticationManager
 from .session import SessionManager
 from .metadata_api import MetadataAPIOperations
-from .metadata_cache import MetadataCache
-from .metadata_sync import MetadataSyncManager
+from .metadata_v2 import MetadataCacheV2, SmartSyncManagerV2
 from .crud import CrudOperations
 from .labels import LabelOperations,resolve_labels_generic
 from .query import QueryBuilder
@@ -63,7 +62,8 @@ class FOClient:
         self.metadata_url = f"{config.base_url.rstrip('/')}/Metadata"
         self.crud_ops = CrudOperations(self.session_manager, config.base_url)
         
-        # Initialize label operations - will be updated with metadata_cache when available
+        # Initialize label operations - Note: v2 cache doesn't support label caching yet
+        # so we always use None for metadata_cache to force API-based label resolution
         self.label_ops = LabelOperations(self.session_manager, self.metadata_url, None)
         self.metadata_api_ops = MetadataAPIOperations(self.session_manager, self.metadata_url, self.label_ops)
     
@@ -86,21 +86,21 @@ class FOClient:
                 from pathlib import Path
                 cache_dir = Path(self.config.metadata_cache_dir)
                 
-                # Initialize metadata cache
-                self.metadata_cache = MetadataCache(self.config.base_url, cache_dir)
+                # Initialize metadata cache v2
+                self.metadata_cache = MetadataCacheV2(cache_dir, self.config.base_url, self.metadata_api_ops)
                 await self.metadata_cache.initialize()
                 
-                # Update label operations to use metadata cache
-                self.label_ops.metadata_cache = self.metadata_cache
+                # Note: v2 cache doesn't support label caching yet, so label_ops uses API directly
+                # Future enhancement: implement label caching in MetadataCacheV2
                 
-                # Initialize sync manager
-                self.sync_manager = MetadataSyncManager(self.metadata_cache, self.metadata_api_ops)
+                # Initialize sync manager v2
+                self.sync_manager = SmartSyncManagerV2(self.metadata_cache)
                 
                 self._metadata_initialized = True
-                self.logger.debug("Metadata cache and sync manager initialized")
+                self.logger.debug("Metadata cache v2 and sync manager initialized")
                 
             except Exception as e:
-                self.logger.warning(f"Failed to initialize metadata cache: {e}")
+                self.logger.warning(f"Failed to initialize metadata cache v2: {e}")
                 # Continue without metadata cache
                 self.config.enable_metadata_cache = False
     
@@ -110,32 +110,38 @@ class FOClient:
             return
             
         try:
-            # Check if we need to sync
-            if await self.sync_manager.needs_sync():
+            # Check if we need to sync using the new v2 API
+            sync_needed, global_version_id = await self.metadata_cache.check_version_and_sync(self.metadata_api_ops)
+            
+            if sync_needed and global_version_id:
                 # Only start sync if not already running
                 if not self._background_sync_task or self._background_sync_task.done():
                     self._background_sync_task = asyncio.create_task(
-                        self._background_sync_worker()
+                        self._background_sync_worker(global_version_id)
                     )
                     self.logger.debug("Background metadata sync triggered")
         except Exception as e:
             self.logger.warning(f"Failed to check sync status: {e}")
     
-    async def _background_sync_worker(self):
+    async def _background_sync_worker(self, global_version_id: int):
         """Background worker for metadata synchronization"""
         try:
-            self.logger.info("Starting background metadata sync")
-            result = await self.sync_manager.sync_metadata()
+            self.logger.info(f"Starting background metadata sync for version {global_version_id}")
+            
+            # Use self as the fo_client for sync - SmartSyncManagerV2 expects a client with metadata API operations
+            result = await self.sync_manager.sync_metadata(self, global_version_id)
             
             if result.success:
-                self.logger.info(f"Background sync completed: {result.sync_type}, "
-                               f"{result.entities_synced} entities, "
+                self.logger.info(f"Background sync completed: "
+                               f"{result.entity_count} entities, "
+                               f"{result.enumeration_count} enumerations, "
                                f"{result.duration_ms:.2f}ms")
             else:
-                self.logger.warning(f"Background sync failed: {result.errors}")
+                self.logger.warning(f"Background sync failed: {result.error}")
                 
         except Exception as e:
             self.logger.error(f"Background sync error: {e}")
+            # Don't re-raise to avoid breaking the background task
     
     async def _get_from_cache_first(self, cache_method, fallback_method, *args, use_cache_first: Optional[bool] = None, **kwargs):
         """Helper method to implement cache-first pattern
@@ -229,7 +235,7 @@ class FOClient:
     # Metadata Operations
     
     async def download_metadata(self, force_refresh: bool = False) -> bool:
-        """Download/sync metadata using new sync manager
+        """Download/sync metadata using new sync manager v2
         
         Args:
             force_refresh: Force full synchronization even if cache is fresh
@@ -241,21 +247,38 @@ class FOClient:
         await self._ensure_metadata_initialized()
         
         if not self._metadata_initialized:
-            self.logger.error("Metadata cache could not be initialized")
+            self.logger.error("Metadata cache v2 could not be initialized")
             return False
         
         try:
             self.logger.info("Starting metadata synchronization")
-            result = await self.sync_manager.sync_metadata(force_full=force_refresh)
+            
+            # Check version and determine if sync is needed
+            sync_needed, global_version_id = await self.metadata_cache.check_version_and_sync(self.metadata_api_ops)
+            
+            if not sync_needed and not force_refresh:
+                self.logger.info("Metadata is up-to-date, no sync needed")
+                return True
+            
+            if not global_version_id:
+                self.logger.error("Could not determine environment version")
+                return False
+            
+            # Perform sync using the new sync manager
+            from .models import SyncStrategy
+            strategy = SyncStrategy.FULL if force_refresh else SyncStrategy.INCREMENTAL
+            
+            result = await self.sync_manager.sync_metadata(self, global_version_id, strategy, force_refresh)
             
             if result.success:
-                self.logger.info(f"Metadata sync completed: {result.sync_type}, "
-                               f"{result.entities_synced} entities, "
-                               f"{result.enumerations_synced} enumerations, "
+                self.logger.info(f"Metadata sync completed: "
+                               f"{result.entity_count} entities, "
+                               f"{result.enumeration_count} enumerations, "
+                               f"{result.action_count} actions, "
                                f"{result.duration_ms:.2f}ms")
                 return True
             else:
-                self.logger.error(f"Metadata sync failed: {result.errors}")
+                self.logger.error(f"Metadata sync failed: {result.error}")
                 return False
                 
         except Exception as e:
@@ -274,14 +297,22 @@ class FOClient:
         """
         async def cache_search():
             if self.metadata_cache:
-                return await self.metadata_cache.search_data_entities(pattern)
+                # Convert regex pattern to SQL LIKE pattern for v2 cache
+                if pattern:
+                    # Simple conversion: replace * with % for SQL LIKE
+                    sql_pattern = pattern.replace('*', '%')
+                    # If no wildcards, add % at both ends for substring search
+                    if '%' not in sql_pattern and '_' not in sql_pattern:
+                        sql_pattern = f'%{sql_pattern}%'
+                else:
+                    sql_pattern = None
+                    
+                return await self.metadata_cache.get_data_entities(name_pattern=sql_pattern)
             return []
             
         async def fallback_search():
             # Use metadata API operations as fallback
-            
             return await self.metadata_api_ops.search_data_entities(pattern)
-            
         
         return await self._get_from_cache_first(
             cache_search, fallback_search, 
@@ -316,9 +347,9 @@ class FOClient:
         await self._ensure_metadata_initialized()
 
         async def cache_search():
-            if not self._metadata_initialized:
-                return []
-            return await self.metadata_cache.search_actions(pattern, entity_name, binding_kind)
+            # TODO: v2 cache doesn't have action search yet - will be implemented in future phase
+            # For now, always return empty to force fallback to API
+            return []
             
         async def fallback_search():
             # Actions are not directly available through metadata API
@@ -346,9 +377,9 @@ class FOClient:
             ActionInfo object or None if not found
         """
         async def cache_lookup():
-            if not self._metadata_initialized:
-                return None
-            return await self.metadata_cache.get_action_info(action_name, entity_name)
+            # TODO: v2 cache doesn't have action lookup yet - will be implemented in future phase
+            # For now, always return None to force fallback to API
+            return None
             
         async def fallback_lookup():
             # Actions are not directly available through metadata API
@@ -513,8 +544,20 @@ class FOClient:
     
     # Metadata API Operations
     
-    async def get_data_entities(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
-        """Get data entities from DataEntities metadata endpoint
+    async def get_data_entities(self, options: Optional[QueryOptions] = None) -> List[DataEntityInfo]:
+        """Get data entities - updated to return list for v2 sync compatibility
+        
+        Args:
+            options: OData query options (ignored for now)
+            
+        Returns:
+            List of DataEntityInfo objects
+        """
+        # For sync manager compatibility, return list of DataEntityInfo objects
+        return await self.metadata_api_ops.search_data_entities("")  # Get all entities
+    
+    async def get_data_entities_raw(self, options: Optional[QueryOptions] = None) -> Dict[str, Any]:
+        """Get data entities raw response from DataEntities metadata endpoint
         
         Args:
             options: OData query options
@@ -523,6 +566,14 @@ class FOClient:
             Response containing data entities
         """
         return await self.metadata_api_ops.get_data_entities(options)
+    
+    async def get_data_entities_list(self) -> List[DataEntityInfo]:
+        """Get data entities as list - compatibility method for SmartSyncManagerV2
+        
+        Returns:
+            List of DataEntityInfo objects
+        """
+        return await self.metadata_api_ops.search_data_entities("")  # Get all entities
     
     async def search_data_entities(self, pattern: str = "", entity_category: Optional[str] = None,
                                   data_service_enabled: Optional[bool] = None,
@@ -544,9 +595,20 @@ class FOClient:
         """
         async def cache_search():
             if self.metadata_cache:
-                return await self.metadata_cache.search_data_entities(
-                    pattern, entity_category, data_service_enabled,
-                    data_management_enabled, is_read_only
+                # Convert regex pattern to SQL LIKE pattern for v2 cache
+                sql_pattern = None
+                if pattern:
+                    # Simple conversion: replace * with % for SQL LIKE
+                    sql_pattern = pattern.replace('*', '%')
+                    # If no wildcards, add % at both ends for substring search
+                    if '%' not in sql_pattern and '_' not in sql_pattern:
+                        sql_pattern = f'%{sql_pattern}%'
+                
+                return await self.metadata_cache.get_data_entities(
+                    name_pattern=sql_pattern,
+                    entity_category=entity_category,
+                    data_service_enabled=data_service_enabled
+                    # Note: v2 cache doesn't support data_management_enabled or is_read_only filters yet
                 )
             return []
             
@@ -581,7 +643,11 @@ class FOClient:
         """
         async def cache_lookup():
             if self.metadata_cache:
-                return await self.metadata_cache.get_data_entity_info(entity_name, resolve_labels, language)
+                # Get all entities and filter by name (since v2 cache doesn't have get_single method yet)
+                entities = await self.metadata_cache.get_data_entities(name_pattern=entity_name)
+                for entity in entities:
+                    if entity.name == entity_name:
+                        return entity
             return None
             
         async def fallback_lookup():
@@ -618,8 +684,8 @@ class FOClient:
             List of matching public entities (without detailed properties)
         """
         async def cache_search():
-            if self.metadata_cache and hasattr(self.metadata_cache, 'search_public_entities'):
-                return await self.metadata_cache.search_public_entities(pattern, is_read_only, configuration_enabled)
+            # TODO: v2 cache doesn't have public entity search yet - will be implemented in future phase
+            # For now, always return empty to force fallback to API
             return []
             
         async def fallback_search():
@@ -645,7 +711,7 @@ class FOClient:
         """
         async def cache_lookup():
             if self.metadata_cache:
-                return await self.metadata_cache.get_public_entity_info(entity_name, resolve_labels, language)
+                return await self.metadata_cache.get_public_entity_schema(entity_name)
             return None
             
         async def fallback_lookup():
@@ -698,8 +764,8 @@ class FOClient:
             List of matching enumerations (without detailed members)
         """
         async def cache_search():
-            if self.metadata_cache:
-                return await self.metadata_cache.search_public_enumerations(pattern)
+            # TODO: v2 cache doesn't have enumeration search yet - will be implemented in future phase
+            # For now, always return empty to force fallback to API
             return []
             
         async def fallback_search():
@@ -726,8 +792,8 @@ class FOClient:
             EnumerationInfo object with full details or None if not found
         """
         async def cache_lookup():
-            if self.metadata_cache and hasattr(self.metadata_cache, 'get_public_enumeration_info'):
-                return await self.metadata_cache.get_public_enumeration_info(enumeration_name, resolve_labels, language)
+            if self.metadata_cache:
+                return await self.metadata_cache.get_enumeration_info(enumeration_name)
             return None
             
         async def fallback_lookup():
@@ -804,18 +870,22 @@ class FOClient:
         Returns:
             Dictionary with metadata information
         """
-        # Start with basic info (no longer using old MetadataManager)
+        # Start with basic info
         info = {
             "cache_directory": self.config.metadata_cache_dir,
+            "cache_version": "2.0",
             "statistics": None
         }
+        
         await self._ensure_metadata_initialized()
-        # Add new metadata cache info if available
+        
+        # Add new metadata cache v2 info if available
         if self.metadata_cache:
             try:
-                stats = await self.metadata_cache.get_statistics()
+                stats = await self.metadata_cache.get_cache_statistics()
                 cache_info = {
                     "advanced_cache_enabled": True,
+                    "cache_v2_enabled": True,
                     "cache_initialized": self._metadata_initialized,
                     "sync_manager_available": self.sync_manager is not None,
                     "background_sync_running": (
@@ -826,10 +896,11 @@ class FOClient:
                 }
                 info.update(cache_info)
             except Exception as e:
-                self.logger.warning(f"Error getting cache info: {e}")
+                self.logger.warning(f"Error getting cache v2 info: {e}")
                 # Even on error, include basic cache info
                 info.update({
                     "advanced_cache_enabled": True,
+                    "cache_v2_enabled": True,
                     "cache_initialized": self._metadata_initialized,
                     "sync_manager_available": False,
                     "background_sync_running": False
@@ -837,6 +908,7 @@ class FOClient:
         else:
             info.update({
                 "advanced_cache_enabled": False,
+                "cache_v2_enabled": False,
                 "cache_initialized": False,
                 "sync_manager_available": False,
                 "background_sync_running": False
@@ -845,6 +917,17 @@ class FOClient:
         return info
     
     # Application Version Operations
+    
+    async def get_entity_schema(self, entity_name: str) -> Optional[PublicEntityInfo]:
+        """Get entity schema - compatibility method for SmartSyncManagerV2
+        
+        Args:
+            entity_name: Name of the public entity
+            
+        Returns:
+            PublicEntityInfo object with schema details or None if not found
+        """
+        return await self.metadata_api_ops.get_public_entity_info(entity_name, resolve_labels=False)
     
     async def get_application_version(self) -> str:
         """Get the current application version of the D365 F&O environment
