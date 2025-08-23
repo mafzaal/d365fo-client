@@ -191,7 +191,7 @@ class PublicEntityActionInfo:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "name": self.name,
-            "binding_kind": self.binding_kind,
+            "binding_kind": self.binding_kind.value,  # Convert enum to string value
             "parameters": [param.to_dict() for param in self.parameters],
             "return_type": self.return_type.to_dict() if self.return_type else None,
             "field_lookup": self.field_lookup,
@@ -353,7 +353,7 @@ class EnumerationInfo:
 class RelationConstraintInfo:
     """Base relation constraint information"""
 
-    constraint_type: str  # "Referential"|"Fixed"|"RelatedFixed"
+    constraint_type: str = field(init=False)  # "Referential"|"Fixed"|"RelatedFixed" - set by __post_init__ in subclasses
 
     def to_dict(self) -> Dict[str, Any]:
         return {"constraint_type": self.constraint_type}
@@ -438,7 +438,7 @@ class NavigationPropertyInfo:
             "name": self.name,
             "related_entity": self.related_entity,
             "related_relation_name": self.related_relation_name,
-            "cardinality": self.cardinality,
+            "cardinality": self.cardinality.value,  # Convert enum to string value
             "constraints": [constraint.to_dict() for constraint in self.constraints],
         }
 

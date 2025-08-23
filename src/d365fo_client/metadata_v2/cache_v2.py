@@ -15,17 +15,25 @@ if TYPE_CHECKING:
 from ..models import (
     ActionInfo,
     ActionParameterInfo,
+    ActionParameterTypeInfo,
+    ActionReturnTypeInfo,
+    Cardinality,
     DataEntityInfo,
     EnumerationInfo,
     EnumerationMemberInfo,
     EnvironmentVersionInfo,
+    FixedConstraintInfo,
     GlobalVersionInfo,
     LabelInfo,
     ModuleVersionInfo,
     NavigationPropertyInfo,
+    ODataBindingKind,
     PropertyGroupInfo,
+    PublicEntityActionInfo,
     PublicEntityInfo,
     PublicEntityPropertyInfo,
+    ReferentialConstraintInfo,
+    RelatedFixedConstraintInfo,
     RelationConstraintInfo,
     VersionDetectionResult,
 )
@@ -466,7 +474,7 @@ class MetadataCacheV2:
                         nav_prop.name,
                         nav_prop.related_entity,
                         nav_prop.related_relation_name,
-                        nav_prop.cardinality,
+                        nav_prop.cardinality.value,  # Convert enum to string value
                     ),
                 )
 
@@ -504,7 +512,7 @@ class MetadataCacheV2:
                         entity_id,
                         global_version_id,
                         action.name,
-                        action.binding_kind,
+                        action.binding_kind.value,  # Convert enum to string value
                         entity_schema.name,
                         entity_schema.entity_set_name,
                         action.return_type.type_name if action.return_type else None,
@@ -542,6 +550,26 @@ class MetadataCacheV2:
                             param.type.type_name,
                             param_order,
                         ),
+                    )
+
+            # Store property groups
+            for group in entity_schema.property_groups:
+                group_cursor = await db.execute(
+                    """INSERT INTO property_groups
+                       (entity_id, global_version_id, name)
+                       VALUES (?, ?, ?)""",
+                    (entity_id, global_version_id, group.name),
+                )
+                
+                group_id = group_cursor.lastrowid
+                
+                # Store property group members
+                for property_name in group.properties:
+                    await db.execute(
+                        """INSERT INTO property_group_members
+                           (property_group_id, global_version_id, property_name)
+                           VALUES (?, ?, ?)""",
+                        (group_id, global_version_id, property_name),
                     )
 
             await db.commit()
@@ -618,8 +646,153 @@ class MetadataCacheV2:
                     )
                 )
 
-            # Navigation properties and actions would be loaded similarly...
-            # Simplified for brevity
+            # Get navigation properties
+            cursor = await db.execute(
+                """SELECT id, name, related_entity, related_relation_name, cardinality
+                   FROM navigation_properties
+                   WHERE entity_id = ?
+                   ORDER BY name""",
+                (entity_id,),
+            )
+
+            navigation_properties = []
+            for nav_row in await cursor.fetchall():
+                nav_prop_id = nav_row[0]
+                
+                # Get constraints for this navigation property
+                constraint_cursor = await db.execute(
+                    """SELECT constraint_type, property_name, referenced_property,
+                              related_property, fixed_value, fixed_value_str
+                       FROM relation_constraints
+                       WHERE navigation_property_id = ?
+                       ORDER BY constraint_type""",
+                    (nav_prop_id,),
+                )
+
+                constraints = []
+                for constraint_row in await constraint_cursor.fetchall():
+                    constraint_type = constraint_row[0]
+                    
+                    if constraint_type == "Referential":
+                        constraints.append(
+                            ReferentialConstraintInfo(
+                                property=constraint_row[1],
+                                referenced_property=constraint_row[2],
+                            )
+                        )
+                    elif constraint_type == "Fixed":
+                        constraints.append(
+                            FixedConstraintInfo(
+                                property=constraint_row[1],
+                                value=constraint_row[4],
+                                value_str=constraint_row[5],
+                            )
+                        )
+                    elif constraint_type == "RelatedFixed":
+                        constraints.append(
+                            RelatedFixedConstraintInfo(
+                                related_property=constraint_row[3],
+                                value=constraint_row[4],
+                                value_str=constraint_row[5],
+                            )
+                        )
+
+                navigation_properties.append(
+                    NavigationPropertyInfo(
+                        name=nav_row[1],
+                        related_entity=nav_row[2],
+                        related_relation_name=nav_row[3],
+                        cardinality=Cardinality(nav_row[4]) if nav_row[4] else Cardinality.SINGLE,
+                        constraints=constraints,
+                    )
+                )
+
+            # Get property groups
+            cursor = await db.execute(
+                """SELECT id, name
+                   FROM property_groups
+                   WHERE entity_id = ?
+                   ORDER BY name""",
+                (entity_id,),
+            )
+
+            property_groups = []
+            for group_row in await cursor.fetchall():
+                group_id = group_row[0]
+                
+                # Get property group members
+                member_cursor = await db.execute(
+                    """SELECT property_name
+                       FROM property_group_members
+                       WHERE property_group_id = ?
+                       ORDER BY property_name""",
+                    (group_id,),
+                )
+
+                property_names = [row[0] for row in await member_cursor.fetchall()]
+
+                property_groups.append(
+                    PropertyGroupInfo(
+                        name=group_row[1],
+                        properties=property_names,
+                    )
+                )
+
+            # Get actions
+            cursor = await db.execute(
+                """SELECT id, name, binding_kind, return_type_name, return_is_collection,
+                          return_odata_xpp_type, field_lookup
+                   FROM entity_actions
+                   WHERE entity_id = ?
+                   ORDER BY name""",
+                (entity_id,),
+            )
+
+            actions = []
+            for action_row in await cursor.fetchall():
+                action_id = action_row[0]
+                
+                # Get action parameters
+                param_cursor = await db.execute(
+                    """SELECT name, type_name, is_collection, odata_xpp_type, parameter_order
+                       FROM action_parameters
+                       WHERE action_id = ?
+                       ORDER BY parameter_order""",
+                    (action_id,),
+                )
+
+                parameters = []
+                for param_row in await param_cursor.fetchall():
+                    parameters.append(
+                        ActionParameterInfo(
+                            name=param_row[0],
+                            type=ActionParameterTypeInfo(
+                                type_name=param_row[1],
+                                is_collection=param_row[2],
+                                odata_xpp_type=param_row[3],
+                            ),
+                            parameter_order=param_row[4],
+                        )
+                    )
+
+                # Create return type if present
+                return_type = None
+                if action_row[3]:  # return_type_name
+                    return_type = ActionReturnTypeInfo(
+                        type_name=action_row[3],
+                        is_collection=action_row[4],
+                        odata_xpp_type=action_row[5],
+                    )
+
+                actions.append(
+                    PublicEntityActionInfo(
+                        name=action_row[1],
+                        binding_kind=ODataBindingKind(action_row[2]),
+                        parameters=parameters,
+                        return_type=return_type,
+                        field_lookup=action_row[6],
+                    )
+                )
 
             return PublicEntityInfo(
                 name=entity_row[1],
@@ -629,9 +802,9 @@ class MetadataCacheV2:
                 is_read_only=entity_row[5],
                 configuration_enabled=entity_row[6],
                 properties=properties,
-                navigation_properties=[],  # TODO: Load navigation properties
-                property_groups=[],  # TODO: Load property groups
-                actions=[],  # TODO: Load actions
+                navigation_properties=navigation_properties,
+                property_groups=property_groups,
+                actions=actions,
             )
 
     async def store_enumerations(
