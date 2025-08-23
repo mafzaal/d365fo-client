@@ -32,7 +32,7 @@ async def example_usage():
         
         # Search entities
         print("\n🔍 Searching entities...")
-        customer_entities = client.search_entities("customer")
+        customer_entities = await client.search_entities("customer")
         print(f"Found {len(customer_entities)} customer-related entities")
         for entity in customer_entities[:5]:  # Show first 5
             print(f"  - {entity}")
@@ -44,10 +44,10 @@ async def example_usage():
             print(f"Customers entity: {customers_info.name}")
             if customers_info.label_text:
                 print(f"Entity label: '{customers_info.label_text}'")
-            print(f"Has {len(customers_info.enhanced_properties)} properties")
+            print(f"Has {len(customers_info.properties)} properties")
             
             # Show properties with labels
-            labeled_props = [p for p in customers_info.enhanced_properties if p.label_text][:5]
+            labeled_props = [p for p in customers_info.properties if p.label_text][:5]
             if labeled_props:
                 print("Properties with labels:")
                 for prop in labeled_props:
@@ -85,7 +85,7 @@ async def example_usage():
         
         # Search and call actions
         print("\n⚡ Searching actions...")
-        calc_actions = client.search_actions("calculate")
+        calc_actions = await client.search_actions("calculate")
         print(f"Found {len(calc_actions)} calculation actions")
         for action in calc_actions[:5]:  # Show first 5
             print(f"  - {action}")

@@ -129,7 +129,7 @@ class FOClient:
             self.logger.info(f"Starting background metadata sync for version {global_version_id}")
             
             # Use self as the fo_client for sync - SmartSyncManagerV2 expects a client with metadata API operations
-            result = await self.sync_manager.sync_metadata(self, global_version_id)
+            result = await self.sync_manager.sync_metadata(global_version_id)
             
             if result.success:
                 self.logger.info(f"Background sync completed: "
@@ -268,7 +268,7 @@ class FOClient:
             from .models import SyncStrategy
             strategy = SyncStrategy.FULL if force_refresh else SyncStrategy.INCREMENTAL
             
-            result = await self.sync_manager.sync_metadata(self, global_version_id, strategy, force_refresh)
+            result = await self.sync_manager.sync_metadata(global_version_id, strategy)
             
             if result.success:
                 self.logger.info(f"Metadata sync completed: "
