@@ -175,10 +175,54 @@ from .main import main
 from .mcp import D365FOClientManager, D365FOMCPServer
 
 # Legacy Metadata Cache (deprecated - use metadata_v2)
-from .metadata_cache import MetadataCache, MetadataSearchEngine
+# REMOVED: Legacy classes have been replaced with V2 implementations
+# from .metadata_cache import MetadataCache, MetadataSearchEngine
 
-# V2 Metadata Cache (recommended)
+# V2 Metadata Cache (recommended - now the only implementation)
 from .metadata_v2 import MetadataCacheV2, VersionAwareSearchEngine
+
+# Provide backward compatibility with immediate import errors
+import warnings
+
+class _DeprecatedMetadataCache:
+    """Deprecated placeholder for MetadataCache - raises error on any access"""
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "MetadataCache is deprecated and has been removed. "
+            "Use MetadataCacheV2 from d365fo_client.metadata_v2 instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        raise ImportError(
+            "MetadataCache has been removed. Use MetadataCacheV2 from d365fo_client.metadata_v2 instead."
+        )
+    
+    def __getattr__(self, name):
+        raise ImportError(
+            "MetadataCache has been removed. Use MetadataCacheV2 from d365fo_client.metadata_v2 instead."
+        )
+
+class _DeprecatedMetadataSearchEngine:
+    """Deprecated placeholder for MetadataSearchEngine - raises error on any access"""
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "MetadataSearchEngine is deprecated and has been removed. "
+            "Use VersionAwareSearchEngine from d365fo_client.metadata_v2 instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+        raise ImportError(
+            "MetadataSearchEngine has been removed. Use VersionAwareSearchEngine from d365fo_client.metadata_v2 instead."
+        )
+    
+    def __getattr__(self, name):
+        raise ImportError(
+            "MetadataSearchEngine has been removed. Use VersionAwareSearchEngine from d365fo_client.metadata_v2 instead."
+        )
+
+# Create deprecated placeholder classes
+MetadataCache = _DeprecatedMetadataCache
+MetadataSearchEngine = _DeprecatedMetadataSearchEngine
 from .models import (
     ActionInfo,
     DataEntityInfo,
@@ -211,10 +255,10 @@ __all__ = [
     # Main client
     "FOClient",
     "create_client",
-    # Legacy caching (deprecated)
-    "MetadataCache",
+    # Legacy caching (deprecated placeholders - raise errors when used)
+    "MetadataCache", 
     "MetadataSearchEngine",
-    # V2 caching (recommended)
+    # V2 caching (now the primary implementation)
     "MetadataCacheV2", 
     "VersionAwareSearchEngine",
     "resolve_labels_generic",

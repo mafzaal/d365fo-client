@@ -228,13 +228,12 @@ class MetadataTools:
             if not hasattr(client, 'metadata_cache') or not client.metadata_cache:
                 return []
 
-            # Check if we're using V2 cache
-            if not hasattr(client.metadata_cache, 'get_data_entities'):
-                # Fallback to legacy search if V1 cache
-                from ...metadata_cache import MetadataSearchEngine
-                search_engine = MetadataSearchEngine(client.metadata_cache)
+            # Always use V2 search engine (legacy has been removed)
+            if hasattr(client.metadata_cache, 'create_search_engine'):
+                # V2 cache - use the convenient factory method
+                search_engine = client.metadata_cache.create_search_engine()
             else:
-                # Use V2 search engine
+                # Fallback - create directly (in case factory method isn't available)
                 search_engine = VersionAwareSearchEngine(client.metadata_cache)
 
             # Extract search terms from regex pattern

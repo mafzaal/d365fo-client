@@ -1,4 +1,4 @@
-"""Tests for advanced metadata caching system."""
+"""Tests for V2 metadata caching system."""
 
 import asyncio
 import tempfile
@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from d365fo_client.metadata_cache import MetadataCache, MetadataSearchEngine
+from d365fo_client.metadata_v2 import MetadataCacheV2, VersionAwareSearchEngine
 from d365fo_client.models import (
     DataEntityInfo,
     NavigationPropertyInfo,
@@ -27,14 +27,9 @@ async def temp_cache_dir():
 @pytest.fixture
 async def metadata_cache(temp_cache_dir):
     """Create metadata cache instance"""
-    cache = MetadataCache(
-        environment_url="https://test.dynamics.com",
+    cache = MetadataCacheV2(
         cache_dir=temp_cache_dir,
-        config={
-            "cache_ttl_seconds": 60,
-            "max_memory_cache_size": 100,
-            "enable_fts_search": True,
-        },
+        base_url="https://test.dynamics.com"
     )
     await cache.initialize()
     return cache
@@ -176,7 +171,7 @@ async def test_entity_caching(metadata_cache):
 @pytest.mark.asyncio
 async def test_search_engine(metadata_cache):
     """Test search engine functionality"""
-    search_engine = MetadataSearchEngine(metadata_cache)
+    search_engine = VersionAwareSearchEngine(metadata_cache)
 
     # Test simple search (should work even with empty database)
     query = SearchQuery(
@@ -207,10 +202,10 @@ async def test_cache_key_generation(metadata_cache):
 @pytest.mark.asyncio
 async def test_environment_management(temp_cache_dir):
     """Test environment management"""
-    cache1 = MetadataCache("https://env1.dynamics.com", temp_cache_dir)
+    cache1 = MetadataCacheV2(temp_cache_dir, "https://env1.dynamics.com")
     await cache1.initialize()
 
-    cache2 = MetadataCache("https://env2.dynamics.com", temp_cache_dir)
+    cache2 = MetadataCacheV2(temp_cache_dir, "https://env2.dynamics.com")
     await cache2.initialize()
 
     # Should have different environment IDs

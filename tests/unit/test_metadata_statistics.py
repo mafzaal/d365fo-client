@@ -8,8 +8,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from d365fo_client.metadata_cache import MetadataCache, MetadataDatabase
-from d365fo_client.models import MetadataVersionInfo
+from d365fo_client.metadata_v2 import MetadataCacheV2, MetadataDatabaseV2
+from d365fo_client.models import EnvironmentVersionInfo
 
 
 class TestMetadataStatistics(unittest.IsolatedAsyncioTestCase):
@@ -19,10 +19,10 @@ class TestMetadataStatistics(unittest.IsolatedAsyncioTestCase):
         """Set up test environment"""
         self.temp_dir = tempfile.TemporaryDirectory()
         self.cache_dir = Path(self.temp_dir.name)
-        self.db_path = self.cache_dir / "test_metadata.db"
+        self.db_path = self.cache_dir / "test_metadata_v2.db"
 
         # Initialize database
-        self.db = MetadataDatabase(self.db_path)
+        self.db = MetadataDatabaseV2(self.db_path)
         await self.db.initialize()
 
         # Create test environment
