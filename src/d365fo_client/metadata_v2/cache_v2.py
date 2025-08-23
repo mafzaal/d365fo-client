@@ -255,7 +255,8 @@ class MetadataCacheV2:
             global_version_id: Global version ID (uses current if None)
             data_service_enabled: Filter by data service enabled status
             entity_category: Filter by entity category
-            name_pattern: Filter by name pattern (SQL LIKE)
+            name_pattern: Filter by name pattern (SQL LIKE) - searches across all text fields:
+                         name, public_entity_name, public_collection_name, label_id, label_text, entity_category
 
         Returns:
             List of matching data entities
@@ -278,8 +279,12 @@ class MetadataCacheV2:
             params.append(entity_category)
 
         if name_pattern is not None:
-            conditions.append("name LIKE ?")
-            params.append(name_pattern)
+            # Search across all text fields with OR conditions
+            conditions.append(
+                "(name LIKE ? OR public_entity_name LIKE ? OR public_collection_name LIKE ? OR label_id LIKE ? OR label_text LIKE ? OR entity_category LIKE ?)"
+            )
+            # Add the pattern 6 times for each field
+            params.extend([name_pattern] * 6)
 
         where_clause = " AND ".join(conditions)
 

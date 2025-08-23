@@ -42,13 +42,27 @@ class MetadataTools:
         """Get search entities tool definition."""
         return Tool(
             name="d365fo_search_entities",
-            description="Search for D365 F&O data entities by name, pattern, or properties. D365 F&O entity names follow specific patterns - try multiple search strategies for best results. For customer groups, try patterns like 'Customer.*Group', 'Cust.*Group', '.*CustomerGroup.*', or search for 'Group' alone to find all group-related entities.",
+            description="""Search for D365 F&O data entities using simple keyword-based search. 
+
+IMPORTANT: When a user asks for something like "Get data management entities" or "Find customer group entities", break the request into individual keywords and perform MULTIPLE searches, then analyze all results:
+
+1. Extract individual keywords from the request (e.g., "data management entities" → "data", "management", "entities")
+2. Perform separate searches for each significant keyword using simple text matching
+3. Combine and analyze results from all searches
+4. Look for entities that match the combination of concepts
+
+SEARCH STRATEGY EXAMPLES:
+- "data management entities" → Search for "data", then "management", then find entities matching both concepts
+- "customer groups" → Search for "customer", then "group", then find intersection
+- "sales orders" → Search for "sales", then "order", then combine results
+
+Use simple keywords, not complex patterns. The search will find entities containing those keywords.""",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "Pattern to search for in entity names. IMPORTANT: D365 F&O entity names have specific conventions. For customer groups, try: 'Customer.*Group', 'Cust.*Group', '.*CustomerGroup.*', 'Commission.*Group', or just 'Group' to find all group entities. For broader searches, use '.*Customer.*' or '.*' (with limit). Case-sensitive regex matching.",
+                        "description": "Simple keyword or text to search for in entity names. Use plain text keywords, not regex patterns. For multi-word requests like 'data management entities': 1) Break into keywords: 'data', 'management' 2) Search for each keyword separately: 'data' then 'management' 3) Run separate searches for each keyword 4) Analyze combined results. Examples: use 'customer' to find customer entities, 'group' to find group entities.",
                     },
                     "entity_category": {
                         "type": "string",
@@ -121,13 +135,27 @@ class MetadataTools:
         """Get search actions tool definition."""
         return Tool(
             name="d365fo_search_actions",
-            description="Search for available OData actions in D365 F&O. Actions are operations that can be performed on entities or globally. Returns full action details including binding information for calling actions.",
+            description="""Search for available OData actions in D365 F&O using simple keyword-based search.
+
+IMPORTANT: When searching for actions, break down user requests into individual keywords and perform MULTIPLE searches:
+
+1. Extract keywords from requests (e.g., "posting actions" → "post", "posting")
+2. Perform separate searches for each keyword using simple text matching
+3. Combine and analyze results from all searches
+4. Look for actions that match the combination of concepts
+
+SEARCH STRATEGY EXAMPLES:
+- "posting actions" → Search for "post", then look for posting-related actions
+- "validation functions" → Search for "valid" and "check", then find validation actions
+- "workflow actions" → Search for "workflow" and "approve", then combine results
+
+Use simple keywords, not complex patterns. Actions are operations that can be performed on entities or globally.""",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "Pattern to search for in action names. Use this for broad or partial name searches.",
+                        "description": "Simple keyword or text to search for in action names. Use plain text keywords, not regex patterns. For requests like 'posting actions': 1) Extract keywords: 'post', 'posting' 2) Search for each keyword: 'post' 3) Perform multiple searches for related terms 4) Analyze combined results. Use simple text matching.",
                     },
                     "entityName": {
                         "type": "string",
@@ -162,13 +190,27 @@ class MetadataTools:
         """Get search enumerations tool definition."""
         return Tool(
             name="d365fo_search_enumerations",
-            description="Search for enumerations (enums) in D365 F&O. Enums represent a list of named constants (e.g., NoYes, CustVendorBlocked).",
+            description="""Search for enumerations (enums) in D365 F&O using simple keyword-based search.
+
+IMPORTANT: When searching for enumerations, break down user requests into individual keywords and perform MULTIPLE searches:
+
+1. Extract keywords from requests (e.g., "customer status enums" → "customer", "status")  
+2. Perform separate searches for each keyword using simple text matching
+3. Combine and analyze results from all searches
+4. Look for enums that match the combination of concepts
+
+SEARCH STRATEGY EXAMPLES:
+- "customer status enums" → Search for "customer", then "status", then find status-related customer enums
+- "blocking reasons" → Search for "block" and "reason", then combine results
+- "approval states" → Search for "approval" and "state", then find approval-related enums
+
+Use simple keywords, not complex patterns. Enums represent lists of named constants (e.g., NoYes, CustVendorBlocked).""",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "pattern": {
                         "type": "string",
-                        "description": "Pattern to search for in enumeration names (e.g., '.*Status.*').",
+                        "description": "Simple keyword or text to search for in enumeration names. Use plain text keywords, not regex patterns. For requests like 'customer blocking enums': 1) Extract keywords: 'customer', 'blocking' 2) Search for each keyword: 'customer' then 'blocking' 3) Perform multiple searches 4) Analyze combined results. Use simple text matching.",
                     },
                     "limit": {
                         "type": "integer",
@@ -368,10 +410,9 @@ class MetadataTools:
             suggestions = []
             if len(filtered_entities) == 0:
                 suggestions = [
-                    "Try broader patterns like '.*Customer.*', '.*Group.*', or '.*' (with small limit)",
-                    "Use category filters: entity_category='Master' for customer groups",
-                    "Check data_service_enabled=True for API-accessible entities",
-                    "Common D365 F&O patterns: 'Cust' for Customer, 'Vend' for Vendor, 'Ledger' for GL",
+                    "Try broader or simpler keywords to increase matches.",
+                    "Consider using category filters such as entity_category.",
+                    "Use data_service_enabled=True to find API-accessible entities.",
                 ]
 
                 # Add FTS-specific suggestions if FTS results were found
