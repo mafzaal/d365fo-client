@@ -293,6 +293,7 @@ class EnumerationMemberInfo:
     label_id: Optional[str] = None
     label_text: Optional[str] = None
     configuration_enabled: bool = True
+    member_order: int = 0
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -300,7 +301,8 @@ class EnumerationMemberInfo:
             'value': self.value,
             'label_id': self.label_id,
             'label_text': self.label_text,
-            'configuration_enabled': self.configuration_enabled
+            'configuration_enabled': self.configuration_enabled,
+            'member_order': self.member_order
         }
 
 

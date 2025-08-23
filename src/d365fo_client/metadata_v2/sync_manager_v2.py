@@ -2,31 +2,36 @@
 
 import logging
 import asyncio
+import json
+import hashlib
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Set, Callable
 from pathlib import Path
 import time
 
 from .cache_v2 import MetadataCacheV2
-from .global_version_manager import GlobalVersionManager
 from ..models import (
-    DataEntityInfo, PublicEntityInfo, EnumerationInfo,
-    SyncProgress, SyncStrategy, SyncResult
+    DataEntityInfo, PublicEntityInfo, EnumerationInfo, 
+    SyncProgress, SyncStrategy, SyncResult, QueryOptions, MetadataVersionInfo
 )
+
+from ..metadata_api import MetadataAPIOperations
 
 logger = logging.getLogger(__name__)
 
 
 class SmartSyncManagerV2:
     """Intelligent metadata synchronization with progress tracking and error handling"""
-    
-    def __init__(self, cache: MetadataCacheV2):
+
+    def __init__(self, cache: MetadataCacheV2, metadata_api: MetadataAPIOperations):
         """Initialize smart sync manager
         
         Args:
             cache: Metadata cache v2 instance
+            metadata_api: Metadata API operations instance
         """
         self.cache = cache
+        self.metadata_api = metadata_api
         self.version_manager = cache.version_manager
         
         # Sync state
@@ -66,15 +71,12 @@ class SmartSyncManagerV2:
     
     async def sync_metadata(
         self,
-        fo_client,
         global_version_id: int,
-        strategy: SyncStrategy = SyncStrategy.FULL,
-        force_resync: bool = False
+        strategy: SyncStrategy = SyncStrategy.FULL
     ) -> SyncResult:
         """Sync metadata for global version
         
         Args:
-            fo_client: D365 F&O client instance
             global_version_id: Global version ID to sync
             strategy: Sync strategy to use
             force_resync: Force resync even if data exists
@@ -119,13 +121,13 @@ class SmartSyncManagerV2:
             
             # Execute sync strategy
             if strategy == SyncStrategy.FULL:
-                result = await self._sync_full_metadata(fo_client, global_version_id, progress)
+                result = await self._sync_full_metadata(global_version_id, progress)
             elif strategy == SyncStrategy.INCREMENTAL:
-                result = await self._sync_incremental_metadata(fo_client, global_version_id, progress)
+                result = await self._sync_incremental_metadata(global_version_id, progress)
             elif strategy == SyncStrategy.ENTITIES_ONLY:
-                result = await self._sync_entities_only(fo_client, global_version_id, progress)
+                result = await self._sync_entities_only(global_version_id, progress)
             elif strategy == SyncStrategy.SHARING_MODE:
-                result = await self._sync_sharing_mode(fo_client, global_version_id, progress)
+                result = await self._sync_sharing_mode(global_version_id, progress)
             else:
                 raise ValueError(f"Unknown sync strategy: {strategy}")
             
@@ -189,6 +191,7 @@ class SmartSyncManagerV2:
             )
         finally:
             self._is_syncing = False
+            # MetadataAPIOperations doesn't need explicit cleanup
     
     def _calculate_total_steps(self, strategy: SyncStrategy) -> int:
         """Calculate total sync steps for strategy
@@ -212,14 +215,12 @@ class SmartSyncManagerV2:
     
     async def _sync_full_metadata(
         self,
-        fo_client,
         global_version_id: int,
         progress: SyncProgress
     ) -> SyncResult:
         """Perform full metadata synchronization
         
         Args:
-            fo_client: D365 F&O client instance
             global_version_id: Global version ID
             progress: Progress tracker
             
@@ -238,7 +239,7 @@ class SmartSyncManagerV2:
             progress.completed_steps = 1
             self._update_progress(progress)
             
-            entities = await fo_client.get_data_entities()
+            entities = await self._get_data_entities()
             if entities:
                 await self.cache.store_data_entities(global_version_id, entities)
                 entity_count = len(entities)
@@ -250,30 +251,15 @@ class SmartSyncManagerV2:
             progress.completed_steps = 2
             self._update_progress(progress)
             
-            # Get top public entities for schema sync
-            public_entities = [e for e in entities if e.data_service_enabled and e.public_entity_name]
-            top_entities = public_entities[:50]  # Limit to top 50 for performance
+            public_entities = await self._get_public_entities()
+            for entity in public_entities:
+                await self.cache.store_public_entity_schema(global_version_id, entity)
+                action_count += len(entity.actions)
+
+            schema_count = len(public_entities)
             
-            schema_count = 0
-            for i, entity in enumerate(top_entities):
-                try:
-                    schema = await fo_client.get_entity_schema(entity.public_entity_name)
-                    if schema:
-                        await self.cache.store_public_entity_schema(global_version_id, schema)
-                        schema_count += 1
-                        
-                        # Count actions
-                        action_count += len(schema.actions)
-                    
-                    # Update progress
-                    if i % 10 == 0:
-                        progress.current_operation = f"Syncing schemas ({i+1}/{len(top_entities)})"
-                        self._update_progress(progress)
-                        
-                except Exception as e:
-                    logger.warning(f"Failed to sync schema for {entity.public_entity_name}: {e}")
             
-            logger.info(f"Synced {schema_count} entity schemas with {action_count} actions")
+            logger.info(f"Synced {schema_count} entity schemas")
             
             # Step 3: Sync enumerations
             progress.phase = "enumerations"
@@ -282,7 +268,7 @@ class SmartSyncManagerV2:
             self._update_progress(progress)
             
             try:
-                enumerations = await fo_client.get_public_enumerations()
+                enumerations = await self._get_public_enumerations()
                 if enumerations:
                     await self.cache.store_enumerations(global_version_id, enumerations)
                     enumeration_count = len(enumerations)
@@ -329,14 +315,12 @@ class SmartSyncManagerV2:
     
     async def _sync_incremental_metadata(
         self,
-        fo_client,
         global_version_id: int,
         progress: SyncProgress
     ) -> SyncResult:
         """Perform incremental metadata synchronization
         
         Args:
-            fo_client: D365 F&O client instance
             global_version_id: Global version ID
             progress: Progress tracker
             
@@ -346,18 +330,16 @@ class SmartSyncManagerV2:
         # For now, fall back to full sync
         # TODO: Implement true incremental sync logic
         logger.info("Incremental sync not yet implemented, falling back to full sync")
-        return await self._sync_full_metadata(fo_client, global_version_id, progress)
+        return await self._sync_full_metadata(global_version_id, progress)
     
     async def _sync_entities_only(
         self,
-        fo_client,
         global_version_id: int,
         progress: SyncProgress
     ) -> SyncResult:
         """Sync only data entities (fast mode)
         
         Args:
-            fo_client: D365 F&O client instance
             global_version_id: Global version ID
             progress: Progress tracker
             
@@ -371,7 +353,7 @@ class SmartSyncManagerV2:
             progress.completed_steps = 1
             self._update_progress(progress)
             
-            entities = await fo_client.get_data_entities()
+            entities = await self._get_data_entities()
             entity_count = 0
             if entities:
                 await self.cache.store_data_entities(global_version_id, entities)
@@ -408,14 +390,12 @@ class SmartSyncManagerV2:
     
     async def _sync_sharing_mode(
         self,
-        fo_client,
         global_version_id: int,
         progress: SyncProgress
     ) -> SyncResult:
         """Sync using cross-environment sharing
         
         Args:
-            fo_client: D365 F&O client instance
             global_version_id: Global version ID
             progress: Progress tracker
             
@@ -451,7 +431,7 @@ class SmartSyncManagerV2:
             if not source_version:
                 # No compatible version found, fall back to full sync
                 logger.info("No compatible version found for sharing, falling back to full sync")
-                return await self._sync_full_metadata(fo_client, global_version_id, progress)
+                return await self._sync_full_metadata(global_version_id, progress)
             
             # Step 2: Copy metadata from compatible version
             progress.phase = "copying"
@@ -564,13 +544,11 @@ class SmartSyncManagerV2:
     
     async def recommend_sync_strategy(
         self,
-        fo_client,
         global_version_id: int
     ) -> SyncStrategy:
         """Recommend sync strategy based on environment and cache state
         
         Args:
-            fo_client: D365 F&O client instance
             global_version_id: Global version ID
             
         Returns:
@@ -589,7 +567,7 @@ class SmartSyncManagerV2:
             
             # Check for compatible versions (sharing opportunity)
             compatible_versions = await self.version_manager.find_compatible_versions(
-                version_info.modules,
+                version_info.sample_modules,
                 exact_match=True
             )
             
@@ -604,3 +582,113 @@ class SmartSyncManagerV2:
         except Exception as e:
             logger.warning(f"Failed to recommend sync strategy: {e}")
             return SyncStrategy.FULL
+    
+    # Metadata API Methods (Using MetadataAPIOperations)
+    
+    async def _get_data_entities(self) -> List[DataEntityInfo]:
+        """Get data entities using MetadataAPIOperations
+        
+        Args:
+            options: OData query options
+            
+        Returns:
+            List of data entity information
+        """
+        try:
+            # Use existing search method which handles the data extraction and parsing
+            entities = await self.metadata_api.search_data_entities()
+            return entities
+                    
+        except Exception as e:
+            logger.error(f"Error getting data entities: {e}")
+            raise
+    
+    async def _get_public_entities(self) -> List[PublicEntityInfo]:
+        """Get detailed schema for all public entities using MetadataAPIOperations
+
+        Returns:
+            List of PublicEntityInfo with full schema
+        """
+        try:
+            return await self.metadata_api.get_all_public_entities_with_details(
+                resolve_labels=False  # We'll handle labels separately if needed
+            )
+
+        except Exception as e:
+            logger.error(f"Error getting public entities: {e}")
+            return []
+
+
+
+    async def _get_public_enumerations(self) -> List[EnumerationInfo]:
+        """Get public enumerations using MetadataAPIOperations
+        
+        Args:
+            options: OData query options
+            
+        Returns:
+            List of enumeration information
+        """
+        try:
+            # Use existing method which handles the data extraction and parsing
+            enumerations = await self.metadata_api.get_all_public_enumerations_with_details(
+                resolve_labels=False  # We'll handle labels separately if needed
+            )
+            return enumerations
+                    
+        except Exception as e:
+            logger.error(f"Error getting public enumerations: {e}")
+            raise
+    
+    async def _get_current_version(self) -> MetadataVersionInfo:
+        """Get current environment version information
+        
+        Returns:
+            Current version information
+        """
+        try:
+            # Get version information from D365 F&O using MetadataAPIOperations
+            application_version = await self.metadata_api.get_application_version()
+            platform_version = await self.metadata_api.get_platform_build_version()
+        except Exception as e:
+            logger.warning(f"Failed to get version information: {e}, using fallback")
+            application_version = "10.0.latest"
+            platform_version = "10.0.latest"
+        
+        # Create a version hash based on the actual version information
+        version_components = {
+            'application_version': application_version,
+            'platform_version': platform_version,
+        }
+        
+        # Create version hash
+        version_str = json.dumps(version_components, sort_keys=True)
+        version_hash = hashlib.sha256(version_str.encode()).hexdigest()[:16]
+        
+        return MetadataVersionInfo(
+            environment_id=self.cache._environment_id,
+            version_hash=version_hash,
+            application_version=application_version,
+            platform_version=platform_version,
+            package_info=[],  # Would be populated with actual package info
+            created_at=datetime.now(timezone.utc),
+            is_active=True
+        )
+    
+    async def needs_sync(self, global_version_id: int) -> bool:
+        """Check if metadata synchronization is needed
+        
+        Args:
+            global_version_id: Global version ID to check
+            
+        Returns:
+            True if sync is needed
+        """
+        try:
+            # Check if metadata exists for this version
+            return not await self.cache._has_complete_metadata(global_version_id)
+            
+        except Exception as e:
+            logger.warning(f"Could not check sync status: {e}")
+            # When in doubt, assume sync is needed
+            return True

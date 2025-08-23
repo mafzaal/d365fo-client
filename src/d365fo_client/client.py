@@ -94,7 +94,7 @@ class FOClient:
                 # Future enhancement: implement label caching in MetadataCacheV2
                 
                 # Initialize sync manager v2
-                self.sync_manager = SmartSyncManagerV2(self.metadata_cache)
+                self.sync_manager = SmartSyncManagerV2(self.metadata_cache,self.metadata_api_ops)
                 
                 self._metadata_initialized = True
                 self.logger.debug("Metadata cache v2 and sync manager initialized")

@@ -312,7 +312,9 @@ class MetadataCacheV2:
             )
             
             # Store properties
+            prop_order = 0
             for prop in entity_schema.properties:
+                prop_order += 1
                 await db.execute(
                     """INSERT INTO entity_properties
                        (entity_id, global_version_id, name, type_name, data_type,
@@ -324,13 +326,13 @@ class MetadataCacheV2:
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         entity_id, global_version_id, prop.name, prop.type_name,
-                        prop.data_type, prop.odata_xpp_type, prop.label_id,
+                        prop.data_type, prop.data_type, prop.label_id,
                         prop.label_text, prop.is_key, prop.is_mandatory,
                         prop.configuration_enabled, prop.allow_edit,
                         prop.allow_edit_on_create, prop.is_dimension,
                         prop.dimension_relation, prop.is_dynamic_dimension,
                         prop.dimension_legal_entity_property,
-                        prop.dimension_type_property, prop.property_order
+                        prop.dimension_type_property, prop_order
                     )
                 )
             
@@ -351,7 +353,7 @@ class MetadataCacheV2:
                 nav_prop_id = nav_cursor.lastrowid
                 
                 # Store relation constraints
-                for constraint in nav_prop.relation_constraints:
+                for constraint in nav_prop.constraints:
                     await db.execute(
                         """INSERT INTO relation_constraints
                            (navigation_property_id, global_version_id, constraint_type,
@@ -360,9 +362,12 @@ class MetadataCacheV2:
                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                         (
                             nav_prop_id, global_version_id, constraint.constraint_type,
-                            constraint.property_name, constraint.referenced_property,
-                            constraint.related_property, constraint.fixed_value,
-                            constraint.fixed_value_str
+                            
+                            getattr(constraint, 'property', None),
+                            getattr(constraint, 'referenced_property', None),
+                            getattr(constraint, 'related_property', None), 
+                            getattr(constraint, 'value', None),
+                            getattr(constraint, 'value_str', None)
                         )
                     )
             
@@ -376,7 +381,8 @@ class MetadataCacheV2:
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         entity_id, global_version_id, action.name, action.binding_kind,
-                        action.entity_name, action.entity_set_name,
+                        entity_schema.name, 
+                        entity_schema.entity_set_name,
                         action.return_type.type_name if action.return_type else None,
                         action.return_type.is_collection if action.return_type else False,
                         action.return_type.odata_xpp_type if action.return_type else None,
@@ -387,7 +393,9 @@ class MetadataCacheV2:
                 action_id = action_cursor.lastrowid
                 
                 # Store action parameters
+                param_order = 0
                 for param in action.parameters:
+                    param_order += 1
                     await db.execute(
                         """INSERT INTO action_parameters
                            (action_id, global_version_id, name, type_name,
@@ -395,13 +403,13 @@ class MetadataCacheV2:
                            VALUES (?, ?, ?, ?, ?, ?, ?)""",
                         (
                             action_id, global_version_id, param.name,
-                            param.type_name, param.is_collection,
-                            param.odata_xpp_type, param.parameter_order
+                            param.type.type_name, param.type.is_collection,
+                            param.type.type_name, param_order
                         )
                     )
             
             await db.commit()
-            logger.info(f"Stored entity schema for {entity_schema.name}")
+            logger.debug(f"Stored entity schema for {entity_schema.name}")
     
     async def get_public_entity_schema(
         self,
@@ -523,7 +531,9 @@ class MetadataCacheV2:
                 enum_id = cursor.lastrowid
                 
                 # Insert members
+                member_order = 0
                 for member in enum_info.members:
+                    member_order += 1
                     await db.execute(
                         """INSERT INTO enumeration_members
                            (enumeration_id, global_version_id, name, value,
@@ -532,7 +542,7 @@ class MetadataCacheV2:
                         (
                             enum_id, global_version_id, member.name, member.value,
                             member.label_id, member.label_text,
-                            member.configuration_enabled, member.member_order
+                            member.configuration_enabled, member_order
                         )
                     )
             
