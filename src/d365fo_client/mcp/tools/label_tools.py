@@ -54,6 +54,10 @@ class LabelTools:
                         "default": True,
                         "description": "Fallback to English if translation not found",
                     },
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use (optional - uses default profile if not specified)",
+                    },
                 },
                 "required": ["labelId"],
             },
@@ -81,6 +85,10 @@ class LabelTools:
                         "type": "boolean",
                         "default": True,
                         "description": "Fallback to English if translation not found",
+                    },
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use (optional - uses default profile if not specified)",
                     },
                 },
                 "required": ["labelIds"],

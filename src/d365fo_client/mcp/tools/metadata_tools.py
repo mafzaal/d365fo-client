@@ -96,6 +96,10 @@ Use simple keywords, not complex patterns. The search will find entities contain
                         "default": 100,
                         "description": "Maximum number of matching entities to return. Use smaller values (10-50) for initial exploration, larger values (100-500) for comprehensive searches.",
                     },
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use (optional - uses default profile if not specified)",
+                    },
                 },
                 "required": ["pattern"],
             },
@@ -127,6 +131,10 @@ Use simple keywords, not complex patterns. The search will find entities contain
                         "type": "string",
                         "default": "en-US",
                         "description": "The language to use for resolving labels (e.g., 'en-US', 'fr-FR').",
+                    },
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use (optional - uses default profile if not specified)",
                     },
                 },
                 "required": ["entityName"],
@@ -183,6 +191,10 @@ Use simple keywords, not complex patterns. Actions are operations that can be pe
                         "default": 100,
                         "description": "Maximum number of matching actions to return.",
                     },
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use (optional - uses default profile if not specified)",
+                    },
                 },
                 "required": ["pattern"],
             },
@@ -221,6 +233,10 @@ Use simple keywords, not complex patterns. Enums represent lists of named consta
                         "default": 100,
                         "description": "Maximum number of matching enumerations to return.",
                     },
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use (optional - uses default profile if not specified)",
+                    },
                 },
                 "required": ["pattern"],
             },
@@ -248,6 +264,10 @@ Use simple keywords, not complex patterns. Enums represent lists of named consta
                         "default": "en-US",
                         "description": "The language to use for resolving labels (e.g., 'en-US', 'fr-FR').",
                     },
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use (optional - uses default profile if not specified)",
+                    },
                 },
                 "required": ["enumeration_name"],
             },
@@ -260,7 +280,12 @@ Use simple keywords, not complex patterns. Enums represent lists of named consta
             description="Get the list of installed modules in the D365 F&O environment with their details including name, version, module ID, publisher, and display name.",
             inputSchema={
                 "type": "object",
-                "properties": {},
+                "properties": {
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use (optional - uses default profile if not specified)",
+                    },
+                },
                 "additionalProperties": False,
             },
         )

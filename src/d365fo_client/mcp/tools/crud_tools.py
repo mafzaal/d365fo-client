@@ -132,6 +132,10 @@ class CrudTools:
                         "items": {"type": "string"},
                         "description": "Array of navigation property names to expand and include related entity data in the response (OData $expand). This allows fetching related records in a single request. Example: ['PrimaryAddress', 'ContactDetails']. Use entity schema discovery to identify available navigation properties.",
                     },
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use (optional - uses default profile if not specified)",
+                    },
                 },
                 "required": ["entityName", "key"],
             },
@@ -157,6 +161,10 @@ class CrudTools:
                         "type": "boolean",
                         "description": "Whether to return the complete created record in the response. Set to true to get the full record with system-generated values (like IDs, timestamps, calculated fields). Set to false for better performance when you only need confirmation of creation success.",
                         "default": False,
+                    },
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use (optional - uses default profile if not specified)",
                     },
                 },
                 "required": ["entityName", "data"],
@@ -202,6 +210,10 @@ class CrudTools:
                         "type": "string",
                         "description": "ETag value for optimistic concurrency control (optional). If provided, the update will only succeed if the record hasn't been modified by another process since the ETag was obtained. This prevents conflicting updates in multi-user scenarios. Get the ETag from a previous read operation.",
                     },
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use (optional - uses default profile if not specified)",
+                    },
                 },
                 "required": ["entityName", "key", "data"],
             },
@@ -236,6 +248,10 @@ class CrudTools:
                     "ifMatch": {
                         "type": "string",
                         "description": "ETag value for optimistic concurrency control (optional). If provided, the delete will only succeed if the record hasn't been modified by another process since the ETag was obtained. This prevents accidental deletion of records that have been updated by other users. Get the ETag from a previous read operation.",
+                    },
+                    "profile": {
+                        "type": "string",
+                        "description": "Configuration profile to use (optional - uses default profile if not specified)",
                     },
                 },
                 "required": ["entityName", "key"],
@@ -357,7 +373,8 @@ class CrudTools:
             List of TextContent responses
         """
         try:
-            client = await self.client_manager.get_client()
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
 
             start_time = time.time()
             record = await client.get_entity_by_key(
@@ -395,7 +412,8 @@ class CrudTools:
             List of TextContent responses
         """
         try:
-            client = await self.client_manager.get_client()
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
 
             result = await client.create_entity(
                 arguments["entityName"], arguments["data"]
@@ -432,7 +450,8 @@ class CrudTools:
             List of TextContent responses
         """
         try:
-            client = await self.client_manager.get_client()
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
 
             result = await client.update_entity(
                 arguments["entityName"], arguments["key"], arguments["data"]
@@ -469,7 +488,8 @@ class CrudTools:
             List of TextContent responses
         """
         try:
-            client = await self.client_manager.get_client()
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
 
             await client.delete_entity(arguments["entityName"], arguments["key"])
 
