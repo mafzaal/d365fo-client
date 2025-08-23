@@ -2,15 +2,18 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any, Union, Tuple
+from typing import Optional, List, Dict, Any, Union, Tuple, TYPE_CHECKING
 from pathlib import Path
 import aiosqlite
 import json
 
+# Use TYPE_CHECKING to avoid circular import
+if TYPE_CHECKING:
+    from ..metadata_api import MetadataAPIOperations
+
 from .database_v2 import MetadataDatabaseV2
 from .global_version_manager import GlobalVersionManager
 from .version_detector import ModuleVersionDetector
-from ..metadata_api import MetadataAPIOperations
 from ..models import (
     ModuleVersionInfo, EnvironmentVersionInfo, GlobalVersionInfo, VersionDetectionResult,
     DataEntityInfo, PublicEntityInfo, PublicEntityPropertyInfo, NavigationPropertyInfo,
@@ -24,7 +27,7 @@ logger = logging.getLogger(__name__)
 class MetadataCacheV2:
     """Version-aware metadata cache with intelligent invalidation"""
     
-    def __init__(self, cache_dir: Path, base_url: str, metadata_api: Optional[MetadataAPIOperations] = None):
+    def __init__(self, cache_dir: Path, base_url: str, metadata_api: Optional["MetadataAPIOperations"] = None):
         """Initialize metadata cache v2
         
         Args:
@@ -64,7 +67,7 @@ class MetadataCacheV2:
         
         logger.info(f"MetadataCacheV2 initialized for environment {self._environment_id}")
     
-    def set_metadata_api(self, metadata_api: MetadataAPIOperations):
+    def set_metadata_api(self, metadata_api: "MetadataAPIOperations"):
         """Set metadata API operations instance and initialize version detector
         
         Args:
@@ -74,7 +77,7 @@ class MetadataCacheV2:
         self.version_detector = ModuleVersionDetector(metadata_api)
         logger.debug("Version detector initialized with metadata API")
     
-    async def check_version_and_sync(self, metadata_api: Optional[MetadataAPIOperations] = None) -> Tuple[bool, Optional[int]]:
+    async def check_version_and_sync(self, metadata_api: Optional["MetadataAPIOperations"] = None) -> Tuple[bool, Optional[int]]:
         """Check environment version and determine if sync is needed
         
         Args:

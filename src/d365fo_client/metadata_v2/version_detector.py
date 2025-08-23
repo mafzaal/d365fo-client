@@ -6,10 +6,12 @@ import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, TYPE_CHECKING
 from dataclasses import dataclass
 
-from d365fo_client.metadata_api import MetadataAPIOperations
+# Use TYPE_CHECKING to avoid circular import
+if TYPE_CHECKING:
+    from d365fo_client.metadata_api import MetadataAPIOperations
 
 from ..models import ModuleVersionInfo, EnvironmentVersionInfo, VersionDetectionResult
 from ..exceptions import MetadataError
@@ -25,7 +27,7 @@ class VersionDetectionError(MetadataError):
 class ModuleVersionDetector:
     """Detects environment version using GetInstalledModules action"""
 
-    def __init__(self, api_operations: MetadataAPIOperations):
+    def __init__(self, api_operations: "MetadataAPIOperations"):
         """Initialize with API operations instance
         
         Args:

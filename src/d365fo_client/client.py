@@ -4,10 +4,11 @@ import asyncio
 import logging
 import os
 from typing import Dict, List, Optional, Any, Union
+from pathlib import Path
 
 from .models import (
-    FOClientConfig, QueryOptions, LabelInfo, ActionInfo,
-    DataEntityInfo, PublicEntityInfo, EnumerationInfo, SearchQuery
+    FOClientConfig, QueryOptions, ActionInfo,
+    DataEntityInfo, PublicEntityInfo, EnumerationInfo
 )
 from .auth import AuthenticationManager
 from .session import SessionManager
@@ -16,7 +17,7 @@ from .metadata_v2 import MetadataCacheV2, SmartSyncManagerV2
 from .crud import CrudOperations
 from .labels import LabelOperations,resolve_labels_generic
 from .query import QueryBuilder
-from .exceptions import FOClientError, ConfigurationError
+from .exceptions import FOClientError
 
 
 class FOClient:
@@ -82,23 +83,18 @@ class FOClient:
         """Ensure metadata cache and sync manager are initialized"""
         if not self._metadata_initialized and self.config.enable_metadata_cache:
             try:
-                from pathlib import Path
-                from .metadata_v2 import MetadataCacheV2, SmartSyncManagerV2, LabelOperationsV2
-                
+                              
                 cache_dir = Path(self.config.metadata_cache_dir)
                 
                 # Initialize metadata cache v2
                 self.metadata_cache = MetadataCacheV2(cache_dir, self.config.base_url, self.metadata_api_ops)
+                # Initialize label operations v2 with cache support
+                self.label_ops.set_metadata_cache(self.metadata_cache)
+
                 await self.metadata_cache.initialize()
                 
-                # Initialize label operations v2 with cache support
-                self.label_ops = LabelOperationsV2(self.session_manager, self.metadata_url, self.metadata_cache)
                 
-                # Update metadata API operations to use new label operations
-                self.metadata_api_ops = MetadataAPIOperations(self.session_manager, self.metadata_url, self.label_ops)
-                
-                # Set metadata API operations in cache for version detection
-                self.metadata_cache.set_metadata_api(self.metadata_api_ops)
+
                 
                 # Initialize sync manager v2
                 self.sync_manager = SmartSyncManagerV2(self.metadata_cache, self.metadata_api_ops)

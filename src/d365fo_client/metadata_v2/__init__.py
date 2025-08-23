@@ -29,7 +29,7 @@ from .global_version_manager import GlobalVersionManager
 from .database_v2 import MetadataDatabaseV2, DatabaseSchemaV2
 from .cache_v2 import MetadataCacheV2
 from .sync_manager_v2 import SmartSyncManagerV2
-from .label_operations_v2 import LabelOperationsV2
+
 
 # Future components (not yet implemented)
 # from .search_engine_v2 import VersionAwareSearchEngine  # Phase 3
@@ -43,7 +43,7 @@ __all__ = [
     'SmartSyncManagerV2',
     'MetadataDatabaseV2',
     'DatabaseSchemaV2',
-    'LabelOperationsV2',
+    
     
     # Future components
     # 'VersionAwareSearchEngine',

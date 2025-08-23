@@ -1,32 +1,63 @@
 """Label operations for D365 F&O client."""
 
 import logging
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Protocol, runtime_checkable
 
 from .models import LabelInfo, PublicEntityInfo
-from .metadata_cache import MetadataCache
 from .session import SessionManager
 
 
 logger = logging.getLogger(__name__)
 
 
+@runtime_checkable
+class LabelCacheProtocol(Protocol):
+    """Protocol for label caching implementations."""
+    
+    async def get_label(self, label_id: str, language: str) -> Optional[str]:
+        """Get a single label from cache."""
+        ...
+    
+    async def set_label(self, label_info: LabelInfo) -> None:
+        """Set a single label in cache."""
+        ...
+    
+    async def set_labels_batch(self, labels: List[LabelInfo]) -> None:
+        """Set multiple labels in cache."""
+        ...
+    
+    async def get_labels_batch(self, label_ids: List[str], language: str) -> Dict[str, str]:
+        """Resolve multiple label IDs to their text values."""
+        ...
+
+
+   
+
+
 class LabelOperations:
     """Handles label operations for F&O client"""
     
     def __init__(self, session_manager: SessionManager, metadata_url: str, 
-                 metadata_cache: Optional[MetadataCache] = None):
+                 label_cache: Optional[LabelCacheProtocol] = None):
         """Initialize label operations
         
         Args:
             session_manager: HTTP session manager
             metadata_url: Metadata API URL
-            metadata_cache: Optional metadata cache for label caching
+            label_cache: Optional label cache implementing LabelCacheProtocol
         """
         self.session_manager = session_manager
         self.metadata_url = metadata_url
-        self.metadata_cache = metadata_cache
-    
+        self.label_cache = label_cache
+
+    def set_label_cache(self, label_cache: LabelCacheProtocol):
+        """Set the label cache for label operations
+
+        Args:
+            label_cache: Label cache implementing LabelCacheProtocol
+        """
+        self.label_cache = label_cache
+
     async def get_label_text(self, label_id: str, language: str = "en-US") -> Optional[str]:
         """Get actual label text for a specific label ID
         
@@ -38,8 +69,8 @@ class LabelOperations:
             Label text or None if not found
         """
         # Check cache first
-        if self.metadata_cache:
-            cached_value = await self.metadata_cache.get_label(label_id, language)
+        if self.label_cache:
+            cached_value = await self.label_cache.get_label(label_id, language)
             if cached_value is not None:
                 return cached_value
         
@@ -53,9 +84,9 @@ class LabelOperations:
                     label_text = data.get('Value', '')
                     
                     # Cache the result
-                    if self.metadata_cache:
+                    if self.label_cache:
                         label_info = LabelInfo(id=label_id, language=language, value=label_text)
-                        await self.metadata_cache.set_label(label_info)
+                        await self.label_cache.set_label(label_info)
                     
                     return label_text
                 else:
@@ -84,9 +115,9 @@ class LabelOperations:
         uncached_ids = []
         
         # First, check cache for all labels if available
-        if self.metadata_cache:
+        if self.label_cache:
             for label_id in label_ids:
-                cached_value = await self.metadata_cache.get_label(label_id, language)
+                cached_value = await self.label_cache.get_label(label_id, language)
                 if cached_value is not None:
                     results[label_id] = cached_value
                 else:
@@ -118,8 +149,8 @@ class LabelOperations:
                     print(f"Exception fetching label {label_id}: {e}")
             
             # Batch cache all fetched labels
-            if fetched_labels and self.metadata_cache:
-                await self.metadata_cache.set_labels_batch(fetched_labels)
+            if fetched_labels and self.label_cache:
+                await self.label_cache.set_labels_batch(fetched_labels)
         
         return results
    
@@ -392,31 +423,31 @@ def _apply_labels_to_object(obj: Any, label_texts: Dict[str, str]) -> None:
         logger.debug(f"No labels applied to {obj_type} object")
 
 
-# Convenience function that works with MetadataCache (backward compatibility)
+# Utility function for resolving labels with any cache implementation
 async def resolve_labels_generic_with_cache(
     obj_or_list: Union[Any, List[Any]], 
-    cache: MetadataCache, 
+    cache: LabelCacheProtocol, 
     language: str = "en-US"
 ) -> Union[Any, List[Any]]:
     """
-    Backward compatibility wrapper that creates a temporary LabelOperations instance
-    and uses the generic label resolution.
+    Resolve labels using any cache implementation that follows LabelCacheProtocol.
     
     Args:
         obj_or_list: Single object or list of objects with label_id/label_text properties
-        cache: MetadataCache instance for label resolution
+        cache: Any cache implementing LabelCacheProtocol (MetadataCache, MetadataCacheV2, etc.)
         language: Language code for label resolution (default: "en-US")
         
     Returns:
         The same object(s) with label_text populated from label_id where applicable
         
-    Note:
-        This function is for backward compatibility. For new code, prefer using
-        resolve_labels_generic() with a proper LabelOperations instance.
+    Examples:
+        # Works with any cache implementation
+        entities = await resolve_labels_generic_with_cache(entities, metadata_cache_v2)
+        entities = await resolve_labels_generic_with_cache(entities, old_metadata_cache)
     """
-    # Create a minimal LabelOperations-like object that uses the cache directly
-    class CacheLabelOperations:
-        def __init__(self, cache: MetadataCache):
+    # Create a minimal LabelOperations-like resolver using the cache
+    class CacheLabelResolver:
+        def __init__(self, cache: LabelCacheProtocol):
             self.cache = cache
             
         async def get_labels_batch(self, label_ids: List[str], language: str) -> Dict[str, str]:
@@ -429,6 +460,6 @@ async def resolve_labels_generic_with_cache(
                         label_texts[label_id] = label_text
             return label_texts
     
-    # Use the generic function with the cache wrapper
-    cache_operations = CacheLabelOperations(cache)
-    return await resolve_labels_generic(obj_or_list, cache_operations, language)
+    # Use the generic function with the cache resolver
+    cache_resolver = CacheLabelResolver(cache)
+    return await resolve_labels_generic(obj_or_list, cache_resolver, language)

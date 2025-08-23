@@ -5,9 +5,13 @@ import asyncio
 import json
 import hashlib
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any, Set, Callable
+from typing import Optional, List, Dict, Any, Set, Callable, TYPE_CHECKING
 from pathlib import Path
 import time
+
+# Use TYPE_CHECKING to avoid circular import
+if TYPE_CHECKING:
+    from ..metadata_api import MetadataAPIOperations
 
 from .cache_v2 import MetadataCacheV2
 from ..models import (
@@ -16,15 +20,13 @@ from ..models import (
     LabelInfo
 )
 
-from ..metadata_api import MetadataAPIOperations
-
 logger = logging.getLogger(__name__)
 
 
 class SmartSyncManagerV2:
     """Intelligent metadata synchronization with progress tracking and error handling"""
 
-    def __init__(self, cache: MetadataCacheV2, metadata_api: MetadataAPIOperations):
+    def __init__(self, cache: MetadataCacheV2, metadata_api: "MetadataAPIOperations"):
         """Initialize smart sync manager
         
         Args:
