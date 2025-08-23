@@ -62,8 +62,7 @@ class FOClient:
         self.metadata_url = f"{config.base_url.rstrip('/')}/Metadata"
         self.crud_ops = CrudOperations(self.session_manager, config.base_url)
         
-        # Initialize label operations - Note: v2 cache doesn't support label caching yet
-        # so we always use None for metadata_cache to force API-based label resolution
+        # Initialize label operations - will be updated when metadata cache v2 is initialized
         self.label_ops = LabelOperations(self.session_manager, self.metadata_url, None)
         self.metadata_api_ops = MetadataAPIOperations(self.session_manager, self.metadata_url, self.label_ops)
     
@@ -84,20 +83,28 @@ class FOClient:
         if not self._metadata_initialized and self.config.enable_metadata_cache:
             try:
                 from pathlib import Path
+                from .metadata_v2 import MetadataCacheV2, SmartSyncManagerV2, LabelOperationsV2
+                
                 cache_dir = Path(self.config.metadata_cache_dir)
                 
                 # Initialize metadata cache v2
                 self.metadata_cache = MetadataCacheV2(cache_dir, self.config.base_url, self.metadata_api_ops)
                 await self.metadata_cache.initialize()
                 
-                # Note: v2 cache doesn't support label caching yet, so label_ops uses API directly
-                # Future enhancement: implement label caching in MetadataCacheV2
+                # Initialize label operations v2 with cache support
+                self.label_ops = LabelOperationsV2(self.session_manager, self.metadata_url, self.metadata_cache)
+                
+                # Update metadata API operations to use new label operations
+                self.metadata_api_ops = MetadataAPIOperations(self.session_manager, self.metadata_url, self.label_ops)
+                
+                # Set metadata API operations in cache for version detection
+                self.metadata_cache.set_metadata_api(self.metadata_api_ops)
                 
                 # Initialize sync manager v2
-                self.sync_manager = SmartSyncManagerV2(self.metadata_cache,self.metadata_api_ops)
+                self.sync_manager = SmartSyncManagerV2(self.metadata_cache, self.metadata_api_ops)
                 
                 self._metadata_initialized = True
-                self.logger.debug("Metadata cache v2 and sync manager initialized")
+                self.logger.debug("Metadata cache v2 with label caching initialized")
                 
             except Exception as e:
                 self.logger.warning(f"Failed to initialize metadata cache v2: {e}")
@@ -824,17 +831,93 @@ class FOClient:
     # Utility Methods
     
     def get_label_cache_info(self) -> Dict[str, Any]:
-        """Get information about the label cache
+        """Get label cache information and statistics
         
         Returns:
-            Dictionary with cache information
+            Dictionary with label cache information
         """
-        if not self.metadata_cache:
-            return {"enabled": False}
+        if not self.config.enable_metadata_cache or not self._metadata_initialized:
+            return {
+                'enabled': False,
+                'cache_type': 'none',
+                'message': 'Metadata cache not enabled or not initialized'
+            }
         
-        return {
-            "enabled": True,
-        }
+        if hasattr(self.metadata_cache, 'get_label_cache_statistics'):
+            # Using v2 cache with label support
+            try:
+                import asyncio
+                # Get the current event loop or create a new one
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                
+                if loop.is_running():
+                    # If we're in an async context, we can't run async code synchronously
+                    return {
+                        'enabled': True,
+                        'cache_type': 'metadata_v2',
+                        'message': 'Label caching enabled with v2 cache (statistics available via async method)'
+                    }
+                else:
+                    # If we're not in an async context, we can get the statistics
+                    stats = loop.run_until_complete(self.metadata_cache.get_label_cache_statistics())
+                    return {
+                        'enabled': True,
+                        'cache_type': 'metadata_v2',
+                        'statistics': stats
+                    }
+            except Exception as e:
+                return {
+                    'enabled': True,
+                    'cache_type': 'metadata_v2',
+                    'error': f'Error getting statistics: {e}'
+                }
+        else:
+            # Legacy cache or no label caching
+            return {
+                'enabled': False,
+                'cache_type': 'legacy' if self.metadata_cache else 'none',
+                'message': 'Label caching not supported by current cache implementation'
+            }
+    
+    async def get_label_cache_info_async(self) -> Dict[str, Any]:
+        """Get label cache information and statistics (async version)
+        
+        Returns:
+            Dictionary with label cache information
+        """
+        if not self.config.enable_metadata_cache or not self._metadata_initialized:
+            return {
+                'enabled': False,
+                'cache_type': 'none',
+                'message': 'Metadata cache not enabled or not initialized'
+            }
+        
+        if hasattr(self.metadata_cache, 'get_label_cache_statistics'):
+            # Using v2 cache with label support
+            try:
+                stats = await self.metadata_cache.get_label_cache_statistics()
+                return {
+                    'enabled': True,
+                    'cache_type': 'metadata_v2',
+                    'statistics': stats
+                }
+            except Exception as e:
+                return {
+                    'enabled': True,
+                    'cache_type': 'metadata_v2',
+                    'error': f'Error getting statistics: {e}'
+                }
+        else:
+            # Legacy cache or no label caching
+            return {
+                'enabled': False,
+                'cache_type': 'legacy' if self.metadata_cache else 'none',
+                'message': 'Label caching not supported by current cache implementation'
+            }
     
     def get_entity_url(self, entity_name: str, key: Optional[Union[str, Dict[str, Any]]] = None) -> str:
         """Get entity URL

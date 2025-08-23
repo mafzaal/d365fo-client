@@ -12,7 +12,8 @@ import time
 from .cache_v2 import MetadataCacheV2
 from ..models import (
     DataEntityInfo, PublicEntityInfo, EnumerationInfo, 
-    SyncProgress, SyncStrategy, SyncResult, QueryOptions, MetadataVersionInfo
+    SyncProgress, SyncStrategy, SyncResult, QueryOptions, MetadataVersionInfo,
+    LabelInfo
 )
 
 from ..metadata_api import MetadataAPIOperations
@@ -276,7 +277,19 @@ class SmartSyncManagerV2:
             except Exception as e:
                 logger.warning(f"Failed to sync enumerations: {e}")
             
-            # Step 4: Build search index
+            # Step 4: Sync frequently used labels
+            progress.phase = "labels"
+            progress.current_operation = "Syncing common labels"
+            progress.completed_steps = 7
+            self._update_progress(progress)
+            
+            try:
+                label_count = await self._sync_common_labels(global_version_id, entities, public_entities, enumerations)
+                logger.info(f"Pre-cached {label_count} common labels")
+            except Exception as e:
+                logger.warning(f"Failed to sync common labels: {e}")
+            
+            # Step 5: Build search index
             progress.phase = "indexing"
             progress.current_operation = "Building search index"
             progress.completed_steps = 9
@@ -285,7 +298,7 @@ class SmartSyncManagerV2:
             # TODO: Implement search index building
             # await self._build_search_index(global_version_id)
             
-            # Step 5: Complete
+            # Step 6: Complete
             progress.phase = "completed"
             progress.current_operation = "Finalizing sync"
             progress.completed_steps = 10
@@ -692,3 +705,98 @@ class SmartSyncManagerV2:
             logger.warning(f"Could not check sync status: {e}")
             # When in doubt, assume sync is needed
             return True
+    
+    async def _sync_common_labels(
+        self,
+        global_version_id: int,
+        entities: List[DataEntityInfo],
+        public_entities: List[PublicEntityInfo],
+        enumerations: List[EnumerationInfo]
+    ) -> int:
+        """Sync commonly used labels to improve performance
+        
+        Args:
+            global_version_id: Global version ID
+            entities: Data entities to extract labels from
+            public_entities: Public entities to extract labels from
+            enumerations: Enumerations to extract labels from
+            
+        Returns:
+            Number of labels cached
+        """
+        label_ids = set()
+        
+        # Collect label IDs from data entities
+        if entities:
+            for entity in entities:
+                if entity.label_id:
+                    label_ids.add(entity.label_id)
+        
+        # Collect label IDs from public entities and their properties
+        if public_entities:
+            for entity in public_entities:
+                if entity.label_id:
+                    label_ids.add(entity.label_id)
+                
+                # Collect from properties
+                for prop in entity.properties:
+                    if prop.label_id:
+                        label_ids.add(prop.label_id)
+        
+        # Collect label IDs from enumerations and their members
+        if enumerations:
+            for enum in enumerations:
+                if enum.label_id:
+                    label_ids.add(enum.label_id)
+                
+                # Collect from members
+                for member in enum.members:
+                    if member.label_id:
+                        label_ids.add(member.label_id)
+        
+        # Remove empty/None labels
+        label_ids = {label_id for label_id in label_ids if label_id and label_id.strip()}
+        
+        if not label_ids:
+            logger.debug("No label IDs found to pre-cache")
+            return 0
+        
+        logger.info(f"Pre-caching {len(label_ids)} common labels")
+        
+        # Fetch labels from API and cache them
+        labels_to_cache = []
+        cached_count = 0
+        
+        # Use the label operations from metadata API to fetch labels
+        if hasattr(self.metadata_api, 'label_ops') and self.metadata_api.label_ops:
+            try:
+                # Get labels in batch for efficiency
+                label_texts = await self.metadata_api.label_ops.get_labels_batch(list(label_ids))
+                
+                for label_id, label_text in label_texts.items():
+                    if label_text:  # Only cache labels that have actual text
+                        labels_to_cache.append(LabelInfo(
+                            id=label_id,
+                            language="en-US",
+                            value=label_text
+                        ))
+                        cached_count += 1
+                
+                # Batch cache all labels
+                if labels_to_cache:
+                    await self.cache.set_labels_batch(labels_to_cache, global_version_id)
+                    
+            except Exception as e:
+                logger.warning(f"Failed to batch fetch labels: {e}")
+                # Fall back to individual fetching for critical labels
+                for label_id in list(label_ids)[:50]:  # Limit to first 50 to avoid timeout
+                    try:
+                        label_text = await self.metadata_api.label_ops.get_label_text(label_id)
+                        if label_text:
+                            await self.cache.set_label(label_id, label_text, global_version_id=global_version_id)
+                            cached_count += 1
+                    except Exception as e2:
+                        logger.debug(f"Failed to fetch individual label {label_id}: {e2}")
+        
+        logger.info(f"Successfully pre-cached {cached_count} labels")
+        return cached_count

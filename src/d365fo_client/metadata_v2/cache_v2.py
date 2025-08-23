@@ -15,7 +15,7 @@ from ..models import (
     ModuleVersionInfo, EnvironmentVersionInfo, GlobalVersionInfo, VersionDetectionResult,
     DataEntityInfo, PublicEntityInfo, PublicEntityPropertyInfo, NavigationPropertyInfo,
     RelationConstraintInfo, PropertyGroupInfo, ActionInfo,
-    ActionParameterInfo, EnumerationInfo, EnumerationMemberInfo
+    ActionParameterInfo, EnumerationInfo, EnumerationMemberInfo, LabelInfo
 )
 
 logger = logging.getLogger(__name__)
@@ -660,6 +660,313 @@ class MetadataCacheV2:
         
         return None
     
+    # Label Operations
+    
+    async def get_label(self, label_id: str, language: str = "en-US", 
+                       global_version_id: Optional[int] = None) -> Optional[str]:
+        """Get label text from cache
+        
+        Args:
+            label_id: Label identifier (e.g., "@SYS13342")
+            language: Language code (e.g., "en-US")
+            global_version_id: Global version ID (uses current if None, includes temporary entries)
+            
+        Returns:
+            Label text or None if not found or expired
+        """
+        if global_version_id is None:
+            global_version_id = await self._get_current_global_version_id()
+        
+        async with aiosqlite.connect(self.db_path) as db:
+            if global_version_id is not None:
+                # Search for specific version
+                cursor = await db.execute(
+                    """SELECT label_text, expires_at
+                       FROM labels_cache 
+                       WHERE global_version_id = ? AND label_id = ? AND language = ?
+                       AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)""",
+                    (global_version_id, label_id, language)
+                )
+            else:
+                # Search across all versions (including temporary entries)
+                cursor = await db.execute(
+                    """SELECT label_text, expires_at
+                       FROM labels_cache 
+                       WHERE label_id = ? AND language = ?
+                       AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+                       ORDER BY global_version_id DESC
+                       LIMIT 1""",  # Get the highest version (prefer actual versions over temporary)
+                    (label_id, language)
+                )
+            
+            row = await cursor.fetchone()
+            if row:
+                # Update hit count and last accessed time
+                if global_version_id is not None:
+                    await db.execute(
+                        """UPDATE labels_cache 
+                           SET hit_count = hit_count + 1, last_accessed = CURRENT_TIMESTAMP
+                           WHERE global_version_id = ? AND label_id = ? AND language = ?""",
+                        (global_version_id, label_id, language)
+                    )
+                else:
+                    # Update for the found entry
+                    await db.execute(
+                        """UPDATE labels_cache 
+                           SET hit_count = hit_count + 1, last_accessed = CURRENT_TIMESTAMP
+                           WHERE label_id = ? AND language = ? AND label_text = ?""",
+                        (label_id, language, row[0])
+                    )
+                await db.commit()
+                
+                logger.debug(f"Label cache hit: {label_id} ({language}) -> {row[0]}")
+                return row[0]
+            
+            logger.debug(f"Label cache miss: {label_id} ({language})")
+            return None
+    
+    async def set_label(self, label_id: str, label_text: str, language: str = "en-US",
+                       global_version_id: Optional[int] = None, ttl_hours: int = 24):
+        """Set label in cache
+        
+        Args:
+            label_id: Label identifier
+            label_text: Label text value
+            language: Language code
+            global_version_id: Global version ID (uses current if None)
+            ttl_hours: Time to live in hours
+        """
+        if global_version_id is None:
+            global_version_id = await self._get_current_global_version_id()
+            if global_version_id is None:
+                # Create a temporary version for immediate label caching
+                logger.warning("No global version ID available, creating temporary cache entry")
+                global_version_id = -1  # Use -1 for temporary entries
+        
+        # Calculate expiration time
+        from datetime import datetime, timedelta, timezone
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+        
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """INSERT OR REPLACE INTO labels_cache
+                   (global_version_id, label_id, language, label_text, expires_at, hit_count, last_accessed)
+                   VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)""",
+                (global_version_id, label_id, language, label_text, expires_at.isoformat())
+            )
+            await db.commit()
+            
+        logger.debug(f"Label cached: {label_id} ({language}) -> {label_text}")
+    
+    async def set_labels_batch(self, labels: List[LabelInfo], 
+                              global_version_id: Optional[int] = None, ttl_hours: int = 24):
+        """Set multiple labels in cache efficiently
+        
+        Args:
+            labels: List of LabelInfo objects
+            global_version_id: Global version ID (uses current if None)
+            ttl_hours: Time to live in hours
+        """
+        if not labels:
+            return
+            
+        if global_version_id is None:
+            global_version_id = await self._get_current_global_version_id()
+            if global_version_id is None:
+                # Create a temporary version for immediate label caching
+                logger.warning("No global version ID available, creating temporary cache entries")
+                global_version_id = -1  # Use -1 for temporary entries
+        
+        # Calculate expiration time
+        from datetime import datetime, timedelta, timezone
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
+        
+        # Prepare batch data
+        label_data = []
+        for label in labels:
+            label_data.append((
+                global_version_id,
+                label.id,
+                label.language,
+                label.value,
+                expires_at.isoformat()
+            ))
+        
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.executemany(
+                """INSERT OR REPLACE INTO labels_cache
+                   (global_version_id, label_id, language, label_text, expires_at, hit_count, last_accessed)
+                   VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)""",
+                label_data
+            )
+            await db.commit()
+            
+        logger.info(f"Batch cached {len(labels)} labels for version {global_version_id}")
+    
+    async def get_labels_batch(self, label_ids: List[str], language: str = "en-US",
+                              global_version_id: Optional[int] = None) -> Dict[str, str]:
+        """Get multiple labels from cache efficiently
+        
+        Args:
+            label_ids: List of label IDs to retrieve
+            language: Language code
+            global_version_id: Global version ID (uses current if None, includes temporary entries)
+            
+        Returns:
+            Dictionary mapping label_id to label_text for found labels
+        """
+        if not label_ids:
+            return {}
+            
+        if global_version_id is None:
+            global_version_id = await self._get_current_global_version_id()
+        
+        # Create placeholders for SQL IN clause
+        placeholders = ",".join("?" for _ in label_ids)
+        
+        async with aiosqlite.connect(self.db_path) as db:
+            if global_version_id is not None:
+                # Search for specific version
+                params = [global_version_id, language] + label_ids
+                query = f"""SELECT label_id, label_text
+                            FROM labels_cache 
+                            WHERE global_version_id = ? AND language = ? AND label_id IN ({placeholders})
+                            AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)"""
+            else:
+                # Search across all versions (including temporary entries)
+                params = [language] + label_ids
+                query = f"""SELECT label_id, label_text
+                            FROM labels_cache 
+                            WHERE language = ? AND label_id IN ({placeholders})
+                            AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+                            ORDER BY global_version_id DESC"""  # Prefer actual versions over temporary
+            
+            cursor = await db.execute(query, params)
+            
+            results = {}
+            found_ids = []
+            async for row in cursor:
+                if row[0] not in results:  # Only use first match (highest version)
+                    results[row[0]] = row[1]
+                    found_ids.append(row[0])
+            
+            # Update hit counts for found labels
+            if found_ids and global_version_id is not None:
+                update_placeholders = ",".join("?" for _ in found_ids)
+                await db.execute(
+                    f"""UPDATE labels_cache 
+                        SET hit_count = hit_count + 1, last_accessed = CURRENT_TIMESTAMP
+                        WHERE global_version_id = ? AND language = ? AND label_id IN ({update_placeholders})""",
+                    [global_version_id, language] + found_ids
+                )
+                await db.commit()
+            
+            logger.debug(f"Label batch lookup: {len(results)}/{len(label_ids)} found")
+            return results
+    
+    async def clear_expired_labels(self, global_version_id: Optional[int] = None):
+        """Clear expired labels from cache
+        
+        Args:
+            global_version_id: Global version ID to clear (clears all if None)
+        """
+        async with aiosqlite.connect(self.db_path) as db:
+            if global_version_id is not None:
+                cursor = await db.execute(
+                    """DELETE FROM labels_cache 
+                       WHERE global_version_id = ? AND expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP""",
+                    (global_version_id,)
+                )
+            else:
+                cursor = await db.execute(
+                    """DELETE FROM labels_cache 
+                       WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP"""
+                )
+            
+            deleted_count = cursor.rowcount
+            await db.commit()
+            
+        logger.info(f"Cleared {deleted_count} expired labels")
+    
+    async def get_label_cache_statistics(self, global_version_id: Optional[int] = None) -> Dict[str, Any]:
+        """Get label cache statistics
+        
+        Args:
+            global_version_id: Global version ID to get stats for (all if None)
+            
+        Returns:
+            Dictionary with label cache statistics
+        """
+        async with aiosqlite.connect(self.db_path) as db:
+            stats = {}
+            
+            # Base query conditions
+            if global_version_id is not None:
+                version_filter = "WHERE global_version_id = ?"
+                params = [global_version_id]
+            else:
+                version_filter = ""
+                params = []
+            
+            # Total labels
+            cursor = await db.execute(
+                f"SELECT COUNT(*) FROM labels_cache {version_filter}",
+                params
+            )
+            stats['total_labels'] = (await cursor.fetchone())[0]
+            
+            # Expired labels
+            cursor = await db.execute(
+                f"""SELECT COUNT(*) FROM labels_cache 
+                    {version_filter} {'AND' if version_filter else 'WHERE'} 
+                    expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP""",
+                params
+            )
+            stats['expired_labels'] = (await cursor.fetchone())[0]
+            
+            # Active labels
+            stats['active_labels'] = stats['total_labels'] - stats['expired_labels']
+            
+            # Languages
+            cursor = await db.execute(
+                f"""SELECT language, COUNT(*) FROM labels_cache 
+                    {version_filter} {'AND' if version_filter else 'WHERE'} 
+                    (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+                    GROUP BY language ORDER BY COUNT(*) DESC""",
+                params
+            )
+            stats['languages'] = dict(await cursor.fetchall())
+            
+            # Hit statistics
+            cursor = await db.execute(
+                f"""SELECT 
+                      COUNT(*) as accessed_labels,
+                      SUM(hit_count) as total_hits,
+                      AVG(hit_count) as avg_hits_per_label,
+                      MAX(hit_count) as max_hits
+                    FROM labels_cache 
+                    {version_filter} {'AND' if version_filter else 'WHERE'} 
+                    hit_count > 0""",
+                params
+            )
+            hit_stats = await cursor.fetchone()
+            if hit_stats[0]:  # If there are accessed labels
+                stats['hit_statistics'] = {
+                    'accessed_labels': hit_stats[0],
+                    'total_hits': hit_stats[1] or 0,
+                    'average_hits_per_label': round(hit_stats[2] or 0, 2),
+                    'max_hits': hit_stats[3] or 0
+                }
+            else:
+                stats['hit_statistics'] = {
+                    'accessed_labels': 0,
+                    'total_hits': 0,
+                    'average_hits_per_label': 0,
+                    'max_hits': 0
+                }
+            
+            return stats
+
     async def get_cache_statistics(self) -> Dict[str, Any]:
         """Get cache statistics
         
@@ -687,5 +994,9 @@ class MetadataCacheV2:
                     'modules_count': len(version_info.sample_modules),
                     'reference_count': version_info.reference_count
                 }
+        
+        # Label cache statistics
+        label_stats = await self.get_label_cache_statistics(current_version)
+        stats['label_cache'] = label_stats
         
         return stats
