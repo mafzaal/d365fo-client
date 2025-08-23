@@ -14,12 +14,13 @@ from .client_manager import D365FOClientManager
 from .models import MCPServerConfig
 from .prompts import AVAILABLE_PROMPTS
 from .resources import (
+    DatabaseResourceHandler,
     EntityResourceHandler,
     EnvironmentResourceHandler,
     MetadataResourceHandler,
     QueryResourceHandler,
 )
-from .tools import ConnectionTools, CrudTools, LabelTools, MetadataTools, ProfileTools
+from .tools import ConnectionTools, CrudTools, DatabaseTools, LabelTools, MetadataTools, ProfileTools
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class D365FOMCPServer:
         self.environment_handler = EnvironmentResourceHandler(self.client_manager)
         self.metadata_handler = MetadataResourceHandler(self.client_manager)
         self.query_handler = QueryResourceHandler(self.client_manager)
+        self.database_handler = DatabaseResourceHandler(self.client_manager)
 
         # Initialize tool handlers
         self.connection_tools = ConnectionTools(self.client_manager)
@@ -49,6 +51,7 @@ class D365FOMCPServer:
         self.metadata_tools = MetadataTools(self.client_manager)
         self.label_tools = LabelTools(self.client_manager)
         self.profile_tools = ProfileTools(self.client_manager)
+        self.database_tools = DatabaseTools(self.client_manager)
 
         # Tool registry for execution
         self.tool_registry = {}
@@ -81,6 +84,10 @@ class D365FOMCPServer:
                 query_resources = await self.query_handler.list_resources()
                 resources.extend(query_resources)
 
+                # Add database resources
+                database_resources = await self.database_handler.list_resources()
+                resources.extend(database_resources)
+
                 logger.info(f"Listed {len(resources)} total resources")
                 return resources
             except Exception as e:
@@ -99,6 +106,8 @@ class D365FOMCPServer:
                     return await self.metadata_handler.read_resource(uri)
                 elif uri.startswith("d365fo://queries/"):
                     return await self.query_handler.read_resource(uri)
+                elif uri.startswith("d365fo://database/"):
+                    return await self.database_handler.read_resource(uri)
                 else:
                     raise ValueError(f"Unknown resource URI: {uri}")
             except Exception as e:
@@ -198,6 +207,10 @@ class D365FOMCPServer:
                 profile_tools = self.profile_tools.get_tools()
                 tools.extend(profile_tools)
 
+                # Add database tools
+                database_tools = self.database_tools.get_tools()
+                tools.extend(database_tools)
+
                 # Register tools for execution
                 for tool in tools:
                     self.tool_registry[tool.name] = tool
@@ -285,6 +298,14 @@ class D365FOMCPServer:
                     return await self.profile_tools.execute_test_profile_connection(
                         arguments
                     )
+                elif name == "d365fo_execute_sql_query":
+                    return await self.database_tools.execute_sql_query(arguments)
+                elif name == "d365fo_get_database_schema":
+                    return await self.database_tools.execute_get_database_schema(arguments)
+                elif name == "d365fo_get_table_info":
+                    return await self.database_tools.execute_get_table_info(arguments)
+                elif name == "d365fo_get_database_statistics":
+                    return await self.database_tools.execute_get_database_statistics(arguments)
                 else:
                     raise ValueError(f"Unknown tool: {name}")
 

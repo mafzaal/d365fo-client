@@ -1,5 +1,6 @@
 """Resource handlers package."""
 
+from .database_handler import DatabaseResourceHandler
 from .entity_handler import EntityResourceHandler
 from .environment_handler import EnvironmentResourceHandler
 from .metadata_handler import MetadataResourceHandler
@@ -10,4 +11,5 @@ __all__ = [
     "MetadataResourceHandler",
     "EnvironmentResourceHandler",
     "QueryResourceHandler",
+    "DatabaseResourceHandler",
 ]
