@@ -221,14 +221,21 @@ class MetadataTools:
         """
         try:
             # Import here to avoid circular imports
-            from ...metadata_cache import MetadataSearchEngine
+            from ...metadata_v2 import VersionAwareSearchEngine
             from ...models import SearchQuery
 
-            # Create search engine if metadata cache is available
-            if not client.metadata_cache:
+            # Create search engine if metadata cache is available (V2)
+            if not hasattr(client, 'metadata_cache') or not client.metadata_cache:
                 return []
 
-            search_engine = MetadataSearchEngine(client.metadata_cache)
+            # Check if we're using V2 cache
+            if not hasattr(client.metadata_cache, 'get_data_entities'):
+                # Fallback to legacy search if V1 cache
+                from ...metadata_cache import MetadataSearchEngine
+                search_engine = MetadataSearchEngine(client.metadata_cache)
+            else:
+                # Use V2 search engine
+                search_engine = VersionAwareSearchEngine(client.metadata_cache)
 
             # Extract search terms from regex pattern
             search_text = self._extract_search_terms(pattern)

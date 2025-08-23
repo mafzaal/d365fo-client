@@ -431,7 +431,7 @@ class MetadataCacheV2:
                         prop.name,
                         prop.type_name,
                         prop.data_type,
-                        prop.odata_xpp_type,
+                        prop.data_type,
                         prop.label_id,
                         prop.label_text,
                         prop.is_key,
@@ -1183,3 +1183,12 @@ class MetadataCacheV2:
         stats["label_cache"] = label_stats
 
         return stats
+
+    def create_search_engine(self):
+        """Create a search engine instance for this cache.
+        
+        Returns:
+            VersionAwareSearchEngine instance
+        """
+        from .search_engine_v2 import VersionAwareSearchEngine
+        return VersionAwareSearchEngine(self)

@@ -31,8 +31,10 @@ from .sync_manager_v2 import SmartSyncManagerV2
 # Core components (implemented)
 from .version_detector import ModuleVersionDetector
 
+# Search engine (Phase 2 - implemented)
+from .search_engine_v2 import VersionAwareSearchEngine
+
 # Future components (not yet implemented)
-# from .search_engine_v2 import VersionAwareSearchEngine  # Phase 3
 # from .migration_manager import MetadataMigrationManager  # Phase 4
 
 __all__ = [
@@ -43,8 +45,8 @@ __all__ = [
     "SmartSyncManagerV2",
     "MetadataDatabaseV2",
     "DatabaseSchemaV2",
+    "VersionAwareSearchEngine",
     # Future components
-    # 'VersionAwareSearchEngine',
     # 'MetadataMigrationManager',
 ]
 

@@ -173,7 +173,12 @@ from .main import main
 
 # MCP Server
 from .mcp import D365FOClientManager, D365FOMCPServer
+
+# Legacy Metadata Cache (deprecated - use metadata_v2)
 from .metadata_cache import MetadataCache, MetadataSearchEngine
+
+# V2 Metadata Cache (recommended)
+from .metadata_v2 import MetadataCacheV2, VersionAwareSearchEngine
 from .models import (
     ActionInfo,
     DataEntityInfo,
@@ -206,9 +211,12 @@ __all__ = [
     # Main client
     "FOClient",
     "create_client",
-    # Caching
+    # Legacy caching (deprecated)
     "MetadataCache",
     "MetadataSearchEngine",
+    # V2 caching (recommended)
+    "MetadataCacheV2", 
+    "VersionAwareSearchEngine",
     "resolve_labels_generic",
     # Configuration and models
     "FOClientConfig",
