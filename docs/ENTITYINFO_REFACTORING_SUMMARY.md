@@ -12,10 +12,10 @@
 - ✅ Simplified implementation to delegate to existing `get_public_entity_info()` method
 - ✅ Removed unused import of `EntityInfo`
 
-### 3. **Metadata (`metadata.py`)**
-- ✅ **get_entity_info()**: Updated to return `PublicEntityInfo` instead of `EntityInfo`
-- ✅ Updated import statements
-- ✅ Adapted entity creation to use `PublicEntityInfo` structure
+### 3. **Metadata System (Legacy Removed)**
+- ✅ **Legacy metadata.py removed**: Old XML-based MetadataManager has been deprecated
+- ✅ **Modern architecture**: Now using MetadataAPIOperations with MetadataCacheV2
+- ✅ **Entity info**: Entity information now handled by modern metadata API system
 
 ### 4. **Labels (`labels.py`)**
 - ✅ **resolve_entity_labels()**: Kept for backward compatibility (deprecated)
@@ -119,7 +119,7 @@ entity = await client.get_public_entity_info("CustomersV3")
 
 - `src/d365fo_client/models.py` - Added deprecation notice and `to_dict()` method
 - `src/d365fo_client/client.py` - Refactored `get_entity_info_with_labels()`
-- `src/d365fo_client/metadata.py` - Updated `get_entity_info()` return type
+- `src/d365fo_client/metadata_api.py` - Modern metadata API operations
 - `src/d365fo_client/labels.py` - Added `resolve_public_entity_labels()`
 - `src/d365fo_client/__init__.py` - Added deprecation comment
 - `tests/unit/test_enhanced_client.py` - Updated test models

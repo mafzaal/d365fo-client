@@ -27,7 +27,9 @@ d365fo_client/
 ├── models.py            # Data models and configurations
 ├── auth.py              # Authentication management
 ├── session.py           # HTTP session management
-├── metadata.py          # Metadata operations
+├── metadata_api.py      # Modern metadata API operations
+├── metadata_cache.py    # Advanced metadata caching (SQLite-based)
+├── metadata_v2/         # Next-gen metadata system with sync management
 ├── cache.py             # Label caching
 ├── crud.py              # CRUD operations
 ├── labels.py            # Label operations
@@ -90,14 +92,16 @@ d365fo_client/
 - Cache statistics
 - Memory-efficient storage
 
-### 5. `metadata.py` - Metadata Management
-**Purpose**: OData metadata parsing, caching, and searching
+### 5. `metadata_api.py` - Metadata API Operations
+**Purpose**: Modern metadata API operations with comprehensive caching
 **Key Classes**:
-- `MetadataManager`: XML metadata processing and caching
+- `MetadataAPIOperations`: Advanced metadata API client with cache integration
 
 **Features**:
-- XML parsing and caching
-- Entity/action search with regex
+- Public entities and enumerations API
+- Data entities discovery and schema retrieval
+- Advanced search and filtering capabilities
+- Integrated with MetadataCacheV2 for optimal performance
 - JSON cache generation
 - Metadata validation
 

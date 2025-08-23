@@ -155,7 +155,7 @@ class Profile:
 
     def clone(self, name: str, **overrides) -> "Profile":
         """Create a copy of this profile with a new name and optional overrides."""
-        from dataclasses import asdict, replace
+        from dataclasses import replace
 
         # Create a copy with new name
         new_profile = replace(self, name=name)
