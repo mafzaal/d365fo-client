@@ -195,14 +195,14 @@ class GlobalVersionManager:
             (environment_id, global_version_id)
         )
     
-    async def get_environment_version_info(self, environment_id: int) -> Optional[EnvironmentVersionInfo]:
+    async def get_environment_version_info(self, environment_id: int) -> Optional[Tuple[int, EnvironmentVersionInfo]]:
         """Get current version info for environment
         
         Args:
             environment_id: Environment ID
             
         Returns:
-            Environment version info if found
+            Tuple of (global_version_id, EnvironmentVersionInfo) if found, None otherwise
         """
         async with aiosqlite.connect(self.db_path) as db:
             cursor = await db.execute(
@@ -226,16 +226,16 @@ class GlobalVersionManager:
             # Get modules for this version
             modules = await self._get_global_version_modules(db, row[0])
             
-            return EnvironmentVersionInfo(
+            version_info = EnvironmentVersionInfo(
                 environment_id=environment_id,
-                global_version_id=row[0],
                 version_hash=row[3],
                 modules_hash=row[4],
                 modules=modules,
-                detected_at=datetime.fromisoformat(row[1]),
-                sync_status=row[2],
-                reference_count=row[5]
+                computed_at=datetime.fromisoformat(row[1]) if row[1] else datetime.now(timezone.utc),
+                is_active=True
             )
+            
+            return row[0], version_info  # Return (global_version_id, version_info)
     
     async def _get_global_version_modules(
         self,
@@ -315,16 +315,13 @@ class GlobalVersionManager:
                 })
             
             return GlobalVersionInfo(
-                global_version_id=row[0],
+                id=row[0],
                 version_hash=row[1],
                 modules_hash=row[2],
-                modules=modules,
                 first_seen_at=datetime.fromisoformat(row[3]),
                 last_used_at=datetime.fromisoformat(row[4]),
                 reference_count=row[5],
-                metadata_size_bytes=row[6] or 0,
-                created_by_environment_id=row[7],
-                linked_environments=environments
+                sample_modules=modules[:10] if modules else []  # Use first 10 modules as sample
             )
     
     async def find_compatible_versions(

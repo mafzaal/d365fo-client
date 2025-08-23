@@ -275,6 +275,13 @@ async def demonstrate_enhanced_caching():
         logger.error(f"❌ Demonstration failed: {e}")
         import traceback
         traceback.print_exc()
+    finally:
+        # Clean up client session to avoid asyncio warnings
+        if 'client' in locals() and hasattr(client, 'close'):
+            try:
+                await client.close()
+            except:
+                pass  # Ignore cleanup errors
 
 
 async def demonstrate_module_version_detection():

@@ -10,8 +10,9 @@ import json
 from .database_v2 import MetadataDatabaseV2
 from .global_version_manager import GlobalVersionManager
 from .version_detector import ModuleVersionDetector
+from ..metadata_api import MetadataAPIOperations
 from ..models import (
-    ModuleVersionInfo, EnvironmentVersionInfo, GlobalVersionInfo,
+    ModuleVersionInfo, EnvironmentVersionInfo, GlobalVersionInfo, VersionDetectionResult,
     DataEntityInfo, PublicEntityInfo, PublicEntityPropertyInfo, NavigationPropertyInfo,
     RelationConstraintInfo, PropertyGroupInfo, ActionInfo,
     ActionParameterInfo, EnumerationInfo, EnumerationMemberInfo
@@ -23,27 +24,33 @@ logger = logging.getLogger(__name__)
 class MetadataCacheV2:
     """Version-aware metadata cache with intelligent invalidation"""
     
-    def __init__(self, cache_dir: Path, base_url: str):
+    def __init__(self, cache_dir: Path, base_url: str, metadata_api: Optional[MetadataAPIOperations] = None):
         """Initialize metadata cache v2
         
         Args:
             cache_dir: Directory for cache storage
             base_url: D365 F&O environment base URL
+            metadata_api: Optional MetadataAPIOperations instance for version detection
         """
         self.cache_dir = cache_dir
         self.base_url = base_url
+        self.metadata_api = metadata_api
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         
         # Database and managers
         self.db_path = cache_dir / "metadata_v2.db"
         self.database = MetadataDatabaseV2(self.db_path)
         self.version_manager = GlobalVersionManager(self.db_path)
-        # Note: version_detector will be initialized when needed with proper api_operations
+        
+        # Version detector - initialized when metadata_api is available
         self.version_detector = None
+        if self.metadata_api:
+            self.version_detector = ModuleVersionDetector(self.metadata_api)
         
         # Cache state
         self._environment_id: Optional[int] = None
         self._current_version_info: Optional[EnvironmentVersionInfo] = None
+        self._current_global_version_id: Optional[int] = None
         self._initialized = False
     
     async def initialize(self):
@@ -57,51 +64,75 @@ class MetadataCacheV2:
         
         logger.info(f"MetadataCacheV2 initialized for environment {self._environment_id}")
     
-    async def check_version_and_sync(self, fo_client) -> Tuple[bool, Optional[int]]:
+    def set_metadata_api(self, metadata_api: MetadataAPIOperations):
+        """Set metadata API operations instance and initialize version detector
+        
+        Args:
+            metadata_api: MetadataAPIOperations instance
+        """
+        self.metadata_api = metadata_api
+        self.version_detector = ModuleVersionDetector(metadata_api)
+        logger.debug("Version detector initialized with metadata API")
+    
+    async def check_version_and_sync(self, metadata_api: Optional[MetadataAPIOperations] = None) -> Tuple[bool, Optional[int]]:
         """Check environment version and determine if sync is needed
         
         Args:
-            fo_client: D365 F&O client instance
+            metadata_api: Optional MetadataAPIOperations instance for version detection
             
         Returns:
             Tuple of (sync_needed, global_version_id)
         """
         await self.initialize()
         
-        # Initialize version detector if not already done
-        if self.version_detector is None:
-            # For now, we'll skip the actual version detection
-            # In a full implementation, this would use fo_client's API operations
-            logger.warning("Version detector not available - using fallback mode")
+        # Set up version detector if metadata_api is provided
+        if metadata_api and not self.version_detector:
+            self.set_metadata_api(metadata_api)
+        
+        # Check if version detector is available
+        if not self.version_detector:
+            logger.warning("Version detector not available - sync needed")
             return True, None
         
-        # Detect current version
-        modules = await self.version_detector.detect_version(fo_client)
-        if not modules:
-            logger.warning("Could not detect environment version")
+        try:
+            # Detect current version
+            detection_result = await self.version_detector.get_environment_version()
+            
+            if not detection_result.success or not detection_result.version_info:
+                logger.warning(f"Version detection failed: {detection_result.error_message}")
+                return True, None
+            
+            version_info = detection_result.version_info
+            logger.info(f"Version detected: {len(version_info.modules)} modules, "
+                       f"hash: {version_info.version_hash}")
+            
+            # Set environment ID on version info
+            version_info.environment_id = self._environment_id
+            
+            # Register/find global version
+            global_version_id, was_created = await self.version_manager.register_environment_version(
+                self._environment_id, version_info.modules
+            )
+            
+            # Update current version info
+            self._current_version_info = version_info
+            self._current_global_version_id = global_version_id
+            
+            if was_created:
+                logger.info(f"New version detected: {global_version_id}")
+                return True, global_version_id
+            
+            # Check if metadata exists for this version
+            if await self._has_complete_metadata(global_version_id):
+                logger.info(f"Using cached metadata for version {global_version_id}")
+                return False, global_version_id
+            else:
+                logger.info(f"Metadata incomplete for version {global_version_id}, sync needed")
+                return True, global_version_id
+                
+        except Exception as e:
+            logger.error(f"Version detection failed: {e}")
             return True, None
-        
-        # Register/find global version
-        global_version_id, is_new_version = await self.version_manager.register_environment_version(
-            self._environment_id, modules
-        )
-        
-        # Update current version info
-        self._current_version_info = await self.version_manager.get_environment_version_info(
-            self._environment_id
-        )
-        
-        if is_new_version:
-            logger.info(f"New version detected: {global_version_id}")
-            return True, global_version_id
-        
-        # Check if metadata exists for this version
-        if await self._has_complete_metadata(global_version_id):
-            logger.info(f"Using cached metadata for version {global_version_id}")
-            return False, global_version_id
-        else:
-            logger.info(f"Metadata incomplete for version {global_version_id}, sync needed")
-            return True, global_version_id
     
     async def _has_complete_metadata(self, global_version_id: int) -> bool:
         """Check if metadata is complete for a global version
@@ -604,16 +635,18 @@ class MetadataCacheV2:
         Returns:
             Current global version ID if available
         """
-        if self._current_version_info:
-            return self._current_version_info.global_version_id
+        if self._current_global_version_id is not None:
+            return self._current_global_version_id
         
         if self._environment_id is None:
             return None
         
-        version_info = await self.version_manager.get_environment_version_info(self._environment_id)
-        if version_info:
+        result = await self.version_manager.get_environment_version_info(self._environment_id)
+        if result:
+            global_version_id, version_info = result
             self._current_version_info = version_info
-            return version_info.global_version_id
+            self._current_global_version_id = global_version_id
+            return global_version_id
         
         return None
     
@@ -639,11 +672,10 @@ class MetadataCacheV2:
             version_info = await self.version_manager.get_global_version_info(current_version)
             if version_info:
                 stats['current_version'] = {
-                    'global_version_id': version_info.global_version_id,
+                    'global_version_id': version_info.id,
                     'version_hash': version_info.version_hash,
-                    'modules_count': len(version_info.modules),
-                    'reference_count': version_info.reference_count,
-                    'linked_environments': len(version_info.linked_environments)
+                    'modules_count': len(version_info.sample_modules),
+                    'reference_count': version_info.reference_count
                 }
         
         return stats

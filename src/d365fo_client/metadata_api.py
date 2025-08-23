@@ -671,3 +671,34 @@ class MetadataAPIOperations:
         except Exception as e:
             logger.error(f"Failed to get platform build version: {e}")
             raise
+
+    async def get_installed_modules(self) -> List[str]:
+        """Get the list of installed modules in the D365 F&O environment
+        
+        Returns:
+            List[str]: List of module strings in format:
+                "Name: {name} | Version: {version} | Module: {module_id} | Publisher: {publisher} | DisplayName: {display_name}"
+            
+        Raises:
+            Exception: If the action call fails
+        """
+        try:
+            result = await self.crud_ops.call_action("GetInstalledModules", {}, "SystemNotifications", None)
+            
+            # The action returns a list of module strings
+            if isinstance(result, list):
+                return result
+            elif isinstance(result, dict) and 'value' in result:
+                modules = result['value']
+                if isinstance(modules, list):
+                    return modules
+                else:
+                    logger.warning(f"GetInstalledModules returned unexpected value format: {type(modules)}")
+                    return []
+            else:
+                logger.warning(f"GetInstalledModules returned unexpected format: {type(result)}")
+                return []
+                    
+        except Exception as e:
+            logger.error(f"Failed to get installed modules: {e}")
+            raise

@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 
+from d365fo_client.metadata_api import MetadataAPIOperations
+
 from ..models import ModuleVersionInfo, EnvironmentVersionInfo, VersionDetectionResult
 from ..exceptions import MetadataError
 
@@ -22,8 +24,8 @@ class VersionDetectionError(MetadataError):
 
 class ModuleVersionDetector:
     """Detects environment version using GetInstalledModules action"""
-    
-    def __init__(self, api_operations):
+
+    def __init__(self, api_operations: MetadataAPIOperations):
         """Initialize with API operations instance
         
         Args:
@@ -63,14 +65,11 @@ class ModuleVersionDetector:
             
             logger.info("Detecting environment version using GetInstalledModules")
             
-            # Call GetInstalledModules action on SystemNotifications entity
-            modules_response = await self.api.call_action(
-                "GetInstalledModules",
-                entity_name="SystemNotifications"
-            )
+            # Use the get_installed_modules method from MetadataAPIOperations
+            module_strings = await self.api.get_installed_modules()
             
             # Parse module information
-            modules = self._parse_modules_response(modules_response)
+            modules = self._parse_modules_list(module_strings)
             logger.debug(f"Successfully parsed {len(modules)} modules")
             
             # Get fallback version info
@@ -115,6 +114,51 @@ class ModuleVersionDetector:
                 cache_hit=cache_hit
             )
     
+    def _parse_modules_list(self, module_strings: List[str]) -> List[ModuleVersionInfo]:
+        """Parse list of module strings into ModuleVersionInfo objects
+        
+        Args:
+            module_strings: List of module strings from GetInstalledModules
+            
+        Returns:
+            List of ModuleVersionInfo objects
+            
+        Raises:
+            VersionDetectionError: If parsing fails
+        """
+        try:
+            if not isinstance(module_strings, list):
+                raise VersionDetectionError("Invalid input: expected list of strings")
+            
+            if not module_strings:
+                raise VersionDetectionError("No modules found in response")
+            
+            modules = []
+            parse_errors = []
+            
+            for module_string in module_strings:
+                try:
+                    module = ModuleVersionInfo.parse_from_string(module_string)
+                    modules.append(module)
+                except ValueError as e:
+                    parse_errors.append(f"Module parse error: {e}")
+                    continue
+            
+            if not modules:
+                error_msg = f"No valid modules found. Parse errors: {'; '.join(parse_errors[:5])}"
+                raise VersionDetectionError(error_msg)
+            
+            if parse_errors:
+                logger.warning(f"Failed to parse {len(parse_errors)} module strings out of {len(module_strings)}")
+            
+            logger.debug(f"Successfully parsed {len(modules)} modules from {len(module_strings)} strings")
+            return modules
+            
+        except Exception as e:
+            if isinstance(e, VersionDetectionError):
+                raise
+            raise VersionDetectionError(f"Failed to parse modules list: {e}")
+
     def _parse_modules_response(self, response: Dict) -> List[ModuleVersionInfo]:
         """Parse GetInstalledModules response into ModuleVersionInfo objects
         
