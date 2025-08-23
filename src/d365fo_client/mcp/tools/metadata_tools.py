@@ -3,6 +3,7 @@
 import json
 import logging
 import time
+from datetime import datetime
 from typing import List
 
 from mcp import Tool
@@ -36,6 +37,7 @@ class MetadataTools:
             self._get_search_actions_tool(),
             self._get_search_enumerations_tool(),
             self._get_enumeration_fields_tool(),
+            self._get_installed_modules_tool(),
         ]
 
     def _get_search_entities_tool(self) -> Tool:
@@ -251,6 +253,18 @@ Use simple keywords, not complex patterns. Enums represent lists of named consta
             },
         )
 
+    def _get_installed_modules_tool(self) -> Tool:
+        """Get installed modules tool definition."""
+        return Tool(
+            name="d365fo_get_installed_modules",
+            description="Get the list of installed modules in the D365 F&O environment with their details including name, version, module ID, publisher, and display name.",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        )
+
     async def _try_fts_search(self, client, pattern: str) -> List[dict]:
         """Try FTS5 full-text search when regex search fails
 
@@ -267,11 +281,11 @@ Use simple keywords, not complex patterns. Enums represent lists of named consta
             from ...models import SearchQuery
 
             # Create search engine if metadata cache is available (V2)
-            if not hasattr(client, 'metadata_cache') or not client.metadata_cache:
+            if not hasattr(client, "metadata_cache") or not client.metadata_cache:
                 return []
 
             # Always use V2 search engine (legacy has been removed)
-            if hasattr(client.metadata_cache, 'create_search_engine'):
+            if hasattr(client.metadata_cache, "create_search_engine"):
                 # V2 cache - use the convenient factory method
                 search_engine = client.metadata_cache.create_search_engine()
             else:
@@ -687,6 +701,41 @@ Use simple keywords, not complex patterns. Enums represent lists of named consta
             error_response = {
                 "error": str(e),
                 "tool": "d365fo_get_enumeration_fields",
+                "arguments": arguments,
+            }
+            return [TextContent(type="text", text=json.dumps(error_response, indent=2))]
+
+    async def execute_get_installed_modules(self, arguments: dict) -> List[TextContent]:
+        """Execute get installed modules tool.
+
+        Args:
+            arguments: Tool arguments
+
+        Returns:
+            List of TextContent responses
+        """
+        try:
+            profile = arguments.get("profile", "default")
+            client = await self.client_manager.get_client(profile)
+            logger.info("Getting installed modules from D365 F&O environment")
+
+            # Get the list of installed modules
+            modules = await client.get_installed_modules()
+
+            # Convert to more structured format for better readability
+            response = {
+                "modules": modules,
+                "moduleCount": len(modules),
+                "retrievedAt": f"{datetime.now().isoformat()}Z",
+            }
+
+            return [TextContent(type="text", text=json.dumps(response, indent=2))]
+
+        except Exception as e:
+            logger.error(f"Get installed modules failed: {e}")
+            error_response = {
+                "error": str(e),
+                "tool": "d365fo_get_installed_modules",
                 "arguments": arguments,
             }
             return [TextContent(type="text", text=json.dumps(error_response, indent=2))]

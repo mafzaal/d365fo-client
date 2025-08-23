@@ -253,6 +253,10 @@ class D365FOMCPServer:
                     return await self.metadata_tools.execute_get_enumeration_fields(
                         arguments
                     )
+                elif name == "d365fo_get_installed_modules":
+                    return await self.metadata_tools.execute_get_installed_modules(
+                        arguments
+                    )
                 elif name == "d365fo_get_label":
                     return await self.label_tools.execute_get_label(arguments)
                 elif name == "d365fo_get_labels_batch":

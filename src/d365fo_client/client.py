@@ -1253,6 +1253,25 @@ class FOClient:
         except Exception as e:
             raise FOClientError(f"Failed to get application build version: {e}")
 
+    async def get_installed_modules(self) -> List[str]:
+        """Get the list of installed modules in the D365 F&O environment
+
+        This method calls the GetInstalledModules action bound to the DataManagementEntities
+        collection to retrieve the list of installed modules with their details.
+
+        Returns:
+            List[str]: List of module strings in format:
+                "Name: {name} | Version: {version} | Module: {module_id} | Publisher: {publisher} | DisplayName: {display_name}"
+
+        Raises:
+            FOClientError: If the action call fails
+        """
+        try:
+            return await self.metadata_api_ops.get_installed_modules()
+
+        except Exception as e:
+            raise FOClientError(f"Failed to get installed modules: {e}")
+
     async def query_data_management_entities(
         self,
         category_filters: Optional[List[int]] = None,
