@@ -307,7 +307,7 @@ class FOClient:
                 # Convert regex pattern to SQL LIKE pattern for v2 cache
                 if pattern:
                     # Simple conversion: replace * with % for SQL LIKE
-                    sql_pattern = pattern.replace('*', '%')
+                    sql_pattern = pattern.replace('*', '%').replace('?', '').replace('.', '').replace('[', '').replace(']', '') 
                     # If no wildcards, add % at both ends for substring search
                     if '%' not in sql_pattern and '_' not in sql_pattern:
                         sql_pattern = f'%{sql_pattern}%'
