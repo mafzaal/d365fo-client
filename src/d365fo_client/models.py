@@ -1,8 +1,10 @@
 """Data models and data classes for D365 F&O client."""
 
+import hashlib
+import json
 from typing import Dict, List, Optional, Any, Union, TYPE_CHECKING
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from .utils import get_environment_cache_directory
@@ -42,6 +44,14 @@ class ODataBindingKind(Enum):
     BOUND_TO_ENTITY_INSTANCE = "BoundToEntityInstance"
     BOUND_TO_ENTITY_SET = "BoundToEntitySet"
     UNBOUND = "Unbound"
+
+
+class SyncStrategy(Enum):
+    """Metadata synchronization strategies"""
+    FULL = "full"
+    INCREMENTAL = "incremental"
+    ENTITIES_ONLY = "entities_only"
+    SHARING_MODE = "sharing_mode"
 
 
 class Cardinality(Enum):
@@ -605,3 +615,247 @@ class SyncResult:
     success: bool = True
     errors: List[str] = field(default_factory=list)
     reason: Optional[str] = None
+
+
+# ============================================================================
+# Enhanced V2 Models for Advanced Metadata Caching
+# ============================================================================
+
+@dataclass
+class ModuleVersionInfo:
+    """Information about installed D365 module based on GetInstalledModules response"""
+    name: str                    # Module name (e.g., "AccountsPayableMobile")
+    version: str                 # Version string (e.g., "10.34.2105.34092")
+    module_id: str              # Module identifier (e.g., "AccountsPayableMobile")
+    publisher: str              # Publisher (e.g., "Microsoft Corporation")
+    display_name: str           # Human-readable name (e.g., "Accounts Payable Mobile")
+    
+    @classmethod
+    def parse_from_string(cls, module_string: str) -> 'ModuleVersionInfo':
+        """Parse module info from GetInstalledModules string format
+        
+        Args:
+            module_string: String in format "Name: X | Version: Y | Module: Z | Publisher: W | DisplayName: V"
+            
+        Returns:
+            ModuleVersionInfo instance
+            
+        Raises:
+            ValueError: If string format is invalid
+        """
+        try:
+            parts = module_string.split(' | ')
+            if len(parts) != 5:
+                raise ValueError(f"Invalid module string format: expected 5 parts, got {len(parts)}")
+            
+            name = parts[0].replace('Name: ', '')
+            version = parts[1].replace('Version: ', '')
+            module_id = parts[2].replace('Module: ', '')
+            publisher = parts[3].replace('Publisher: ', '')
+            display_name = parts[4].replace('DisplayName: ', '')
+            
+            # Validate that all parts are non-empty
+            if not all([name, version, module_id, publisher, display_name]):
+                raise ValueError("All module string parts must be non-empty")
+            
+            return cls(
+                name=name,
+                version=version,
+                module_id=module_id,
+                publisher=publisher,
+                display_name=display_name
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to parse module string '{module_string}': {e}")
+    
+    def to_dict(self) -> Dict[str, str]:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            'name': self.name,
+            'version': self.version,
+            'module_id': self.module_id,
+            'publisher': self.publisher,
+            'display_name': self.display_name
+        }
+
+
+@dataclass
+class EnvironmentVersionInfo:
+    """Enhanced environment version with precise module tracking"""
+    environment_id: int
+    version_hash: str                        # Fast hash based on all module versions
+    modules_hash: str                        # Hash of sorted module list for deduplication
+    application_version: Optional[str] = None  # Fallback version info
+    platform_version: Optional[str] = None    # Fallback version info
+    modules: List[ModuleVersionInfo] = field(default_factory=list)
+    computed_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    is_active: bool = True
+    
+    def __post_init__(self):
+        """Ensure version hashes are computed if not provided"""
+        if not self.modules_hash and self.modules:
+            self.modules_hash = self._compute_modules_hash()
+        if not self.version_hash:
+            self.version_hash = self.modules_hash[:16]  # Use first 16 chars for compatibility
+    
+    def _compute_modules_hash(self) -> str:
+        """Compute hash based on sorted module versions for consistent deduplication"""
+        if not self.modules:
+            return hashlib.sha256("empty".encode()).hexdigest()
+        
+        # Sort modules by module_id for consistent hashing
+        sorted_modules = sorted(self.modules, key=lambda m: m.module_id)
+        
+        # Create hash input from essential version data
+        hash_data = []
+        for module in sorted_modules:
+            hash_data.append(f"{module.module_id}:{module.version}")
+        
+        hash_input = "|".join(hash_data)
+        return hashlib.sha256(hash_input.encode()).hexdigest()
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            'environment_id': self.environment_id,
+            'version_hash': self.version_hash,
+            'modules_hash': self.modules_hash,
+            'application_version': self.application_version,
+            'platform_version': self.platform_version,
+            'modules': [module.to_dict() for module in self.modules],
+            'computed_at': self.computed_at.isoformat(),
+            'is_active': self.is_active
+        }
+
+
+@dataclass
+class GlobalVersionInfo:
+    """Global version registry for cross-environment sharing"""
+    id: int
+    version_hash: str
+    modules_hash: str
+    first_seen_at: datetime
+    last_used_at: datetime
+    reference_count: int
+    sample_modules: List[ModuleVersionInfo] = field(default_factory=list)  # Sample for debugging
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            'id': self.id,
+            'version_hash': self.version_hash,
+            'modules_hash': self.modules_hash,
+            'first_seen_at': self.first_seen_at.isoformat(),
+            'last_used_at': self.last_used_at.isoformat(),
+            'reference_count': self.reference_count,
+            'sample_modules': [module.to_dict() for module in self.sample_modules]
+        }
+
+
+@dataclass
+class CacheStatistics:
+    """Enhanced cache statistics with version sharing metrics"""
+    total_environments: int
+    unique_versions: int
+    shared_versions: int
+    cache_hit_ratio: float
+    storage_efficiency: float  # Ratio of shared vs duplicate storage
+    last_sync_times: Dict[str, datetime]
+    version_distribution: Dict[str, int]  # version_hash -> environment_count
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            'total_environments': self.total_environments,
+            'unique_versions': self.unique_versions,
+            'shared_versions': self.shared_versions,
+            'cache_hit_ratio': self.cache_hit_ratio,
+            'storage_efficiency': self.storage_efficiency,
+            'last_sync_times': {k: v.isoformat() for k, v in self.last_sync_times.items()},
+            'version_distribution': self.version_distribution
+        }
+
+
+@dataclass
+class VersionDetectionResult:
+    """Result of version detection operation"""
+    success: bool
+    version_info: Optional[EnvironmentVersionInfo] = None
+    error_message: Optional[str] = None
+    detection_time_ms: float = 0.0
+    modules_count: int = 0
+    cache_hit: bool = False
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            'success': self.success,
+            'version_info': self.version_info.to_dict() if self.version_info else None,
+            'error_message': self.error_message,
+            'detection_time_ms': self.detection_time_ms,
+            'modules_count': self.modules_count,
+            'cache_hit': self.cache_hit
+        }
+
+
+@dataclass
+class SyncResultV2:
+    """Enhanced synchronization result for v2 with sharing metrics"""
+    sync_type: str  # full|incremental|linked|skipped|failed
+    entities_synced: int = 0
+    actions_synced: int = 0
+    enumerations_synced: int = 0
+    labels_synced: int = 0
+    duration_ms: float = 0.0
+    success: bool = True
+    errors: List[str] = field(default_factory=list)
+    reason: Optional[str] = None
+    # V2 specific fields
+    global_version_id: Optional[int] = None
+    was_shared: bool = False
+    reference_count: int = 1
+    storage_saved_bytes: int = 0
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            'sync_type': self.sync_type,
+            'entities_synced': self.entities_synced,
+            'actions_synced': self.actions_synced,
+            'enumerations_synced': self.enumerations_synced,
+            'labels_synced': self.labels_synced,
+            'duration_ms': self.duration_ms,
+            'success': self.success,
+            'errors': self.errors,
+            'reason': self.reason,
+            'global_version_id': self.global_version_id,
+            'was_shared': self.was_shared,
+            'reference_count': self.reference_count,
+            'storage_saved_bytes': self.storage_saved_bytes
+        }
+
+
+@dataclass
+class SyncProgress:
+    """Sync progress tracking"""
+    global_version_id: int
+    strategy: SyncStrategy
+    phase: str
+    total_steps: int
+    completed_steps: int
+    current_operation: str
+    start_time: datetime
+    estimated_completion: Optional[datetime] = None
+    error: Optional[str] = None
+
+
+@dataclass
+class SyncResult:
+    """Sync operation result"""
+    success: bool
+    error: Optional[str]
+    duration_ms: int
+    entity_count: int
+    action_count: int
+    enumeration_count: int
+    label_count: int

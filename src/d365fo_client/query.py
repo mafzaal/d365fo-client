@@ -114,34 +114,45 @@ class QueryBuilder:
         return base
     
     @staticmethod
-    def build_action_url(base_url: str, action_name: str, 
-                        entity_name: Optional[str] = None, 
-                        entity_key: Optional[Union[str, Dict[str, Any]]] = None) -> str:
+    def build_action_url(
+        base_url: str,
+        action_name: str,
+        entity_name: Optional[str] = None,
+        entity_key: Optional[Union[str, Dict[str, Any]]] = None
+    ) -> str:
         """Build action URL
-        
+
         Args:
             base_url: Base F&O URL
             action_name: Action name
             entity_name: Optional entity name for bound actions
             entity_key: Optional entity key for bound actions (string for simple keys, dict for composite keys)
-            
+
         Returns:
             Complete action URL
         """
         base = base_url.rstrip('/')
-        
+
+        # Ensure action_name is properly prefixed
+        if action_name.startswith("/Microsoft.Dynamics.DataEntities."):
+            action_path = action_name
+        elif action_name.startswith("Microsoft.Dynamics.DataEntities."):
+            action_path = "/" + action_name
+        else:
+            action_path = "/Microsoft.Dynamics.DataEntities." + action_name
+
         if entity_name and entity_key:
             # Bound action on specific entity
             encoded_key = QueryBuilder.encode_key(entity_key)
             if isinstance(entity_key, dict):
                 # For composite keys, don't wrap in additional quotes
-                return f"{base}/data/{entity_name}({encoded_key})/Microsoft.Dynamics.DataEntities.{action_name}"
+                return f"{base}/data/{entity_name}({encoded_key}){action_path}"
             else:
                 # For simple string keys, wrap in quotes
-                return f"{base}/data/{entity_name}('{encoded_key}')/Microsoft.Dynamics.DataEntities.{action_name}"
+                return f"{base}/data/{entity_name}('{encoded_key}'){action_path}"
         elif entity_name:
             # Bound action on entity set
-            return f"{base}/data/{entity_name}/Microsoft.Dynamics.DataEntities.{action_name}"
+            return f"{base}/data/{entity_name}{action_path}"
         else:
             # Unbound action
-            return f"{base}/data/Microsoft.Dynamics.DataEntities.{action_name}"
+            return f"{base}/data{action_path}"
