@@ -1,12 +1,12 @@
 """MCP-specific models and data structures."""
 
 from dataclasses import dataclass
-from typing import Optional, List, Any, Dict, Union
 from datetime import datetime
 from enum import Enum
-
+from typing import Any, Dict, List, Optional, Union
 
 # Resource Models
+
 
 @dataclass
 class EntityProperty:
@@ -117,6 +117,7 @@ class QueryResourceContent:
 
 
 # Tool Input/Output Models
+
 
 @dataclass
 class TestConnectionInput:
@@ -300,6 +301,7 @@ class GetLabelsBatchOutput:
 
 # Error Models
 
+
 @dataclass
 class D365FOErrorDetails:
     http_status: int
@@ -326,6 +328,7 @@ class MCPError:
 
 
 # Configuration Models
+
 
 @dataclass
 class PerformanceConfig:
@@ -358,7 +361,7 @@ class MCPServerConfig:
     performance: PerformanceConfig = None
     cache: CacheConfig = None
     security: SecurityConfig = None
-    
+
     def __post_init__(self):
         if self.performance is None:
             self.performance = PerformanceConfig()

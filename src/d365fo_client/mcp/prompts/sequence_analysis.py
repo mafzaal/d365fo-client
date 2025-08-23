@@ -5,13 +5,15 @@ This module provides a comprehensive prompt for analyzing D365FO number sequence
 with validated entity schemas and query limitations.
 """
 
-from typing import Dict, List, Any, Optional
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class SequenceAnalysisType(str, Enum):
     """Types of sequence analysis."""
+
     COMPREHENSIVE = "comprehensive"
     BASIC = "basic"
     SPECIFIC_SEQUENCES = "specific_sequences"
@@ -20,6 +22,7 @@ class SequenceAnalysisType(str, Enum):
 
 class SequenceScope(str, Enum):
     """Sequence scope types."""
+
     DATA_AREA = "DataArea"
     DATA_AREA_FISCAL = "DataAreaFiscalCalender"
     LEGAL_ENTITY = "LegalEntity"
@@ -28,22 +31,22 @@ class SequenceScope(str, Enum):
 
 class SequenceAnalysisPromptArgs(BaseModel):
     """Arguments for sequence analysis prompt."""
-    
+
     analysis_scope: SequenceAnalysisType = Field(
         default=SequenceAnalysisType.COMPREHENSIVE,
-        description="Scope of analysis: comprehensive, basic, specific_sequences, performance_focus"
+        description="Scope of analysis: comprehensive, basic, specific_sequences, performance_focus",
     )
     company_filter: Optional[str] = Field(
         default=None,
-        description="Filter analysis to specific company code (e.g., 'USMF')"
+        description="Filter analysis to specific company code (e.g., 'USMF')",
     )
     sequence_codes: Optional[List[str]] = Field(
         default=None,
-        description="Specific sequence codes to analyze (e.g., ['Addr_1', 'Cust_1'])"
+        description="Specific sequence codes to analyze (e.g., ['Addr_1', 'Cust_1'])",
     )
     focus_areas: List[str] = Field(
         default=["configuration", "performance", "security", "maintenance"],
-        description="Areas to focus analysis on"
+        description="Areas to focus analysis on",
     )
 
 
@@ -51,7 +54,7 @@ class SequenceAnalysisPromptArgs(BaseModel):
 SEQUENCE_ENTITY_FIELDS = {
     "SequenceV2Tables": [
         "NumberSequenceCode",
-        "ScopeType", 
+        "ScopeType",
         "ScopeValue",
         "Name",
         "Next",  # Changed from NextRec
@@ -62,21 +65,21 @@ SEQUENCE_ENTITY_FIELDS = {
         "Cyclical",
         "Continuous",
         "Stopped",
-        "InUse"
+        "InUse",
     ],
     "NumberSequencesV2References": [
         "DataTypeName",
-        "NumberSequenceCode", 
+        "NumberSequenceCode",
         "ReuseNumbers",
         "ScopeType",
-        "ScopeValue"
-    ]
+        "ScopeValue",
+    ],
 }
 
 
 class SequenceAnalysisPrompt:
     """Sequence number analysis prompt handler."""
-    
+
     @staticmethod
     def get_prompt_template() -> str:
         """Get the prompt template for sequence analysis."""
@@ -293,17 +296,17 @@ Begin your analysis by using d365fo_get_environment_info and d365fo_query_entiti
         return {
             "all_sequences": {
                 "entity_name": "SequenceV2Tables",
-                "description": "Get all number sequences (no filtering due to OData limitations)"
+                "description": "Get all number sequences (no filtering due to OData limitations)",
             },
             "sequence_references": {
-                "entity_name": "NumberSequencesV2References", 
-                "description": "Get all sequence references (no filtering due to OData limitations)"
+                "entity_name": "NumberSequencesV2References",
+                "description": "Get all sequence references (no filtering due to OData limitations)",
             },
             "specific_sequence": {
                 "entity_name": "SequenceV2Tables",
                 "key_field": "NumberSequenceCode",
-                "description": "Get specific sequence by code using get_entity_by_key"
-            }
+                "description": "Get specific sequence by code using get_entity_by_key",
+            },
         }
 
     @staticmethod
@@ -315,8 +318,8 @@ Begin your analysis by using d365fo_get_environment_info and d365fo_query_entiti
             "known_limitations": [
                 "No field filtering on enum/boolean fields",
                 "No $select operations",
-                "No $orderby operations", 
-                "Manual data analysis required"
+                "No $orderby operations",
+                "Manual data analysis required",
             ],
             "field_values": {
                 "Manual": ["Yes", "No"],
@@ -324,10 +327,15 @@ Begin your analysis by using d365fo_get_environment_info and d365fo_query_entiti
                 "InUse": ["Yes", "No"],
                 "Cyclical": ["Yes", "No"],
                 "Continuous": ["Yes", "No"],
-                "ScopeType": ["DataArea", "DataAreaFiscalCalender", "LegalEntity", "OperatingUnit"]
+                "ScopeType": [
+                    "DataArea",
+                    "DataAreaFiscalCalender",
+                    "LegalEntity",
+                    "OperatingUnit",
+                ],
             },
             "expected_record_count": "10000+",
-            "analysis_approach": "collect_all_then_filter"
+            "analysis_approach": "collect_all_then_filter",
         }
 
 
@@ -337,5 +345,5 @@ SEQUENCE_ANALYSIS_PROMPT = {
     "description": "Comprehensive D365 Finance & Operations number sequence analysis with validated entity schemas and query limitations",
     "template": SequenceAnalysisPrompt.get_prompt_template(),
     "data_queries": SequenceAnalysisPrompt.get_data_retrieval_queries(),
-    "metadata": SequenceAnalysisPrompt.get_analysis_metadata()
+    "metadata": SequenceAnalysisPrompt.get_analysis_metadata(),
 }
