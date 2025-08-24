@@ -5,13 +5,15 @@ This module provides a comprehensive prompt for discovering, analyzing, and exec
 D365FO OData actions with proper parameter handling and binding context.
 """
 
-from typing import Dict, List, Any, Optional
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class ActionExecutionType(str, Enum):
     """Types of action execution."""
+
     DISCOVERY = "discovery"
     DIRECT_CALL = "direct_call"
     ENTITY_BOUND = "entity_bound"
@@ -20,6 +22,7 @@ class ActionExecutionType(str, Enum):
 
 class ActionBindingKind(str, Enum):
     """Action binding types from D365FO OData."""
+
     UNBOUND = "Unbound"
     BOUND_TO_ENTITY_SET = "BoundToEntitySet"
     BOUND_TO_ENTITY = "BoundToEntity"
@@ -27,32 +30,29 @@ class ActionBindingKind(str, Enum):
 
 class ActionExecutionPromptArgs(BaseModel):
     """Arguments for action execution prompt."""
-    
+
     execution_type: ActionExecutionType = Field(
         default=ActionExecutionType.DISCOVERY,
-        description="Type of action execution: discovery, direct_call, entity_bound, collection_bound"
+        description="Type of action execution: discovery, direct_call, entity_bound, collection_bound",
     )
     action_name: Optional[str] = Field(
         default=None,
-        description="Specific action name to execute (e.g., 'Microsoft.Dynamics.DataEntities.GetKeys')"
+        description="Specific action name to execute (e.g., 'Microsoft.Dynamics.DataEntities.GetKeys')",
     )
     entity_name: Optional[str] = Field(
-        default=None,
-        description="Entity name for bound actions"
+        default=None, description="Entity name for bound actions"
     )
     search_pattern: Optional[str] = Field(
-        default=None,
-        description="Pattern to search for actions (for discovery)"
+        default=None, description="Pattern to search for actions (for discovery)"
     )
     parameters: Optional[Dict[str, Any]] = Field(
-        default=None,
-        description="Action parameters to pass"
+        default=None, description="Action parameters to pass"
     )
 
 
 class ActionExecutionPrompt:
     """Action execution prompt handler."""
-    
+
     @staticmethod
     def get_prompt_template() -> str:
         """Get the prompt template for action execution."""
@@ -367,38 +367,35 @@ Begin your action execution assistance by using `d365fo_get_environment_info` to
                     "binding_kind": "Unbound",
                     "description": "Get D365FO application version",
                     "parameters": {},
-                    "return_type": "string"
+                    "return_type": "string",
                 },
                 "Microsoft.Dynamics.DataEntities.GetPlatformVersion": {
-                    "binding_kind": "Unbound", 
+                    "binding_kind": "Unbound",
                     "description": "Get D365FO platform version",
                     "parameters": {},
-                    "return_type": "string"
+                    "return_type": "string",
                 },
                 "Microsoft.Dynamics.DataEntities.GetKeys": {
                     "binding_kind": "Unbound",
                     "description": "Get entity key information",
                     "parameters": {},
-                    "return_type": "object"
-                }
+                    "return_type": "object",
+                },
             },
             "entity_actions": {
                 "GetSchema": {
                     "binding_kind": "BoundToEntitySet",
                     "description": "Get entity schema information",
                     "parameters": {},
-                    "return_type": "object"
+                    "return_type": "object",
                 },
                 "CalculateTotal": {
                     "binding_kind": "BoundToEntity",
                     "description": "Calculate totals for specific record",
-                    "parameters": {
-                        "IncludeTax": "boolean",
-                        "AsOfDate": "datetime"
-                    },
-                    "return_type": "number"
-                }
-            }
+                    "parameters": {"IncludeTax": "boolean", "AsOfDate": "datetime"},
+                    "return_type": "number",
+                },
+            },
         }
 
     @staticmethod
@@ -408,34 +405,31 @@ Begin your action execution assistance by using `d365fo_get_environment_info` to
             "string_parameters": {
                 "CompanyCode": "USMF",
                 "CustomerAccount": "US-001",
-                "Description": "Sample description"
+                "Description": "Sample description",
             },
             "numeric_parameters": {
                 "Amount": 1000.50,
                 "Quantity": 5,
-                "Percentage": 0.15
+                "Percentage": 0.15,
             },
             "boolean_parameters": {
                 "IncludeTax": True,
                 "IsActive": False,
-                "ProcessImmediately": True
+                "ProcessImmediately": True,
             },
             "datetime_parameters": {
                 "PostingDate": "2024-01-15T00:00:00Z",
                 "EffectiveDate": "2024-01-01T12:00:00Z",
-                "ExpirationDate": "2024-12-31T23:59:59Z"
+                "ExpirationDate": "2024-12-31T23:59:59Z",
             },
             "enum_parameters": {
                 "Status": "Microsoft.Dynamics.DataEntities.StatusType'Active'",
-                "Category": "Microsoft.Dynamics.DataEntities.EntityCategory'Master'"
+                "Category": "Microsoft.Dynamics.DataEntities.EntityCategory'Master'",
             },
             "composite_key_parameters": {
                 "single_key": "USMF_US-001",
-                "composite_key": {
-                    "dataAreaId": "USMF",
-                    "AccountNum": "US-001"
-                }
-            }
+                "composite_key": {"dataAreaId": "USMF", "AccountNum": "US-001"},
+            },
         }
 
     @staticmethod
@@ -446,8 +440,8 @@ Begin your action execution assistance by using `d365fo_get_environment_info` to
                 "description": "Execute unbound system action",
                 "example": {
                     "actionName": "Microsoft.Dynamics.DataEntities.GetApplicationVersion",
-                    "parameters": {}
-                }
+                    "parameters": {},
+                },
             },
             "collection_bound_action": {
                 "description": "Execute action on entity collection",
@@ -455,10 +449,8 @@ Begin your action execution assistance by using `d365fo_get_environment_info` to
                     "actionName": "ProcessAllRecords",
                     "entityName": "CustomersV3",
                     "bindingKind": "BoundToEntitySet",
-                    "parameters": {
-                        "ProcessingDate": "2024-01-15T00:00:00Z"
-                    }
-                }
+                    "parameters": {"ProcessingDate": "2024-01-15T00:00:00Z"},
+                },
             },
             "entity_bound_action": {
                 "description": "Execute action on specific entity record",
@@ -469,10 +461,10 @@ Begin your action execution assistance by using `d365fo_get_environment_info` to
                     "bindingKind": "BoundToEntity",
                     "parameters": {
                         "AsOfDate": "2024-01-15T00:00:00Z",
-                        "IncludePending": True
-                    }
-                }
-            }
+                        "IncludePending": True,
+                    },
+                },
+            },
         }
 
 
@@ -484,5 +476,5 @@ ACTION_EXECUTION_PROMPT = {
     "common_actions": ActionExecutionPrompt.get_common_actions(),
     "parameter_examples": ActionExecutionPrompt.get_parameter_examples(),
     "execution_patterns": ActionExecutionPrompt.get_execution_patterns(),
-    "arguments": ActionExecutionPromptArgs
+    "arguments": ActionExecutionPromptArgs,
 }

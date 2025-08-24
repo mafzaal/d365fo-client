@@ -2,4 +2,4 @@
 
 from .server import D365MockServer
 
-__all__ = ['D365MockServer']
+__all__ = ["D365MockServer"]

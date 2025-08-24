@@ -40,3 +40,5 @@ test_cache/
 example_cache/diskcache/cache.db
 .gitignore
 example_cache/metadata.db
+enhanced_cache_demo/metadata_v2.db
+test_stats_cache/metadata.db

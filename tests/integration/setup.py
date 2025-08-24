@@ -2,9 +2,9 @@
 """Setup script for D365 F&O Client integration testing environment."""
 
 import os
-import sys
-import subprocess
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -12,7 +12,7 @@ def print_header(text):
     """Print a formatted header."""
     print(f"\n{'='*60}")
     print(f"🔧 {text}")
-    print('='*60)
+    print("=" * 60)
 
 
 def print_step(step, text):
@@ -38,12 +38,12 @@ def run_command(cmd, description, check=True):
 def check_python_version():
     """Check if Python version is compatible."""
     print_step(1, "Checking Python version")
-    
+
     version = sys.version_info
     if version.major < 3 or (version.major == 3 and version.minor < 10):
         print(f"   ❌ Python 3.10+ required, found {version.major}.{version.minor}")
         return False
-    
+
     print(f"   ✅ Python {version.major}.{version.minor}.{version.micro}")
     return True
 
@@ -51,8 +51,8 @@ def check_python_version():
 def check_uv_installation():
     """Check if uv is installed."""
     print_step(2, "Checking uv installation")
-    
-    if shutil.which('uv'):
+
+    if shutil.which("uv"):
         print("   ✅ uv is installed")
         return True
     else:
@@ -64,36 +64,53 @@ def check_uv_installation():
 def install_dependencies():
     """Install integration test dependencies."""
     print_step(3, "Installing integration test dependencies")
-    
+
     # Install integration test dependencies
     success = run_command(
-        ['uv', 'add', '--group', 'integration', 'aiohttp', 'pytest-asyncio', 'pytest-cov', 'httpx'],
-        "Integration dependencies installed"
+        [
+            "uv",
+            "add",
+            "--group",
+            "integration",
+            "aiohttp",
+            "pytest-asyncio",
+            "pytest-cov",
+            "httpx",
+        ],
+        "Integration dependencies installed",
     )
-    
+
     if not success:
         print("   Trying fallback installation...")
         success = run_command(
-            ['uv', 'add', '--dev', 'aiohttp>=3.10.0', 'pytest-asyncio>=0.25.0', 'pytest-cov>=6.2.1', 'httpx>=0.27.0'],
-            "Dependencies installed via fallback method"
+            [
+                "uv",
+                "add",
+                "--dev",
+                "aiohttp>=3.10.0",
+                "pytest-asyncio>=0.25.0",
+                "pytest-cov>=6.2.1",
+                "httpx>=0.27.0",
+            ],
+            "Dependencies installed via fallback method",
         )
-    
+
     return success
 
 
 def setup_environment_file():
     """Setup environment configuration file."""
     print_step(4, "Setting up environment configuration")
-    
+
     integration_dir = Path(__file__).parent
-    env_example = integration_dir / '.env.example'
-    env_file = integration_dir / '.env'
-    
+    env_example = integration_dir / ".env.example"
+    env_file = integration_dir / ".env"
+
     if env_file.exists():
         print("   ⚠️  .env file already exists, skipping creation")
         print(f"   📝 Edit {env_file} to configure your environment")
         return True
-    
+
     if env_example.exists():
         shutil.copy2(env_example, env_file)
         print(f"   ✅ Created .env file from template")
@@ -107,24 +124,27 @@ def setup_environment_file():
 def test_mock_server():
     """Test the mock server setup."""
     print_step(5, "Testing mock server setup")
-    
+
     integration_dir = Path(__file__).parent
     test_cmd = [
-        'python', str(integration_dir / 'test_runner.py'), 
-        'mock', 
-        '--test', 'test_mock_server.py::TestConnectionMockServer::test_connection_success'
+        "python",
+        str(integration_dir / "test_runner.py"),
+        "mock",
+        "--test",
+        "test_mock_server.py::TestConnectionMockServer::test_connection_success",
     ]
-    
+
     return run_command(test_cmd, "Mock server test passed", check=False)
 
 
 def print_next_steps():
     """Print next steps for the user."""
     print_header("Setup Complete! 🎉")
-    
+
     integration_dir = Path(__file__).parent
-    
-    print(f"""
+
+    print(
+        f"""
 Next Steps:
 
 1. 📝 Configure your environment:
@@ -163,28 +183,29 @@ Next Steps:
    - Test connectivity: az login (for Azure environments)
 
 Happy testing! 🚀
-""")
+"""
+    )
 
 
 def main():
     """Main setup function."""
     print_header("D365 F&O Client Integration Testing Setup")
-    
+
     # Check prerequisites
     if not check_python_version():
         return 1
-    
+
     if not check_uv_installation():
         return 1
-    
+
     # Install dependencies
     if not install_dependencies():
         print("\n❌ Failed to install dependencies")
         return 1
-    
+
     # Setup environment
     setup_environment_file()
-    
+
     # Test setup
     print("\n" + "⏳ Testing setup...")
     if test_mock_server():
@@ -192,12 +213,12 @@ def main():
     else:
         print("   ⚠️  Mock server test failed, but setup can continue")
         print("   Check the output above for any issues")
-    
+
     # Print next steps
     print_next_steps()
-    
+
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())

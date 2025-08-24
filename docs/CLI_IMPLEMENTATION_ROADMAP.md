@@ -11,7 +11,7 @@ The current implementation has these key components that can be leveraged:
 1. **FOClient**: Main client with comprehensive async API
 2. **Configuration**: FOClientConfig with environment support
 3. **Authentication**: AuthenticationManager with Azure AD integration
-4. **Metadata**: MetadataManager with caching and search
+4. **Metadata**: MetadataAPIOperations with MetadataCacheV2 and SmartSyncManagerV2
 5. **CRUD Operations**: Full entity CRUD support
 6. **Action Operations**: OData action calling capability
 7. **Label Operations**: Label retrieval and caching
