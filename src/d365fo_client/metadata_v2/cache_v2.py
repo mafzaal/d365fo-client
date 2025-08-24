@@ -1,10 +1,9 @@
 """Version-aware metadata cache implementation."""
 
-import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import aiosqlite
 
@@ -23,9 +22,7 @@ from ..models import (
     EnumerationMemberInfo,
     EnvironmentVersionInfo,
     FixedConstraintInfo,
-    GlobalVersionInfo,
     LabelInfo,
-    ModuleVersionInfo,
     NavigationPropertyInfo,
     ODataBindingKind,
     PropertyGroupInfo,
@@ -34,11 +31,10 @@ from ..models import (
     PublicEntityPropertyInfo,
     ReferentialConstraintInfo,
     RelatedFixedConstraintInfo,
-    RelationConstraintInfo,
-    VersionDetectionResult,
 )
 from .database_v2 import MetadataDatabaseV2
 from .global_version_manager import GlobalVersionManager
+from .label_utils import apply_label_fallback, process_label_fallback
 from .version_detector import ModuleVersionDetector
 
 logger = logging.getLogger(__name__)
@@ -223,8 +219,11 @@ class MetadataCacheV2:
                 (global_version_id,),
             )
 
-            # Insert new entities
+            # Insert new entities with label processing
             for entity in entities:
+                # Process label fallback for this entity
+                processed_label_text = process_label_fallback(entity.label_id, entity.label_text)
+                
                 await db.execute(
                     """INSERT INTO data_entities
                        (global_version_id, name, public_entity_name, public_collection_name,
@@ -237,8 +236,8 @@ class MetadataCacheV2:
                         entity.public_entity_name,
                         entity.public_collection_name,
                         entity.label_id,
-                        entity.label_text,
-                        entity.entity_category,
+                        processed_label_text,  # Use processed label text
+                        entity.entity_category.value if entity.entity_category else None,
                         entity.data_service_enabled,
                         entity.data_management_enabled,
                         entity.is_read_only,
@@ -309,13 +308,16 @@ class MetadataCacheV2:
 
             entities = []
             for row in await cursor.fetchall():
+                # Apply label fallback during retrieval
+                processed_label_text = apply_label_fallback(row[3], row[4])
+                
                 entities.append(
                     DataEntityInfo(
                         name=row[0],
                         public_entity_name=row[1],
                         public_collection_name=row[2],
                         label_id=row[3],
-                        label_text=row[4],
+                        label_text=processed_label_text,
                         entity_category=row[5],
                         data_service_enabled=row[6],
                         data_management_enabled=row[7],
@@ -406,7 +408,9 @@ class MetadataCacheV2:
                     (existing_entity_id, global_version_id),
                 )
 
-            # Insert new entity
+            # Insert new entity with label processing
+            processed_entity_label_text = process_label_fallback(entity_schema.label_id, entity_schema.label_text)
+            
             cursor = await db.execute(
                 """INSERT INTO public_entities
                    (global_version_id, name, entity_set_name, label_id, label_text,
@@ -417,7 +421,7 @@ class MetadataCacheV2:
                     entity_schema.name,
                     entity_schema.entity_set_name,
                     entity_schema.label_id,
-                    entity_schema.label_text,
+                    processed_entity_label_text,  # Use processed label text
                     entity_schema.is_read_only,
                     entity_schema.configuration_enabled,
                 ),
@@ -425,10 +429,13 @@ class MetadataCacheV2:
 
             entity_id = cursor.lastrowid
 
-            # Store properties
+            # Store properties with label processing
             prop_order = 0
             for prop in entity_schema.properties:
                 prop_order += 1
+                # Process label fallback for this property
+                processed_prop_label_text = process_label_fallback(prop.label_id, prop.label_text)
+                
                 await db.execute(
                     """INSERT INTO entity_properties
                        (entity_id, global_version_id, name, type_name, data_type,
@@ -446,7 +453,7 @@ class MetadataCacheV2:
                         prop.data_type,
                         prop.data_type,
                         prop.label_id,
-                        prop.label_text,
+                        processed_prop_label_text,  # Use processed label text
                         prop.is_key,
                         prop.is_mandatory,
                         prop.configuration_enabled,
@@ -624,6 +631,9 @@ class MetadataCacheV2:
 
             properties = []
             for prop_row in await cursor.fetchall():
+                # Apply label fallback for property labels
+                processed_prop_label_text = apply_label_fallback(prop_row[4], prop_row[5])
+                
                 properties.append(
                     PublicEntityPropertyInfo(
                         name=prop_row[0],
@@ -631,7 +641,7 @@ class MetadataCacheV2:
                         data_type=prop_row[2],
                         odata_xpp_type=prop_row[3],
                         label_id=prop_row[4],
-                        label_text=prop_row[5],
+                        label_text=processed_prop_label_text,
                         is_key=prop_row[6],
                         is_mandatory=prop_row[7],
                         configuration_enabled=prop_row[8],
@@ -794,11 +804,14 @@ class MetadataCacheV2:
                     )
                 )
 
+            # Apply label fallback for entity labels
+            processed_entity_label_text = apply_label_fallback(entity_row[3], entity_row[4])
+
             return PublicEntityInfo(
                 name=entity_row[1],
                 entity_set_name=entity_row[2],
                 label_id=entity_row[3],
-                label_text=entity_row[4],
+                label_text=processed_entity_label_text,
                 is_read_only=entity_row[5],
                 configuration_enabled=entity_row[6],
                 properties=properties,
@@ -824,6 +837,9 @@ class MetadataCacheV2:
             )
 
             for enum_info in enumerations:
+                # Process label fallback for this enumeration
+                processed_enum_label_text = process_label_fallback(enum_info.label_id, enum_info.label_text)
+                
                 # Insert enumeration
                 cursor = await db.execute(
                     """INSERT INTO enumerations
@@ -833,16 +849,19 @@ class MetadataCacheV2:
                         global_version_id,
                         enum_info.name,
                         enum_info.label_id,
-                        enum_info.label_text,
+                        processed_enum_label_text,  # Use processed label text
                     ),
                 )
 
                 enum_id = cursor.lastrowid
 
-                # Insert members
+                # Insert members with label processing
                 member_order = 0
                 for member in enum_info.members:
                     member_order += 1
+                    # Process label fallback for this member
+                    processed_member_label_text = process_label_fallback(member.label_id, member.label_text)
+                    
                     await db.execute(
                         """INSERT INTO enumeration_members
                            (enumeration_id, global_version_id, name, value,
@@ -854,7 +873,7 @@ class MetadataCacheV2:
                             member.name,
                             member.value,
                             member.label_id,
-                            member.label_text,
+                            processed_member_label_text,  # Use processed label text
                             member.configuration_enabled,
                             member_order,
                         ),
@@ -908,21 +927,27 @@ class MetadataCacheV2:
 
             members = []
             for member_row in await cursor.fetchall():
+                # Apply label fallback for member labels
+                processed_member_label_text = apply_label_fallback(member_row[2], member_row[3])
+                
                 members.append(
                     EnumerationMemberInfo(
                         name=member_row[0],
                         value=member_row[1],
                         label_id=member_row[2],
-                        label_text=member_row[3],
+                        label_text=processed_member_label_text,
                         configuration_enabled=member_row[4],
                         member_order=member_row[5],
                     )
                 )
 
+            # Apply label fallback for enumeration labels
+            processed_enum_label_text = apply_label_fallback(enum_row[2], enum_row[3])
+
             return EnumerationInfo(
                 name=enum_row[1],
                 label_id=enum_row[2],
-                label_text=enum_row[3],
+                label_text=processed_enum_label_text,
                 members=members,
             )
 
@@ -984,6 +1009,203 @@ class MetadataCacheV2:
 
         return None
 
+    # Action Operations
+
+    async def search_actions(
+        self,
+        pattern: Optional[str] = None,
+        entity_name: Optional[str] = None,
+        binding_kind: Optional[str] = None,
+        global_version_id: Optional[int] = None,
+    ) -> List[ActionInfo]:
+        """Search for actions with filtering
+
+        Args:
+            pattern: Search pattern for action name (SQL LIKE)
+            entity_name: Filter by entity name
+            binding_kind: Filter by binding kind
+            global_version_id: Global version ID (uses current if None)
+
+        Returns:
+            List of matching actions
+        """
+        if global_version_id is None:
+            global_version_id = await self._get_current_global_version_id()
+            if global_version_id is None:
+                return []
+
+        # Build query conditions
+        conditions = ["ea.global_version_id = ?"]
+        params = [global_version_id]
+
+        if pattern is not None:
+            conditions.append("ea.name LIKE ?")
+            params.append(pattern)
+
+        if entity_name is not None:
+            conditions.append("ea.entity_name = ?")
+            params.append(entity_name)
+
+        if binding_kind is not None:
+            conditions.append("ea.binding_kind = ?")
+            params.append(binding_kind)
+
+        where_clause = " AND ".join(conditions)
+
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                f"""SELECT ea.name, ea.binding_kind, ea.entity_name,
+                           ea.entity_set_name, ea.return_type_name,
+                           ea.return_is_collection, ea.return_odata_xpp_type,
+                           ea.field_lookup
+                    FROM entity_actions ea
+                    WHERE {where_clause}
+                    ORDER BY ea.name""",
+                params,
+            )
+
+            rows = await cursor.fetchall()
+            actions = []
+
+            for row in rows:
+                # Get parameters for this action
+                param_cursor = await db.execute(
+                    """SELECT name, type_name, is_collection, odata_xpp_type
+                       FROM action_parameters
+                       WHERE action_id = (
+                           SELECT id FROM entity_actions
+                           WHERE name = ? AND entity_name = ? AND global_version_id = ?
+                       )
+                       ORDER BY parameter_order""",
+                    (row[0], row[2], global_version_id),
+                )
+                param_rows = await param_cursor.fetchall()
+
+                parameters = [
+                    ActionParameterInfo(
+                        name=param_row[0],
+                        type=ActionParameterTypeInfo(
+                            type_name=param_row[1],
+                            is_collection=bool(param_row[2]),
+                            odata_xpp_type=param_row[3],
+                        ),
+                    )
+                    for param_row in param_rows
+                ]
+
+                # Create return type if present
+                return_type = None
+                if row[4]:  # return_type_name
+                    return_type = ActionReturnTypeInfo(
+                        type_name=row[4],
+                        is_collection=bool(row[5]),
+                        odata_xpp_type=row[6],
+                    )
+
+                action = ActionInfo(
+                    name=row[0],
+                    binding_kind=ODataBindingKind(row[1]),
+                    entity_name=row[2],
+                    entity_set_name=row[3],
+                    parameters=parameters,
+                    return_type=return_type,
+                    field_lookup=row[7],
+                )
+
+                actions.append(action)
+
+            return actions
+
+    async def get_action_info(
+        self,
+        action_name: str,
+        entity_name: Optional[str] = None,
+        global_version_id: Optional[int] = None,
+    ) -> Optional[ActionInfo]:
+        """Get specific action information
+
+        Args:
+            action_name: Name of the action
+            entity_name: Entity name for bound actions
+            global_version_id: Global version ID (uses current if None)
+
+        Returns:
+            Action information if found, None otherwise
+        """
+        if global_version_id is None:
+            global_version_id = await self._get_current_global_version_id()
+            if global_version_id is None:
+                return None
+
+        # Build query conditions
+        conditions = ["ea.global_version_id = ?", "ea.name = ?"]
+        params = [global_version_id, action_name]
+
+        if entity_name is not None:
+            conditions.append("ea.entity_name = ?")
+            params.append(entity_name)
+
+        where_clause = " AND ".join(conditions)
+
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                f"""SELECT ea.id, ea.name, ea.binding_kind, ea.entity_name,
+                           ea.entity_set_name, ea.return_type_name,
+                           ea.return_is_collection, ea.return_odata_xpp_type,
+                           ea.field_lookup
+                    FROM entity_actions ea
+                    WHERE {where_clause}
+                    LIMIT 1""",
+                params,
+            )
+
+            row = await cursor.fetchone()
+            if not row:
+                return None
+
+            action_id = row[0]
+
+            # Get parameters for this action
+            param_cursor = await db.execute(
+                """SELECT name, type_name, is_collection, odata_xpp_type
+                   FROM action_parameters
+                   WHERE action_id = ?
+                   ORDER BY parameter_order""",
+                (action_id,),
+            )
+            param_rows = await param_cursor.fetchall()
+
+            parameters = [
+                ActionParameterInfo(
+                    name=param_row[0],
+                    type=ActionParameterTypeInfo(
+                        type_name=param_row[1],
+                        is_collection=bool(param_row[2]),
+                        odata_xpp_type=param_row[3],
+                    ),
+                )
+                for param_row in param_rows
+            ]
+
+            # Create return type if present
+            return_type = None
+            if row[5]:  # return_type_name
+                return_type = ActionReturnTypeInfo(
+                    type_name=row[5],
+                    is_collection=bool(row[6]),
+                    odata_xpp_type=row[7],
+                )
+
+            return ActionInfo(
+                name=row[1],
+                binding_kind=ODataBindingKind(row[2]),
+                entity_name=row[3],
+                entity_set_name=row[4],
+                parameters=parameters,
+                return_type=return_type,
+                field_lookup=row[8],
+            )
+
     # Label Operations
 
     async def get_label(
@@ -1000,7 +1222,7 @@ class MetadataCacheV2:
             global_version_id: Global version ID (uses current if None, includes temporary entries)
 
         Returns:
-            Label text or None if not found or expired
+            Label text or None if not found
         """
         if global_version_id is None:
             global_version_id = await self._get_current_global_version_id()
@@ -1009,19 +1231,17 @@ class MetadataCacheV2:
             if global_version_id is not None:
                 # Search for specific version
                 cursor = await db.execute(
-                    """SELECT label_text, expires_at
+                    """SELECT label_text
                        FROM labels_cache 
-                       WHERE global_version_id = ? AND label_id = ? AND language = ?
-                       AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)""",
+                       WHERE global_version_id = ? AND label_id = ? AND language = ?""",
                     (global_version_id, label_id, language),
                 )
             else:
                 # Search across all versions (including temporary entries)
                 cursor = await db.execute(
-                    """SELECT label_text, expires_at
+                    """SELECT label_text
                        FROM labels_cache 
                        WHERE label_id = ? AND language = ?
-                       AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
                        ORDER BY global_version_id DESC
                        LIMIT 1""",  # Get the highest version (prefer actual versions over temporary)
                     (label_id, language),
@@ -1059,7 +1279,6 @@ class MetadataCacheV2:
         label_text: str,
         language: str = "en-US",
         global_version_id: Optional[int] = None,
-        ttl_hours: int = 24,
     ):
         """Set label in cache
 
@@ -1068,7 +1287,6 @@ class MetadataCacheV2:
             label_text: Label text value
             language: Language code
             global_version_id: Global version ID (uses current if None)
-            ttl_hours: Time to live in hours
         """
         if global_version_id is None:
             global_version_id = await self._get_current_global_version_id()
@@ -1079,22 +1297,16 @@ class MetadataCacheV2:
                 )
                 global_version_id = -1  # Use -1 for temporary entries
 
-        # Calculate expiration time
-        from datetime import datetime, timedelta, timezone
-
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
-
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 """INSERT OR REPLACE INTO labels_cache
-                   (global_version_id, label_id, language, label_text, expires_at, hit_count, last_accessed)
-                   VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)""",
+                   (global_version_id, label_id, language, label_text, hit_count, last_accessed)
+                   VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)""",
                 (
                     global_version_id,
                     label_id,
                     language,
                     label_text,
-                    expires_at.isoformat(),
                 ),
             )
             await db.commit()
@@ -1105,14 +1317,12 @@ class MetadataCacheV2:
         self,
         labels: List[LabelInfo],
         global_version_id: Optional[int] = None,
-        ttl_hours: int = 24,
     ):
         """Set multiple labels in cache efficiently
 
         Args:
             labels: List of LabelInfo objects
             global_version_id: Global version ID (uses current if None)
-            ttl_hours: Time to live in hours
         """
         if not labels:
             return
@@ -1126,11 +1336,6 @@ class MetadataCacheV2:
                 )
                 global_version_id = -1  # Use -1 for temporary entries
 
-        # Calculate expiration time
-        from datetime import datetime, timedelta, timezone
-
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
-
         # Prepare batch data
         label_data = []
         for label in labels:
@@ -1140,15 +1345,14 @@ class MetadataCacheV2:
                     label.id,
                     label.language,
                     label.value,
-                    expires_at.isoformat(),
                 )
             )
 
         async with aiosqlite.connect(self.db_path) as db:
             await db.executemany(
                 """INSERT OR REPLACE INTO labels_cache
-                   (global_version_id, label_id, language, label_text, expires_at, hit_count, last_accessed)
-                   VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)""",
+                   (global_version_id, label_id, language, label_text, hit_count, last_accessed)
+                   VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)""",
                 label_data,
             )
             await db.commit()
@@ -1188,15 +1392,13 @@ class MetadataCacheV2:
                 params = [global_version_id, language] + label_ids
                 query = f"""SELECT label_id, label_text
                             FROM labels_cache 
-                            WHERE global_version_id = ? AND language = ? AND label_id IN ({placeholders})
-                            AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)"""
+                            WHERE global_version_id = ? AND language = ? AND label_id IN ({placeholders})"""
             else:
                 # Search across all versions (including temporary entries)
                 params = [language] + label_ids
                 query = f"""SELECT label_id, label_text
                             FROM labels_cache 
                             WHERE language = ? AND label_id IN ({placeholders})
-                            AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
                             ORDER BY global_version_id DESC"""  # Prefer actual versions over temporary
 
             cursor = await db.execute(query, params)
@@ -1221,30 +1423,6 @@ class MetadataCacheV2:
 
             logger.debug(f"Label batch lookup: {len(results)}/{len(label_ids)} found")
             return results
-
-    async def clear_expired_labels(self, global_version_id: Optional[int] = None):
-        """Clear expired labels from cache
-
-        Args:
-            global_version_id: Global version ID to clear (clears all if None)
-        """
-        async with aiosqlite.connect(self.db_path) as db:
-            if global_version_id is not None:
-                cursor = await db.execute(
-                    """DELETE FROM labels_cache 
-                       WHERE global_version_id = ? AND expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP""",
-                    (global_version_id,),
-                )
-            else:
-                cursor = await db.execute(
-                    """DELETE FROM labels_cache 
-                       WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP"""
-                )
-
-            deleted_count = cursor.rowcount
-            await db.commit()
-
-        logger.info(f"Cleared {deleted_count} expired labels")
 
     async def get_label_cache_statistics(
         self, global_version_id: Optional[int] = None
@@ -1274,23 +1452,10 @@ class MetadataCacheV2:
             )
             stats["total_labels"] = (await cursor.fetchone())[0]
 
-            # Expired labels
-            cursor = await db.execute(
-                f"""SELECT COUNT(*) FROM labels_cache 
-                    {version_filter} {'AND' if version_filter else 'WHERE'} 
-                    expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP""",
-                params,
-            )
-            stats["expired_labels"] = (await cursor.fetchone())[0]
-
-            # Active labels
-            stats["active_labels"] = stats["total_labels"] - stats["expired_labels"]
-
             # Languages
             cursor = await db.execute(
                 f"""SELECT language, COUNT(*) FROM labels_cache 
-                    {version_filter} {'AND' if version_filter else 'WHERE'} 
-                    (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+                    {version_filter}
                     GROUP BY language ORDER BY COUNT(*) DESC""",
                 params,
             )

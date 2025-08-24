@@ -221,7 +221,7 @@ class DataEntityInfo:
             "label_text": self.label_text,
             "data_service_enabled": self.data_service_enabled,
             "data_management_enabled": self.data_management_enabled,
-            "entity_category": self.entity_category,
+            "entity_category": self.entity_category.value if self.entity_category else None,
             "is_read_only": self.is_read_only,
         }
 
@@ -503,7 +503,7 @@ class ActionInfo:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "name": self.name,
-            "binding_kind": self.binding_kind,
+            "binding_kind": self.binding_kind.value,  # Serialize enum as string value
             "entity_name": self.entity_name,
             "entity_set_name": self.entity_set_name,
             "parameters": [param.to_dict() for param in self.parameters],

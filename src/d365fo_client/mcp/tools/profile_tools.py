@@ -423,6 +423,12 @@ class ProfileTools:
             if set_as_default:
                 self.profile_manager.set_default_profile(name)
 
+            # Refresh the client manager to pick up the new profile
+            await self.client_manager.refresh_profile(name)
+            if set_as_default:
+                # If setting as default, also refresh the default profile
+                await self.client_manager.refresh_profile("default")
+
             response = {
                 "success": True,
                 "profileName": name,
@@ -485,6 +491,9 @@ class ProfileTools:
                     TextContent(type="text", text=json.dumps(error_response, indent=2))
                 ]
 
+            # Refresh the client manager to pick up the updated profile
+            await self.client_manager.refresh_profile(name)
+
             response = {
                 "success": True,
                 "profileName": name,
@@ -525,6 +534,9 @@ class ProfileTools:
                     TextContent(type="text", text=json.dumps(error_response, indent=2))
                 ]
 
+            # Refresh the client manager to remove the deleted profile
+            await self.client_manager.refresh_profile(profile_name)
+
             response = {
                 "success": True,
                 "profileName": profile_name,
@@ -563,6 +575,9 @@ class ProfileTools:
                 return [
                     TextContent(type="text", text=json.dumps(error_response, indent=2))
                 ]
+
+            # Refresh the default profile in client manager
+            await self.client_manager.refresh_profile("default")
 
             response = {
                 "success": True,

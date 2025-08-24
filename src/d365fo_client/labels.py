@@ -401,14 +401,14 @@ async def _resolve_labels_batch(
         # Log individual results at debug level
         for label_id in label_ids:
             if label_id in label_texts:
-                logger.debug(f"✅ Resolved '{label_id}' -> '{label_texts[label_id]}'")
+                logger.debug(f"[OK] Resolved '{label_id}' -> '{label_texts[label_id]}'")
             else:
-                logger.debug(f"❌ No text found for label ID '{label_id}'")
+                logger.debug(f"[MISS] No text found for label ID '{label_id}'")
 
         return label_texts
 
     except Exception as e:
-        logger.warning(f"❌ Error in batch label resolution: {e}")
+        logger.warning(f"[ERROR] Error in batch label resolution: {e}")
         return {}
 
 

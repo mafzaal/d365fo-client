@@ -195,6 +195,18 @@ class ProfileManager:
             logger.error(f"Error getting default profile: {e}")
             return None
 
+    def reload_config(self) -> None:
+        """Reload configuration from file.
+        
+        This is useful when profiles have been modified and we need
+        to refresh the in-memory configuration data.
+        """
+        try:
+            self.config_manager.reload_config()
+            logger.debug("Reloaded profile configuration")
+        except Exception as e:
+            logger.error(f"Error reloading configuration: {e}")
+
     def set_default_profile(self, profile_name: str) -> bool:
         """Set the default profile.
 

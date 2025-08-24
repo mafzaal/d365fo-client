@@ -8,19 +8,25 @@ from d365fo_client.crud import CrudOperations
 
 from .labels import LabelOperations
 from .models import (
+    ActionInfo,
     ActionParameterInfo,
     ActionParameterTypeInfo,
     ActionReturnTypeInfo,
+    Cardinality,
     DataEntityInfo,
+    EntityCategory,
     EnumerationInfo,
     EnumerationMemberInfo,
+    FixedConstraintInfo,
     NavigationPropertyInfo,
+    ODataBindingKind,
     PropertyGroupInfo,
     PublicEntityActionInfo,
     PublicEntityInfo,
     PublicEntityPropertyInfo,
     QueryOptions,
     ReferentialConstraintInfo,
+    RelatedFixedConstraintInfo,
 )
 from .query import QueryBuilder
 from .session import SessionManager
@@ -97,25 +103,56 @@ class MetadataAPIOperations:
 
         # Process navigation properties
         for nav_data in item.get("NavigationProperties", []):
+            # Convert cardinality string to enum
+            cardinality_str = nav_data.get("Cardinality", "Single")
+            try:
+                if cardinality_str == "Single":
+                    cardinality = Cardinality.SINGLE
+                elif cardinality_str == "Multiple":
+                    cardinality = Cardinality.MULTIPLE
+                else:
+                    cardinality = Cardinality.SINGLE  # Default
+            except Exception:
+                cardinality = Cardinality.SINGLE
+                
             nav_prop = NavigationPropertyInfo(
                 name=nav_data.get("Name", ""),
                 related_entity=nav_data.get("RelatedEntity", ""),
                 related_relation_name=nav_data.get("RelatedRelationName"),
-                cardinality=nav_data.get("Cardinality", "Single"),
+                cardinality=cardinality,
             )
 
             # Process constraints
             for constraint_data in nav_data.get("Constraints", []):
-                # Check for ReferentialConstraint type (most common)
                 odata_type = constraint_data.get("@odata.type", "")
+                
                 if "ReferentialConstraint" in odata_type:
+                    # Referential constraint (foreign key relationship)
                     constraint = ReferentialConstraintInfo(
-                        constraint_type="Referential",
                         property=constraint_data.get("Property", ""),
                         referenced_property=constraint_data.get(
                             "ReferencedProperty", ""
                         ),
                     )
+                    nav_prop.constraints.append(constraint)
+                    
+                elif "RelatedFixedConstraint" in odata_type:
+                    # Related fixed constraint (check this before FixedConstraint)
+                    constraint = RelatedFixedConstraintInfo(
+                        related_property=constraint_data.get("RelatedProperty", ""),
+                        value=constraint_data.get("Value"),
+                        value_str=constraint_data.get("ValueStr", constraint_data.get("StringValue")),
+                    )
+                    nav_prop.constraints.append(constraint)
+                    
+                elif "FixedConstraint" in odata_type:
+                    # Fixed value constraint
+                    constraint = FixedConstraintInfo(
+                        property=constraint_data.get("Property", ""),
+                        value=constraint_data.get("Value"),
+                        value_str=constraint_data.get("ValueStr", constraint_data.get("StringValue")),
+                    )
+                    nav_prop.constraints.append(constraint)
                     nav_prop.constraints.append(constraint)
 
             entity.navigation_properties.append(nav_prop)
@@ -130,9 +167,25 @@ class MetadataAPIOperations:
 
         # Process actions
         for action_data in item.get("Actions", []):
+            # Convert binding kind string to enum
+            binding_kind_str = action_data.get("BindingKind", "BoundToEntitySet")
+            try:
+                # Try to map the string to the enum
+                if binding_kind_str == "BoundToEntityInstance":
+                    binding_kind = ODataBindingKind.BOUND_TO_ENTITY_INSTANCE
+                elif binding_kind_str == "BoundToEntitySet":
+                    binding_kind = ODataBindingKind.BOUND_TO_ENTITY_SET
+                elif binding_kind_str == "Unbound":
+                    binding_kind = ODataBindingKind.UNBOUND
+                else:
+                    # Default to BoundToEntitySet if unknown
+                    binding_kind = ODataBindingKind.BOUND_TO_ENTITY_SET
+            except Exception:
+                binding_kind = ODataBindingKind.BOUND_TO_ENTITY_SET
+                
             action = PublicEntityActionInfo(
                 name=action_data.get("Name", ""),
-                binding_kind=action_data.get("BindingKind", ""),
+                binding_kind=binding_kind,
                 field_lookup=action_data.get("FieldLookup"),
             )
 
@@ -266,6 +319,28 @@ class MetadataAPIOperations:
 
         entities = []
         for item in data.get("value", []):
+            # Convert entity category string to enum
+            entity_category_str = item.get("EntityCategory")
+            entity_category = None
+            if entity_category_str:
+                try:
+                    # Try to map the string to the enum
+                    if entity_category_str == "Master":
+                        entity_category = EntityCategory.MASTER
+                    elif entity_category_str == "Transaction":
+                        entity_category = EntityCategory.TRANSACTION
+                    elif entity_category_str == "Configuration":
+                        entity_category = EntityCategory.CONFIGURATION
+                    elif entity_category_str == "Reference":
+                        entity_category = EntityCategory.REFERENCE
+                    elif entity_category_str == "Document":
+                        entity_category = EntityCategory.DOCUMENT
+                    elif entity_category_str == "Parameters":
+                        entity_category = EntityCategory.PARAMETERS
+                    # If no match, leave as None
+                except Exception:
+                    entity_category = None
+            
             entity = DataEntityInfo(
                 name=item.get("Name", ""),
                 public_entity_name=item.get("PublicEntityName", ""),
@@ -273,7 +348,7 @@ class MetadataAPIOperations:
                 label_id=item.get("LabelId"),
                 data_service_enabled=item.get("DataServiceEnabled", False),
                 data_management_enabled=item.get("DataManagementEnabled", False),
-                entity_category=item.get("EntityCategory"),
+                entity_category=entity_category,
                 is_read_only=item.get("IsReadOnly", False),
             )
             entities.append(entity)
@@ -305,6 +380,29 @@ class MetadataAPIOperations:
             async with session.get(url) as response:
                 if response.status == 200:
                     item = await response.json()
+                    
+                    # Convert entity category string to enum
+                    entity_category_str = item.get("EntityCategory")
+                    entity_category = None
+                    if entity_category_str:
+                        try:
+                            # Try to map the string to the enum
+                            if entity_category_str == "Master":
+                                entity_category = EntityCategory.MASTER
+                            elif entity_category_str == "Transaction":
+                                entity_category = EntityCategory.TRANSACTION
+                            elif entity_category_str == "Configuration":
+                                entity_category = EntityCategory.CONFIGURATION
+                            elif entity_category_str == "Reference":
+                                entity_category = EntityCategory.REFERENCE
+                            elif entity_category_str == "Document":
+                                entity_category = EntityCategory.DOCUMENT
+                            elif entity_category_str == "Parameters":
+                                entity_category = EntityCategory.PARAMETERS
+                            # If no match, leave as None
+                        except Exception:
+                            entity_category = None
+                    
                     entity = DataEntityInfo(
                         name=item.get("Name", ""),
                         public_entity_name=item.get("PublicEntityName", ""),
@@ -314,7 +412,7 @@ class MetadataAPIOperations:
                         data_management_enabled=item.get(
                             "DataManagementEnabled", False
                         ),
-                        entity_category=item.get("EntityCategory"),
+                        entity_category=entity_category,
                         is_read_only=item.get("IsReadOnly", False),
                     )
 
@@ -791,3 +889,122 @@ class MetadataAPIOperations:
         except Exception as e:
             logger.error(f"Failed to get installed modules: {e}")
             raise
+
+    # Action Operations
+
+    async def search_actions(
+        self,
+        pattern: str = "",
+        entity_name: Optional[str] = None,
+        binding_kind: Optional[str] = None,
+    ) -> List["ActionInfo"]:
+        """Search actions across all public entities
+
+        Args:
+            pattern: Search pattern for action name (regex supported)
+            entity_name: Filter actions that are bound to a specific entity
+            binding_kind: Filter by binding type (Unbound, BoundToEntitySet, BoundToEntityInstance)
+
+        Returns:
+            List of ActionInfo objects with full details
+        """
+        from .models import ActionInfo
+
+        actions = []
+        
+        try:
+            # Compile regex pattern if provided
+            regex_pattern = None
+            if pattern:
+                try:
+                    regex_pattern = re.compile(pattern, re.IGNORECASE)
+                except re.error:
+                    # If regex is invalid, treat as literal string
+                    pattern_lower = pattern.lower()
+                    regex_pattern = lambda x: pattern_lower in x.lower()
+                else:
+                    regex_pattern = regex_pattern.search
+
+            # Get all public entities with full details
+            entities = await self.get_all_public_entities_with_details(resolve_labels=False)
+
+            for entity in entities:
+                # Filter by entity name if specified
+                if entity_name and entity.name != entity_name:
+                    continue
+
+                # Process all actions in this entity
+                for action in entity.actions:
+                    # Filter by action name pattern
+                    if regex_pattern and not regex_pattern(action.name):
+                        continue
+
+                    # Filter by binding kind
+                    if binding_kind and action.binding_kind.value != binding_kind:
+                        continue
+
+                    # Create ActionInfo with entity context
+                    action_info = ActionInfo(
+                        name=action.name,
+                        binding_kind=action.binding_kind,
+                        entity_name=entity.name,  # public entity name
+                        entity_set_name=entity.entity_set_name,  # entity set name for OData URLs
+                        parameters=action.parameters,
+                        return_type=action.return_type,
+                        field_lookup=action.field_lookup,
+                    )
+                    actions.append(action_info)
+
+        except Exception as e:
+            logger.error(f"Failed to search actions: {e}")
+            # Return empty list on error rather than raising
+            return []
+
+        return actions
+
+    async def get_action_info(
+        self,
+        action_name: str,
+        entity_name: Optional[str] = None,
+    ) -> Optional["ActionInfo"]:
+        """Get detailed information about a specific action
+
+        Args:
+            action_name: Name of the action
+            entity_name: Optional entity name for bound actions
+
+        Returns:
+            ActionInfo object or None if not found
+        """
+        from .models import ActionInfo
+
+        try:
+            if entity_name:
+                # If entity name is provided, get that specific entity
+                entity = await self.get_public_entity_info(entity_name, resolve_labels=False)
+                if not entity:
+                    return None
+
+                # Find the action in this entity
+                for action in entity.actions:
+                    if action.name == action_name:
+                        return ActionInfo(
+                            name=action.name,
+                            binding_kind=action.binding_kind,
+                            entity_name=entity.name,
+                            entity_set_name=entity.entity_set_name,
+                            parameters=action.parameters,
+                            return_type=action.return_type,
+                            field_lookup=action.field_lookup,
+                        )
+            else:
+                # Search across all entities for the action
+                actions = await self.search_actions(pattern=f"^{re.escape(action_name)}$")
+                if actions:
+                    # Return the first match (actions should be unique across entities)
+                    return actions[0]
+
+        except Exception as e:
+            logger.error(f"Failed to get action info for '{action_name}': {e}")
+
+        return None

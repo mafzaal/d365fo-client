@@ -1,13 +1,11 @@
 """Smart sync manager with intelligent metadata synchronization strategies."""
 
-import asyncio
 import hashlib
 import json
 import logging
 import time
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional
 
 # Use TYPE_CHECKING to avoid circular import
 if TYPE_CHECKING:
@@ -19,7 +17,6 @@ from ..models import (
     LabelInfo,
     MetadataVersionInfo,
     PublicEntityInfo,
-    QueryOptions,
     SyncProgress,
     SyncResult,
     SyncStrategy,
@@ -509,14 +506,20 @@ class SmartSyncManagerV2:
         counts = {}
 
         async with aiosqlite.connect(self.cache.db_path) as db:
-            # Copy data entities
+            # Copy data entities with label processing
             await db.execute(
                 """INSERT INTO data_entities
                    (global_version_id, name, public_entity_name, public_collection_name,
                     label_id, label_text, entity_category, data_service_enabled,
                     data_management_enabled, is_read_only)
                    SELECT ?, name, public_entity_name, public_collection_name,
-                          label_id, label_text, entity_category, data_service_enabled,
+                          label_id, 
+                          CASE 
+                              WHEN label_text IS NOT NULL AND label_text != '' THEN label_text
+                              WHEN label_id IS NOT NULL AND label_id != '' AND NOT label_id LIKE '@%' THEN label_id
+                              ELSE label_text
+                          END as processed_label_text,
+                          entity_category, data_service_enabled,
                           data_management_enabled, is_read_only
                    FROM data_entities
                    WHERE global_version_id = ?""",
@@ -524,19 +527,90 @@ class SmartSyncManagerV2:
             )
             counts["entities"] = db.total_changes
 
-            # Copy enumerations
+            # Copy enumerations with label processing
             await db.execute(
                 """INSERT INTO enumerations
                    (global_version_id, name, label_id, label_text)
-                   SELECT ?, name, label_id, label_text
+                   SELECT ?, name, label_id,
+                          CASE 
+                              WHEN label_text IS NOT NULL AND label_text != '' THEN label_text
+                              WHEN label_id IS NOT NULL AND label_id != '' AND NOT label_id LIKE '@%' THEN label_id
+                              ELSE label_text
+                          END as processed_label_text
                    FROM enumerations
                    WHERE global_version_id = ?""",
                 (target_version_id, source_version_id),
             )
             counts["enumerations"] = db.total_changes
 
+            # Copy public entities with label processing
+            await db.execute(
+                """INSERT INTO public_entities
+                   (global_version_id, name, entity_set_name, label_id, label_text,
+                    is_read_only, configuration_enabled)
+                   SELECT ?, name, entity_set_name, label_id,
+                          CASE 
+                              WHEN label_text IS NOT NULL AND label_text != '' THEN label_text
+                              WHEN label_id IS NOT NULL AND label_id != '' AND NOT label_id LIKE '@%' THEN label_id
+                              ELSE label_text
+                          END as processed_label_text,
+                          is_read_only, configuration_enabled
+                   FROM public_entities
+                   WHERE global_version_id = ?""",
+                (target_version_id, source_version_id),
+            )
+
+            # Copy entity properties with label processing
+            # Note: We need to get the new entity IDs for the relationships
+            await db.execute(
+                """INSERT INTO entity_properties
+                   (entity_id, global_version_id, name, type_name, data_type,
+                    odata_xpp_type, label_id, label_text, is_key, is_mandatory,
+                    configuration_enabled, allow_edit, allow_edit_on_create,
+                    is_dimension, dimension_relation, is_dynamic_dimension,
+                    dimension_legal_entity_property, dimension_type_property,
+                    property_order)
+                   SELECT pe_new.id as entity_id, ?, ep.name, ep.type_name, ep.data_type,
+                          ep.odata_xpp_type, ep.label_id,
+                          CASE 
+                              WHEN ep.label_text IS NOT NULL AND ep.label_text != '' THEN ep.label_text
+                              WHEN ep.label_id IS NOT NULL AND ep.label_id != '' AND NOT ep.label_id LIKE '@%' THEN ep.label_id
+                              ELSE ep.label_text
+                          END as processed_label_text,
+                          ep.is_key, ep.is_mandatory,
+                          ep.configuration_enabled, ep.allow_edit, ep.allow_edit_on_create,
+                          ep.is_dimension, ep.dimension_relation, ep.is_dynamic_dimension,
+                          ep.dimension_legal_entity_property, ep.dimension_type_property,
+                          ep.property_order
+                   FROM entity_properties ep
+                   JOIN public_entities pe_old ON ep.entity_id = pe_old.id
+                   JOIN public_entities pe_new ON pe_new.name = pe_old.name AND pe_new.global_version_id = ?
+                   WHERE ep.global_version_id = ?""",
+                (target_version_id, target_version_id, source_version_id),
+            )
+
+            # Copy enumeration members with label processing  
+            await db.execute(
+                """INSERT INTO enumeration_members
+                   (enumeration_id, global_version_id, name, value,
+                    label_id, label_text, configuration_enabled, member_order)
+                   SELECT e_new.id as enumeration_id, ?, em.name, em.value,
+                          em.label_id,
+                          CASE 
+                              WHEN em.label_text IS NOT NULL AND em.label_text != '' THEN em.label_text
+                              WHEN em.label_id IS NOT NULL AND em.label_id != '' AND NOT em.label_id LIKE '@%' THEN em.label_id
+                              ELSE em.label_text
+                          END as processed_label_text,
+                          em.configuration_enabled, em.member_order
+                   FROM enumeration_members em
+                   JOIN enumerations e_old ON em.enumeration_id = e_old.id
+                   JOIN enumerations e_new ON e_new.name = e_old.name AND e_new.global_version_id = ?
+                   WHERE em.global_version_id = ?""",
+                (target_version_id, target_version_id, source_version_id),
+            )
+
             # Copy other metadata tables as needed...
-            # This is a simplified implementation
+            # This is a more comprehensive implementation with label processing
 
             await db.commit()
 

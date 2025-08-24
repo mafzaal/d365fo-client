@@ -163,19 +163,19 @@ class OutputFormatter:
 
 def format_success_message(message: str) -> str:
     """Format a success message with checkmark."""
-    return f"✅ {message}"
+    return f"[OK] {message}"
 
 
 def format_error_message(message: str) -> str:
     """Format an error message with X mark."""
-    return f"❌ {message}"
+    return f"[ERROR] {message}"
 
 
 def format_info_message(message: str) -> str:
     """Format an info message with info icon."""
-    return f"ℹ️  {message}"
+    return f"[INFO] {message}"
 
 
 def format_warning_message(message: str) -> str:
     """Format a warning message with warning icon."""
-    return f"⚠️  {message}"
+    return f"[WARNING] {message}"
