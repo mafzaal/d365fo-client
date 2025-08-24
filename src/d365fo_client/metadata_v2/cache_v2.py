@@ -238,7 +238,7 @@ class MetadataCacheV2:
                         entity.public_collection_name,
                         entity.label_id,
                         entity.label_text,
-                        entity.entity_category,
+                        entity.entity_category.value if entity.entity_category else None,
                         entity.data_service_enabled,
                         entity.data_management_enabled,
                         entity.is_read_only,

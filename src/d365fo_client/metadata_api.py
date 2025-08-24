@@ -11,16 +11,21 @@ from .models import (
     ActionParameterInfo,
     ActionParameterTypeInfo,
     ActionReturnTypeInfo,
+    Cardinality,
     DataEntityInfo,
+    EntityCategory,
     EnumerationInfo,
     EnumerationMemberInfo,
+    FixedConstraintInfo,
     NavigationPropertyInfo,
+    ODataBindingKind,
     PropertyGroupInfo,
     PublicEntityActionInfo,
     PublicEntityInfo,
     PublicEntityPropertyInfo,
     QueryOptions,
     ReferentialConstraintInfo,
+    RelatedFixedConstraintInfo,
 )
 from .query import QueryBuilder
 from .session import SessionManager
@@ -97,25 +102,56 @@ class MetadataAPIOperations:
 
         # Process navigation properties
         for nav_data in item.get("NavigationProperties", []):
+            # Convert cardinality string to enum
+            cardinality_str = nav_data.get("Cardinality", "Single")
+            try:
+                if cardinality_str == "Single":
+                    cardinality = Cardinality.SINGLE
+                elif cardinality_str == "Multiple":
+                    cardinality = Cardinality.MULTIPLE
+                else:
+                    cardinality = Cardinality.SINGLE  # Default
+            except Exception:
+                cardinality = Cardinality.SINGLE
+                
             nav_prop = NavigationPropertyInfo(
                 name=nav_data.get("Name", ""),
                 related_entity=nav_data.get("RelatedEntity", ""),
                 related_relation_name=nav_data.get("RelatedRelationName"),
-                cardinality=nav_data.get("Cardinality", "Single"),
+                cardinality=cardinality,
             )
 
             # Process constraints
             for constraint_data in nav_data.get("Constraints", []):
-                # Check for ReferentialConstraint type (most common)
                 odata_type = constraint_data.get("@odata.type", "")
+                
                 if "ReferentialConstraint" in odata_type:
+                    # Referential constraint (foreign key relationship)
                     constraint = ReferentialConstraintInfo(
-                        constraint_type="Referential",
                         property=constraint_data.get("Property", ""),
                         referenced_property=constraint_data.get(
                             "ReferencedProperty", ""
                         ),
                     )
+                    nav_prop.constraints.append(constraint)
+                    
+                elif "RelatedFixedConstraint" in odata_type:
+                    # Related fixed constraint (check this before FixedConstraint)
+                    constraint = RelatedFixedConstraintInfo(
+                        related_property=constraint_data.get("RelatedProperty", ""),
+                        value=constraint_data.get("Value"),
+                        value_str=constraint_data.get("ValueStr", constraint_data.get("StringValue")),
+                    )
+                    nav_prop.constraints.append(constraint)
+                    
+                elif "FixedConstraint" in odata_type:
+                    # Fixed value constraint
+                    constraint = FixedConstraintInfo(
+                        property=constraint_data.get("Property", ""),
+                        value=constraint_data.get("Value"),
+                        value_str=constraint_data.get("ValueStr", constraint_data.get("StringValue")),
+                    )
+                    nav_prop.constraints.append(constraint)
                     nav_prop.constraints.append(constraint)
 
             entity.navigation_properties.append(nav_prop)
@@ -130,9 +166,25 @@ class MetadataAPIOperations:
 
         # Process actions
         for action_data in item.get("Actions", []):
+            # Convert binding kind string to enum
+            binding_kind_str = action_data.get("BindingKind", "BoundToEntitySet")
+            try:
+                # Try to map the string to the enum
+                if binding_kind_str == "BoundToEntityInstance":
+                    binding_kind = ODataBindingKind.BOUND_TO_ENTITY_INSTANCE
+                elif binding_kind_str == "BoundToEntitySet":
+                    binding_kind = ODataBindingKind.BOUND_TO_ENTITY_SET
+                elif binding_kind_str == "Unbound":
+                    binding_kind = ODataBindingKind.UNBOUND
+                else:
+                    # Default to BoundToEntitySet if unknown
+                    binding_kind = ODataBindingKind.BOUND_TO_ENTITY_SET
+            except Exception:
+                binding_kind = ODataBindingKind.BOUND_TO_ENTITY_SET
+                
             action = PublicEntityActionInfo(
                 name=action_data.get("Name", ""),
-                binding_kind=action_data.get("BindingKind", ""),
+                binding_kind=binding_kind,
                 field_lookup=action_data.get("FieldLookup"),
             )
 
@@ -266,6 +318,28 @@ class MetadataAPIOperations:
 
         entities = []
         for item in data.get("value", []):
+            # Convert entity category string to enum
+            entity_category_str = item.get("EntityCategory")
+            entity_category = None
+            if entity_category_str:
+                try:
+                    # Try to map the string to the enum
+                    if entity_category_str == "Master":
+                        entity_category = EntityCategory.MASTER
+                    elif entity_category_str == "Transaction":
+                        entity_category = EntityCategory.TRANSACTION
+                    elif entity_category_str == "Configuration":
+                        entity_category = EntityCategory.CONFIGURATION
+                    elif entity_category_str == "Reference":
+                        entity_category = EntityCategory.REFERENCE
+                    elif entity_category_str == "Document":
+                        entity_category = EntityCategory.DOCUMENT
+                    elif entity_category_str == "Parameters":
+                        entity_category = EntityCategory.PARAMETERS
+                    # If no match, leave as None
+                except Exception:
+                    entity_category = None
+            
             entity = DataEntityInfo(
                 name=item.get("Name", ""),
                 public_entity_name=item.get("PublicEntityName", ""),
@@ -273,7 +347,7 @@ class MetadataAPIOperations:
                 label_id=item.get("LabelId"),
                 data_service_enabled=item.get("DataServiceEnabled", False),
                 data_management_enabled=item.get("DataManagementEnabled", False),
-                entity_category=item.get("EntityCategory"),
+                entity_category=entity_category,
                 is_read_only=item.get("IsReadOnly", False),
             )
             entities.append(entity)
@@ -305,6 +379,29 @@ class MetadataAPIOperations:
             async with session.get(url) as response:
                 if response.status == 200:
                     item = await response.json()
+                    
+                    # Convert entity category string to enum
+                    entity_category_str = item.get("EntityCategory")
+                    entity_category = None
+                    if entity_category_str:
+                        try:
+                            # Try to map the string to the enum
+                            if entity_category_str == "Master":
+                                entity_category = EntityCategory.MASTER
+                            elif entity_category_str == "Transaction":
+                                entity_category = EntityCategory.TRANSACTION
+                            elif entity_category_str == "Configuration":
+                                entity_category = EntityCategory.CONFIGURATION
+                            elif entity_category_str == "Reference":
+                                entity_category = EntityCategory.REFERENCE
+                            elif entity_category_str == "Document":
+                                entity_category = EntityCategory.DOCUMENT
+                            elif entity_category_str == "Parameters":
+                                entity_category = EntityCategory.PARAMETERS
+                            # If no match, leave as None
+                        except Exception:
+                            entity_category = None
+                    
                     entity = DataEntityInfo(
                         name=item.get("Name", ""),
                         public_entity_name=item.get("PublicEntityName", ""),
@@ -314,7 +411,7 @@ class MetadataAPIOperations:
                         data_management_enabled=item.get(
                             "DataManagementEnabled", False
                         ),
-                        entity_category=item.get("EntityCategory"),
+                        entity_category=entity_category,
                         is_read_only=item.get("IsReadOnly", False),
                     )
 
