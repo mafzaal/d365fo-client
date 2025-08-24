@@ -6,8 +6,9 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
+from d365fo_client import __version__
 from d365fo_client.mcp import D365FOMCPServer
 
 
@@ -23,6 +24,11 @@ def setup_logging(level: str = "INFO") -> None:
     log_dir = Path.home() / ".d365fo-mcp" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
+    # Clear existing handlers to avoid duplicate logging
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
     # Configure logging
     logging.basicConfig(
         level=log_level,
@@ -31,14 +37,15 @@ def setup_logging(level: str = "INFO") -> None:
             logging.FileHandler(log_dir / "mcp-server.log"),
             logging.StreamHandler(sys.stderr),
         ],
+        force=True,  # Force reconfiguration even if logging is already configured
     )
 
 
-def load_config() -> Optional[Dict[str, Any]]:
+def load_config() -> Dict[str, Any]:
     """Load configuration from environment and config files.
 
     Returns:
-        Configuration dictionary or None for defaults
+        Configuration dictionary
     """
     config = {}
 
@@ -56,16 +63,22 @@ def load_config() -> Optional[Dict[str, Any]]:
     if tenant_id := os.getenv("AZURE_TENANT_ID"):
         config.setdefault("default_environment", {})["tenant_id"] = tenant_id
 
-    # Logging level
-    log_level = os.getenv("D365FO_LOG_LEVEL", "INFO")
-    setup_logging(log_level)
+    # Check if D365FO_BASE_URL is configured for startup behavior
+    config["has_base_url"] = bool(os.getenv("D365FO_BASE_URL"))
 
-    return config if config else None
+    return config
 
 
 async def async_main() -> None:
     """Async main entry point for the MCP server."""
     try:
+        # Set up logging first based on environment variable
+        log_level = os.getenv("D365FO_LOG_LEVEL", "INFO")
+        setup_logging(log_level)
+        
+        # Print server version at startup
+        logging.info(f"D365FO MCP Server v{__version__}")
+        
         # Load configuration
         config = load_config()
 

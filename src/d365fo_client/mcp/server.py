@@ -7,6 +7,9 @@ from typing import Any, Dict, List, Optional
 
 from mcp import GetPromptResult, Resource, Tool
 from mcp.server import InitializationOptions, Server
+
+from .. import __version__
+from ..profile_manager import ProfileManager
 from mcp.server.lowlevel.server import NotificationOptions
 from mcp.types import Prompt, PromptArgument, PromptMessage, TextContent
 
@@ -37,6 +40,7 @@ class D365FOMCPServer:
         self.config = config or self._load_default_config()
         self.server = Server("d365fo-mcp-server")
         self.client_manager = D365FOClientManager(self.config)
+        self.profile_manager = ProfileManager()
 
         # Initialize resource handlers
         self.entity_handler = EntityResourceHandler(self.client_manager)
@@ -321,10 +325,10 @@ class D365FOMCPServer:
             transport_type: Transport type (stdio, sse, etc.)
         """
         try:
-            logger.info("Starting D365FO MCP Server...")
+            logger.info(f"Starting D365FO MCP Server v{__version__}...")
 
-            # Perform health checks
-            await self._startup_health_checks()
+            # Perform conditional startup initialization
+            await self._startup_initialization()
 
             if transport_type == "stdio":
                 from mcp.server.stdio import stdio_server
@@ -335,7 +339,7 @@ class D365FOMCPServer:
                         write_stream,
                         InitializationOptions(
                             server_name="d365fo-mcp-server",
-                            server_version="1.0.0",
+                            server_version=__version__,
                             capabilities=self.server.get_capabilities(
                                 notification_options=NotificationOptions(),
                                 experimental_capabilities={},
@@ -350,6 +354,87 @@ class D365FOMCPServer:
             raise
         finally:
             await self.cleanup()
+
+    async def _startup_initialization(self):
+        """Perform startup initialization based on configuration."""
+        try:
+            # Check if D365FO_BASE_URL is configured
+            has_base_url = self.config.get("has_base_url", False)
+            
+            if has_base_url:
+                logger.info("D365FO_BASE_URL environment variable detected - performing health checks and profile setup")
+                
+                # Perform health checks
+                await self._startup_health_checks()
+                
+                # Create default profile if environment variables are configured
+                await self._create_default_profile_if_needed()
+            else:
+                logger.info("D365FO_BASE_URL not configured - server started in profile-only mode")
+                logger.info("Use profile management tools to configure D365FO connections")
+
+        except Exception as e:
+            logger.error(f"Startup initialization failed: {e}")
+            # Don't fail startup on initialization failures
+
+    async def _create_default_profile_if_needed(self):
+        """Create a default profile from environment variables if needed."""
+        try:
+            # Check if default profile already exists
+            existing_default = self.profile_manager.get_default_profile()
+            if existing_default:
+                logger.info(f"Default profile already exists: {existing_default.name}")
+                return
+
+            # Get environment variables
+            base_url = os.getenv("D365FO_BASE_URL")
+            client_id = os.getenv("AZURE_CLIENT_ID")
+            client_secret = os.getenv("AZURE_CLIENT_SECRET")
+            tenant_id = os.getenv("AZURE_TENANT_ID")
+
+            if not base_url:
+                logger.warning("Cannot create default profile - D365FO_BASE_URL not set")
+                return
+
+            # Determine authentication mode
+            auth_mode = "default"
+            if client_id and client_secret and tenant_id:
+                auth_mode = "client_credentials"
+
+            # Create default profile with unique name
+            profile_name = "default-from-env"
+            
+            # Check if profile with this name already exists
+            existing_profile = self.profile_manager.get_profile(profile_name)
+            if existing_profile:
+                logger.info(f"Profile '{profile_name}' already exists, setting as default")
+                self.profile_manager.set_default_profile(profile_name)
+                return
+
+            success = self.profile_manager.create_profile(
+                name=profile_name,
+                base_url=base_url,
+                auth_mode=auth_mode,
+                client_id=client_id,
+                client_secret=client_secret,
+                tenant_id=tenant_id,
+                description="Auto-created from environment variables at startup",
+                use_label_cache=True,
+                timeout=60,
+                verify_ssl=True
+            )
+
+            if success:
+                # Set as default profile
+                self.profile_manager.set_default_profile(profile_name)
+                logger.info(f"Created and set default profile: {profile_name}")
+                logger.info(f"Profile configured for: {base_url}")
+                logger.info(f"Authentication mode: {auth_mode}")
+            else:
+                logger.warning(f"Failed to create default profile: {profile_name}")
+
+        except Exception as e:
+            logger.error(f"Error creating default profile: {e}")
 
     async def _startup_health_checks(self):
         """Perform startup health checks."""
