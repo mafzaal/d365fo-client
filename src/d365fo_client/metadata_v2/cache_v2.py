@@ -1024,7 +1024,7 @@ class MetadataCacheV2:
             global_version_id: Global version ID (uses current if None, includes temporary entries)
 
         Returns:
-            Label text or None if not found or expired
+            Label text or None if not found
         """
         if global_version_id is None:
             global_version_id = await self._get_current_global_version_id()
@@ -1033,19 +1033,17 @@ class MetadataCacheV2:
             if global_version_id is not None:
                 # Search for specific version
                 cursor = await db.execute(
-                    """SELECT label_text, expires_at
+                    """SELECT label_text
                        FROM labels_cache 
-                       WHERE global_version_id = ? AND label_id = ? AND language = ?
-                       AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)""",
+                       WHERE global_version_id = ? AND label_id = ? AND language = ?""",
                     (global_version_id, label_id, language),
                 )
             else:
                 # Search across all versions (including temporary entries)
                 cursor = await db.execute(
-                    """SELECT label_text, expires_at
+                    """SELECT label_text
                        FROM labels_cache 
                        WHERE label_id = ? AND language = ?
-                       AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
                        ORDER BY global_version_id DESC
                        LIMIT 1""",  # Get the highest version (prefer actual versions over temporary)
                     (label_id, language),
@@ -1083,7 +1081,6 @@ class MetadataCacheV2:
         label_text: str,
         language: str = "en-US",
         global_version_id: Optional[int] = None,
-        ttl_hours: int = 24,
     ):
         """Set label in cache
 
@@ -1092,7 +1089,6 @@ class MetadataCacheV2:
             label_text: Label text value
             language: Language code
             global_version_id: Global version ID (uses current if None)
-            ttl_hours: Time to live in hours
         """
         if global_version_id is None:
             global_version_id = await self._get_current_global_version_id()
@@ -1103,22 +1099,16 @@ class MetadataCacheV2:
                 )
                 global_version_id = -1  # Use -1 for temporary entries
 
-        # Calculate expiration time
-        from datetime import timedelta
-
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
-
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
                 """INSERT OR REPLACE INTO labels_cache
-                   (global_version_id, label_id, language, label_text, expires_at, hit_count, last_accessed)
-                   VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)""",
+                   (global_version_id, label_id, language, label_text, hit_count, last_accessed)
+                   VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)""",
                 (
                     global_version_id,
                     label_id,
                     language,
                     label_text,
-                    expires_at.isoformat(),
                 ),
             )
             await db.commit()
@@ -1129,14 +1119,12 @@ class MetadataCacheV2:
         self,
         labels: List[LabelInfo],
         global_version_id: Optional[int] = None,
-        ttl_hours: int = 24,
     ):
         """Set multiple labels in cache efficiently
 
         Args:
             labels: List of LabelInfo objects
             global_version_id: Global version ID (uses current if None)
-            ttl_hours: Time to live in hours
         """
         if not labels:
             return
@@ -1150,11 +1138,6 @@ class MetadataCacheV2:
                 )
                 global_version_id = -1  # Use -1 for temporary entries
 
-        # Calculate expiration time
-        from datetime import timedelta
-
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
-
         # Prepare batch data
         label_data = []
         for label in labels:
@@ -1164,15 +1147,14 @@ class MetadataCacheV2:
                     label.id,
                     label.language,
                     label.value,
-                    expires_at.isoformat(),
                 )
             )
 
         async with aiosqlite.connect(self.db_path) as db:
             await db.executemany(
                 """INSERT OR REPLACE INTO labels_cache
-                   (global_version_id, label_id, language, label_text, expires_at, hit_count, last_accessed)
-                   VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)""",
+                   (global_version_id, label_id, language, label_text, hit_count, last_accessed)
+                   VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)""",
                 label_data,
             )
             await db.commit()
@@ -1212,15 +1194,13 @@ class MetadataCacheV2:
                 params = [global_version_id, language] + label_ids
                 query = f"""SELECT label_id, label_text
                             FROM labels_cache 
-                            WHERE global_version_id = ? AND language = ? AND label_id IN ({placeholders})
-                            AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)"""
+                            WHERE global_version_id = ? AND language = ? AND label_id IN ({placeholders})"""
             else:
                 # Search across all versions (including temporary entries)
                 params = [language] + label_ids
                 query = f"""SELECT label_id, label_text
                             FROM labels_cache 
                             WHERE language = ? AND label_id IN ({placeholders})
-                            AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
                             ORDER BY global_version_id DESC"""  # Prefer actual versions over temporary
 
             cursor = await db.execute(query, params)
@@ -1245,30 +1225,6 @@ class MetadataCacheV2:
 
             logger.debug(f"Label batch lookup: {len(results)}/{len(label_ids)} found")
             return results
-
-    async def clear_expired_labels(self, global_version_id: Optional[int] = None):
-        """Clear expired labels from cache
-
-        Args:
-            global_version_id: Global version ID to clear (clears all if None)
-        """
-        async with aiosqlite.connect(self.db_path) as db:
-            if global_version_id is not None:
-                cursor = await db.execute(
-                    """DELETE FROM labels_cache 
-                       WHERE global_version_id = ? AND expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP""",
-                    (global_version_id,),
-                )
-            else:
-                cursor = await db.execute(
-                    """DELETE FROM labels_cache 
-                       WHERE expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP"""
-                )
-
-            deleted_count = cursor.rowcount
-            await db.commit()
-
-        logger.info(f"Cleared {deleted_count} expired labels")
 
     async def get_label_cache_statistics(
         self, global_version_id: Optional[int] = None
@@ -1298,23 +1254,10 @@ class MetadataCacheV2:
             )
             stats["total_labels"] = (await cursor.fetchone())[0]
 
-            # Expired labels
-            cursor = await db.execute(
-                f"""SELECT COUNT(*) FROM labels_cache 
-                    {version_filter} {'AND' if version_filter else 'WHERE'} 
-                    expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP""",
-                params,
-            )
-            stats["expired_labels"] = (await cursor.fetchone())[0]
-
-            # Active labels
-            stats["active_labels"] = stats["total_labels"] - stats["expired_labels"]
-
             # Languages
             cursor = await db.execute(
                 f"""SELECT language, COUNT(*) FROM labels_cache 
-                    {version_filter} {'AND' if version_filter else 'WHERE'} 
-                    (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+                    {version_filter}
                     GROUP BY language ORDER BY COUNT(*) DESC""",
                 params,
             )

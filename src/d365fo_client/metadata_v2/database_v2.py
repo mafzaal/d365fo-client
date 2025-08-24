@@ -296,7 +296,6 @@ class DatabaseSchemaV2:
                 language TEXT NOT NULL DEFAULT 'en-US',
                 label_text TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                expires_at TIMESTAMP,
                 hit_count INTEGER DEFAULT 0,
                 last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(global_version_id, label_id, language)
@@ -345,7 +344,6 @@ class DatabaseSchemaV2:
             "CREATE INDEX IF NOT EXISTS idx_enumerations_version ON enumerations(global_version_id, name)",
             # Labels indexes
             "CREATE INDEX IF NOT EXISTS idx_labels_version_lookup ON labels_cache(global_version_id, label_id, language)",
-            "CREATE INDEX IF NOT EXISTS idx_labels_expires ON labels_cache(expires_at)",
             # Search performance indexes
             "CREATE INDEX IF NOT EXISTS idx_data_entities_search ON data_entities(global_version_id, data_service_enabled, entity_category)",
             "CREATE INDEX IF NOT EXISTS idx_public_entities_search ON public_entities(global_version_id, is_read_only)",
