@@ -8,6 +8,7 @@ from d365fo_client.crud import CrudOperations
 
 from .labels import LabelOperations
 from .models import (
+    ActionInfo,
     ActionParameterInfo,
     ActionParameterTypeInfo,
     ActionReturnTypeInfo,
@@ -888,3 +889,122 @@ class MetadataAPIOperations:
         except Exception as e:
             logger.error(f"Failed to get installed modules: {e}")
             raise
+
+    # Action Operations
+
+    async def search_actions(
+        self,
+        pattern: str = "",
+        entity_name: Optional[str] = None,
+        binding_kind: Optional[str] = None,
+    ) -> List["ActionInfo"]:
+        """Search actions across all public entities
+
+        Args:
+            pattern: Search pattern for action name (regex supported)
+            entity_name: Filter actions that are bound to a specific entity
+            binding_kind: Filter by binding type (Unbound, BoundToEntitySet, BoundToEntityInstance)
+
+        Returns:
+            List of ActionInfo objects with full details
+        """
+        from .models import ActionInfo
+
+        actions = []
+        
+        try:
+            # Compile regex pattern if provided
+            regex_pattern = None
+            if pattern:
+                try:
+                    regex_pattern = re.compile(pattern, re.IGNORECASE)
+                except re.error:
+                    # If regex is invalid, treat as literal string
+                    pattern_lower = pattern.lower()
+                    regex_pattern = lambda x: pattern_lower in x.lower()
+                else:
+                    regex_pattern = regex_pattern.search
+
+            # Get all public entities with full details
+            entities = await self.get_all_public_entities_with_details(resolve_labels=False)
+
+            for entity in entities:
+                # Filter by entity name if specified
+                if entity_name and entity.name != entity_name:
+                    continue
+
+                # Process all actions in this entity
+                for action in entity.actions:
+                    # Filter by action name pattern
+                    if regex_pattern and not regex_pattern(action.name):
+                        continue
+
+                    # Filter by binding kind
+                    if binding_kind and action.binding_kind.value != binding_kind:
+                        continue
+
+                    # Create ActionInfo with entity context
+                    action_info = ActionInfo(
+                        name=action.name,
+                        binding_kind=action.binding_kind,
+                        entity_name=entity.name,  # public entity name
+                        entity_set_name=entity.entity_set_name,  # entity set name for OData URLs
+                        parameters=action.parameters,
+                        return_type=action.return_type,
+                        field_lookup=action.field_lookup,
+                    )
+                    actions.append(action_info)
+
+        except Exception as e:
+            logger.error(f"Failed to search actions: {e}")
+            # Return empty list on error rather than raising
+            return []
+
+        return actions
+
+    async def get_action_info(
+        self,
+        action_name: str,
+        entity_name: Optional[str] = None,
+    ) -> Optional["ActionInfo"]:
+        """Get detailed information about a specific action
+
+        Args:
+            action_name: Name of the action
+            entity_name: Optional entity name for bound actions
+
+        Returns:
+            ActionInfo object or None if not found
+        """
+        from .models import ActionInfo
+
+        try:
+            if entity_name:
+                # If entity name is provided, get that specific entity
+                entity = await self.get_public_entity_info(entity_name, resolve_labels=False)
+                if not entity:
+                    return None
+
+                # Find the action in this entity
+                for action in entity.actions:
+                    if action.name == action_name:
+                        return ActionInfo(
+                            name=action.name,
+                            binding_kind=action.binding_kind,
+                            entity_name=entity.name,
+                            entity_set_name=entity.entity_set_name,
+                            parameters=action.parameters,
+                            return_type=action.return_type,
+                            field_lookup=action.field_lookup,
+                        )
+            else:
+                # Search across all entities for the action
+                actions = await self.search_actions(pattern=f"^{re.escape(action_name)}$")
+                if actions:
+                    # Return the first match (actions should be unique across entities)
+                    return actions[0]
+
+        except Exception as e:
+            logger.error(f"Failed to get action info for '{action_name}': {e}")
+
+        return None

@@ -429,15 +429,29 @@ class FOClient:
         await self._ensure_metadata_initialized()
 
         async def cache_search():
-            # TODO: v2 cache doesn't have action search yet - will be implemented in future phase
-            # For now, always return empty to force fallback to API
-            return []
+            # Use the v2 cache action search functionality
+            if not self.metadata_cache:
+                return []
+
+            # Convert regex pattern to SQL LIKE pattern for cache
+            cache_pattern = None
+            if pattern:
+                # Convert simple regex to SQL LIKE pattern
+                cache_pattern = pattern.replace(".*", "%").replace(".", "_")
+                if not cache_pattern.startswith("%") and not cache_pattern.endswith("%"):
+                    cache_pattern = f"%{cache_pattern}%"
+
+            return await self.metadata_cache.search_actions(
+                pattern=cache_pattern,
+                entity_name=entity_name,
+                binding_kind=binding_kind,
+            )
 
         async def fallback_search():
-            # Actions are not directly available through metadata API
-            # They are part of entity definitions
-            # Return empty list for backward compatibility
-            return []
+            # Use the new metadata API operations for action search
+            return await self.metadata_api_ops.search_actions(
+                pattern, entity_name, binding_kind
+            )
 
         actions = await self._get_from_cache_first(
             cache_search,
@@ -465,19 +479,24 @@ class FOClient:
         """
 
         async def cache_lookup():
-            # TODO: v2 cache doesn't have action lookup yet - will be implemented in future phase
-            # For now, always return None to force fallback to API
-            return None
+            # Use the v2 cache action lookup functionality
+            if not self.metadata_cache:
+                return None
+
+            return await self.metadata_cache.get_action_info(
+                action_name=action_name,
+                entity_name=entity_name,
+            )
 
         async def fallback_lookup():
-            # Actions are not directly available through metadata API
-            # They are part of entity definitions
-            # Return None for backward compatibility
-            return None
+            # Use the new metadata API operations for action lookup
+            return await self.metadata_api_ops.get_action_info(action_name, entity_name)
 
-        return await self._get_from_cache_first(
+        action = await self._get_from_cache_first(
             cache_lookup, fallback_lookup, use_cache_first=use_cache_first
         )
+
+        return await resolve_labels_generic(action, self.label_ops) if action else None
 
     # CRUD Operations
 

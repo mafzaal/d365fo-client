@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from ..metadata_api import MetadataAPIOperations
 
 from ..models import (
+    ActionInfo,
     ActionParameterInfo,
     ActionParameterTypeInfo,
     ActionReturnTypeInfo,
@@ -1007,6 +1008,203 @@ class MetadataCacheV2:
             return global_version_id
 
         return None
+
+    # Action Operations
+
+    async def search_actions(
+        self,
+        pattern: Optional[str] = None,
+        entity_name: Optional[str] = None,
+        binding_kind: Optional[str] = None,
+        global_version_id: Optional[int] = None,
+    ) -> List[ActionInfo]:
+        """Search for actions with filtering
+
+        Args:
+            pattern: Search pattern for action name (SQL LIKE)
+            entity_name: Filter by entity name
+            binding_kind: Filter by binding kind
+            global_version_id: Global version ID (uses current if None)
+
+        Returns:
+            List of matching actions
+        """
+        if global_version_id is None:
+            global_version_id = await self._get_current_global_version_id()
+            if global_version_id is None:
+                return []
+
+        # Build query conditions
+        conditions = ["ea.global_version_id = ?"]
+        params = [global_version_id]
+
+        if pattern is not None:
+            conditions.append("ea.name LIKE ?")
+            params.append(pattern)
+
+        if entity_name is not None:
+            conditions.append("ea.entity_name = ?")
+            params.append(entity_name)
+
+        if binding_kind is not None:
+            conditions.append("ea.binding_kind = ?")
+            params.append(binding_kind)
+
+        where_clause = " AND ".join(conditions)
+
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                f"""SELECT ea.name, ea.binding_kind, ea.entity_name,
+                           ea.entity_set_name, ea.return_type_name,
+                           ea.return_is_collection, ea.return_odata_xpp_type,
+                           ea.field_lookup
+                    FROM entity_actions ea
+                    WHERE {where_clause}
+                    ORDER BY ea.name""",
+                params,
+            )
+
+            rows = await cursor.fetchall()
+            actions = []
+
+            for row in rows:
+                # Get parameters for this action
+                param_cursor = await db.execute(
+                    """SELECT name, type_name, is_collection, odata_xpp_type
+                       FROM action_parameters
+                       WHERE action_id = (
+                           SELECT id FROM entity_actions
+                           WHERE name = ? AND entity_name = ? AND global_version_id = ?
+                       )
+                       ORDER BY parameter_order""",
+                    (row[0], row[2], global_version_id),
+                )
+                param_rows = await param_cursor.fetchall()
+
+                parameters = [
+                    ActionParameterInfo(
+                        name=param_row[0],
+                        type=ActionParameterTypeInfo(
+                            type_name=param_row[1],
+                            is_collection=bool(param_row[2]),
+                            odata_xpp_type=param_row[3],
+                        ),
+                    )
+                    for param_row in param_rows
+                ]
+
+                # Create return type if present
+                return_type = None
+                if row[4]:  # return_type_name
+                    return_type = ActionReturnTypeInfo(
+                        type_name=row[4],
+                        is_collection=bool(row[5]),
+                        odata_xpp_type=row[6],
+                    )
+
+                action = ActionInfo(
+                    name=row[0],
+                    binding_kind=ODataBindingKind(row[1]),
+                    entity_name=row[2],
+                    entity_set_name=row[3],
+                    parameters=parameters,
+                    return_type=return_type,
+                    field_lookup=row[7],
+                )
+
+                actions.append(action)
+
+            return actions
+
+    async def get_action_info(
+        self,
+        action_name: str,
+        entity_name: Optional[str] = None,
+        global_version_id: Optional[int] = None,
+    ) -> Optional[ActionInfo]:
+        """Get specific action information
+
+        Args:
+            action_name: Name of the action
+            entity_name: Entity name for bound actions
+            global_version_id: Global version ID (uses current if None)
+
+        Returns:
+            Action information if found, None otherwise
+        """
+        if global_version_id is None:
+            global_version_id = await self._get_current_global_version_id()
+            if global_version_id is None:
+                return None
+
+        # Build query conditions
+        conditions = ["ea.global_version_id = ?", "ea.name = ?"]
+        params = [global_version_id, action_name]
+
+        if entity_name is not None:
+            conditions.append("ea.entity_name = ?")
+            params.append(entity_name)
+
+        where_clause = " AND ".join(conditions)
+
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                f"""SELECT ea.id, ea.name, ea.binding_kind, ea.entity_name,
+                           ea.entity_set_name, ea.return_type_name,
+                           ea.return_is_collection, ea.return_odata_xpp_type,
+                           ea.field_lookup
+                    FROM entity_actions ea
+                    WHERE {where_clause}
+                    LIMIT 1""",
+                params,
+            )
+
+            row = await cursor.fetchone()
+            if not row:
+                return None
+
+            action_id = row[0]
+
+            # Get parameters for this action
+            param_cursor = await db.execute(
+                """SELECT name, type_name, is_collection, odata_xpp_type
+                   FROM action_parameters
+                   WHERE action_id = ?
+                   ORDER BY parameter_order""",
+                (action_id,),
+            )
+            param_rows = await param_cursor.fetchall()
+
+            parameters = [
+                ActionParameterInfo(
+                    name=param_row[0],
+                    type=ActionParameterTypeInfo(
+                        type_name=param_row[1],
+                        is_collection=bool(param_row[2]),
+                        odata_xpp_type=param_row[3],
+                    ),
+                )
+                for param_row in param_rows
+            ]
+
+            # Create return type if present
+            return_type = None
+            if row[5]:  # return_type_name
+                return_type = ActionReturnTypeInfo(
+                    type_name=row[5],
+                    is_collection=bool(row[6]),
+                    odata_xpp_type=row[7],
+                )
+
+            return ActionInfo(
+                name=row[1],
+                binding_kind=ODataBindingKind(row[2]),
+                entity_name=row[3],
+                entity_set_name=row[4],
+                parameters=parameters,
+                return_type=return_type,
+                field_lookup=row[8],
+            )
 
     # Label Operations
 
