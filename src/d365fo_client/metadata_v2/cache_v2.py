@@ -1,10 +1,9 @@
 """Version-aware metadata cache implementation."""
 
-import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import aiosqlite
 
@@ -13,7 +12,6 @@ if TYPE_CHECKING:
     from ..metadata_api import MetadataAPIOperations
 
 from ..models import (
-    ActionInfo,
     ActionParameterInfo,
     ActionParameterTypeInfo,
     ActionReturnTypeInfo,
@@ -23,9 +21,7 @@ from ..models import (
     EnumerationMemberInfo,
     EnvironmentVersionInfo,
     FixedConstraintInfo,
-    GlobalVersionInfo,
     LabelInfo,
-    ModuleVersionInfo,
     NavigationPropertyInfo,
     ODataBindingKind,
     PropertyGroupInfo,
@@ -34,11 +30,10 @@ from ..models import (
     PublicEntityPropertyInfo,
     ReferentialConstraintInfo,
     RelatedFixedConstraintInfo,
-    RelationConstraintInfo,
-    VersionDetectionResult,
 )
 from .database_v2 import MetadataDatabaseV2
 from .global_version_manager import GlobalVersionManager
+from .label_utils import apply_label_fallback, process_label_fallback
 from .version_detector import ModuleVersionDetector
 
 logger = logging.getLogger(__name__)
@@ -223,8 +218,11 @@ class MetadataCacheV2:
                 (global_version_id,),
             )
 
-            # Insert new entities
+            # Insert new entities with label processing
             for entity in entities:
+                # Process label fallback for this entity
+                processed_label_text = process_label_fallback(entity.label_id, entity.label_text)
+                
                 await db.execute(
                     """INSERT INTO data_entities
                        (global_version_id, name, public_entity_name, public_collection_name,
@@ -237,7 +235,7 @@ class MetadataCacheV2:
                         entity.public_entity_name,
                         entity.public_collection_name,
                         entity.label_id,
-                        entity.label_text,
+                        processed_label_text,  # Use processed label text
                         entity.entity_category.value if entity.entity_category else None,
                         entity.data_service_enabled,
                         entity.data_management_enabled,
@@ -309,13 +307,16 @@ class MetadataCacheV2:
 
             entities = []
             for row in await cursor.fetchall():
+                # Apply label fallback during retrieval
+                processed_label_text = apply_label_fallback(row[3], row[4])
+                
                 entities.append(
                     DataEntityInfo(
                         name=row[0],
                         public_entity_name=row[1],
                         public_collection_name=row[2],
                         label_id=row[3],
-                        label_text=row[4],
+                        label_text=processed_label_text,
                         entity_category=row[5],
                         data_service_enabled=row[6],
                         data_management_enabled=row[7],
@@ -406,7 +407,9 @@ class MetadataCacheV2:
                     (existing_entity_id, global_version_id),
                 )
 
-            # Insert new entity
+            # Insert new entity with label processing
+            processed_entity_label_text = process_label_fallback(entity_schema.label_id, entity_schema.label_text)
+            
             cursor = await db.execute(
                 """INSERT INTO public_entities
                    (global_version_id, name, entity_set_name, label_id, label_text,
@@ -417,7 +420,7 @@ class MetadataCacheV2:
                     entity_schema.name,
                     entity_schema.entity_set_name,
                     entity_schema.label_id,
-                    entity_schema.label_text,
+                    processed_entity_label_text,  # Use processed label text
                     entity_schema.is_read_only,
                     entity_schema.configuration_enabled,
                 ),
@@ -425,10 +428,13 @@ class MetadataCacheV2:
 
             entity_id = cursor.lastrowid
 
-            # Store properties
+            # Store properties with label processing
             prop_order = 0
             for prop in entity_schema.properties:
                 prop_order += 1
+                # Process label fallback for this property
+                processed_prop_label_text = process_label_fallback(prop.label_id, prop.label_text)
+                
                 await db.execute(
                     """INSERT INTO entity_properties
                        (entity_id, global_version_id, name, type_name, data_type,
@@ -446,7 +452,7 @@ class MetadataCacheV2:
                         prop.data_type,
                         prop.data_type,
                         prop.label_id,
-                        prop.label_text,
+                        processed_prop_label_text,  # Use processed label text
                         prop.is_key,
                         prop.is_mandatory,
                         prop.configuration_enabled,
@@ -624,6 +630,9 @@ class MetadataCacheV2:
 
             properties = []
             for prop_row in await cursor.fetchall():
+                # Apply label fallback for property labels
+                processed_prop_label_text = apply_label_fallback(prop_row[4], prop_row[5])
+                
                 properties.append(
                     PublicEntityPropertyInfo(
                         name=prop_row[0],
@@ -631,7 +640,7 @@ class MetadataCacheV2:
                         data_type=prop_row[2],
                         odata_xpp_type=prop_row[3],
                         label_id=prop_row[4],
-                        label_text=prop_row[5],
+                        label_text=processed_prop_label_text,
                         is_key=prop_row[6],
                         is_mandatory=prop_row[7],
                         configuration_enabled=prop_row[8],
@@ -794,11 +803,14 @@ class MetadataCacheV2:
                     )
                 )
 
+            # Apply label fallback for entity labels
+            processed_entity_label_text = apply_label_fallback(entity_row[3], entity_row[4])
+
             return PublicEntityInfo(
                 name=entity_row[1],
                 entity_set_name=entity_row[2],
                 label_id=entity_row[3],
-                label_text=entity_row[4],
+                label_text=processed_entity_label_text,
                 is_read_only=entity_row[5],
                 configuration_enabled=entity_row[6],
                 properties=properties,
@@ -824,6 +836,9 @@ class MetadataCacheV2:
             )
 
             for enum_info in enumerations:
+                # Process label fallback for this enumeration
+                processed_enum_label_text = process_label_fallback(enum_info.label_id, enum_info.label_text)
+                
                 # Insert enumeration
                 cursor = await db.execute(
                     """INSERT INTO enumerations
@@ -833,16 +848,19 @@ class MetadataCacheV2:
                         global_version_id,
                         enum_info.name,
                         enum_info.label_id,
-                        enum_info.label_text,
+                        processed_enum_label_text,  # Use processed label text
                     ),
                 )
 
                 enum_id = cursor.lastrowid
 
-                # Insert members
+                # Insert members with label processing
                 member_order = 0
                 for member in enum_info.members:
                     member_order += 1
+                    # Process label fallback for this member
+                    processed_member_label_text = process_label_fallback(member.label_id, member.label_text)
+                    
                     await db.execute(
                         """INSERT INTO enumeration_members
                            (enumeration_id, global_version_id, name, value,
@@ -854,7 +872,7 @@ class MetadataCacheV2:
                             member.name,
                             member.value,
                             member.label_id,
-                            member.label_text,
+                            processed_member_label_text,  # Use processed label text
                             member.configuration_enabled,
                             member_order,
                         ),
@@ -908,21 +926,27 @@ class MetadataCacheV2:
 
             members = []
             for member_row in await cursor.fetchall():
+                # Apply label fallback for member labels
+                processed_member_label_text = apply_label_fallback(member_row[2], member_row[3])
+                
                 members.append(
                     EnumerationMemberInfo(
                         name=member_row[0],
                         value=member_row[1],
                         label_id=member_row[2],
-                        label_text=member_row[3],
+                        label_text=processed_member_label_text,
                         configuration_enabled=member_row[4],
                         member_order=member_row[5],
                     )
                 )
 
+            # Apply label fallback for enumeration labels
+            processed_enum_label_text = apply_label_fallback(enum_row[2], enum_row[3])
+
             return EnumerationInfo(
                 name=enum_row[1],
                 label_id=enum_row[2],
-                label_text=enum_row[3],
+                label_text=processed_enum_label_text,
                 members=members,
             )
 
@@ -1080,7 +1104,7 @@ class MetadataCacheV2:
                 global_version_id = -1  # Use -1 for temporary entries
 
         # Calculate expiration time
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
 
         expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
 
@@ -1127,7 +1151,7 @@ class MetadataCacheV2:
                 global_version_id = -1  # Use -1 for temporary entries
 
         # Calculate expiration time
-        from datetime import datetime, timedelta, timezone
+        from datetime import timedelta
 
         expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
 
