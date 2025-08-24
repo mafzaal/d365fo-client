@@ -1,86 +1,177 @@
 # Dynamics 365 Finance & Operations Client and MCP Server
 
-A comprehensive Python client library for Microsoft Dynamics 365 Finance & Operations (D365 F&O) that provides easy access to OData endpoints, metadata operations, and label management.
+A comprehensive Python client library and MCP server for Microsoft Dynamics 365 Finance & Operations (D365 F&O) that provides easy access to OData endpoints, metadata operations, label management, and AI assistant integration.
 
 ## Features
 
-- 🔗 **OData Client**: Full CRUD operations on D365 F&O data entities
-- 📊 **Metadata Management**: Download, cache, and search entity/action metadata  
-- 🏷️ **Label Operations**: Retrieve and cache multilingual labels with advanced search
+- 🔗 **OData Client**: Full CRUD operations on D365 F&O data entities with composite key support
+- 📊 **Metadata Management V2**: Enhanced caching system with intelligent synchronization and FTS5 search
+- 🏷️ **Label Operations V2**: Multilingual label caching with performance improvements and async support
 - 🔍 **Advanced Querying**: Support for all OData query parameters ($select, $filter, $expand, etc.)
-- ⚡ **Action Execution**: Execute both bound and unbound OData actions
-- 🔒 **Authentication**: Support for Azure AD authentication (default credentials or client secrets)
-- 💾 **Intelligent Caching**: Built-in caching for metadata and labels to improve performance
-- 🌐 **Async/Await**: Modern async/await pattern for optimal performance
-- 📝 **Type Hints**: Full type annotation support for better IDE experience
-- 🤖 **MCP Server**: Model Context Protocol server for AI assistant integration with 12 tools and 4 resource types
+- ⚡ **Action Execution**: Execute bound and unbound OData actions with comprehensive parameter handling
+- 🔒 **Authentication**: Azure AD integration with default credentials and service principal support
+- 💾 **Intelligent Caching**: Cross-environment cache sharing with module-based version detection
+- 🌐 **Async/Await**: Modern async/await patterns with optimized session management
+- 📝 **Type Hints**: Full type annotation support with enhanced data models
+- 🤖 **MCP Server**: Production-ready Model Context Protocol server with 12 tools and 4 resource types
+- 🖥️ **Comprehensive CLI**: Hierarchical command-line interface for all D365 F&O operations
+- 🧪 **Multi-tier Testing**: Mock, sandbox, and live integration testing framework (17/17 tests passing)
+- 📋 **Metadata Scripts**: PowerShell and Python utilities for entity, enumeration, and action discovery
 
 ## Installation
 
 ```bash
-# Install from PyPI (when published)
+# Install from PyPI
 pip install d365fo-client
 
 # Or install from source
 git clone https://github.com/mafzaal/d365fo-client.git
 cd d365fo-client
-pip install -e .
+uv sync  # Installs with exact dependencies from uv.lock
 ```
 
-**Note**: The package includes MCP (Model Context Protocol) dependencies by default, enabling AI assistant integration. The `d365fo-mcp-server` command will be available after installation.
+**Note**: The package includes MCP (Model Context Protocol) dependencies by default, enabling AI assistant integration. Both `d365fo-client` CLI and `d365fo-mcp-server` commands will be available after installation.
 
 ## Quick Start
 
 ## Command Line Interface (CLI)
 
-d365fo-client provides a CLI for interacting with Dynamics 365 Finance & Operations APIs and metadata. The CLI allows you to perform common operations directly from your terminal.
+d365fo-client provides a comprehensive CLI with hierarchical commands for interacting with Dynamics 365 Finance & Operations APIs and metadata. The CLI supports all major operations including entity management, metadata discovery, and system administration.
 
 ### Usage
 
-```sh
-python -m d365fo_client.cli [OPTIONS] COMMAND [ARGS]
+```bash
+# Use the installed CLI command
+d365fo-client [GLOBAL_OPTIONS] COMMAND [SUBCOMMAND] [OPTIONS]
+
+# Alternative: Module execution
+python -m d365fo_client.main [OPTIONS] COMMAND [ARGS]
 ```
 
-### Example Commands
+### Command Categories
 
-- `get-version` — Retrieve the application version.
-- `list-entities` — List available metadata entities.
-- `cache-metadata` — Cache metadata locally for faster access.
-- `help` — Show available commands and options.
+#### Entity Operations
+```bash
+# List entities with filtering
+d365fo-client entities list --pattern "customer" --limit 10
 
-### Options
+# Get entity details and schema
+d365fo-client entities get CustomersV3 --properties --keys --labels
 
-- `--config PATH` — Specify a custom configuration file.
-- `--verbose` — Enable verbose output for debugging.
+# CRUD operations
+d365fo-client entities create Customers --data '{"CustomerAccount":"US-999","Name":"Test"}'
+d365fo-client entities update Customers US-999 --data '{"Name":"Updated Name"}'
+d365fo-client entities delete Customers US-999
+```
 
-For a full list of commands and options, run:
+#### Metadata Operations
+```bash
+# Search and discover entities
+d365fo-client metadata entities --search "sales" --output json
 
-```sh
-python -m d365fo_client.cli --help
+# Get available actions
+d365fo-client metadata actions --pattern "calculate" --limit 5
+
+# Enumerate system enumerations
+d365fo-client metadata enums --search "status" --output table
+
+# Synchronize metadata cache
+d365fo-client metadata sync --force-refresh
+```
+
+#### Version Information
+```bash
+# Get application versions
+d365fo-client version app
+d365fo-client version platform  
+d365fo-client version build
+```
+
+#### Label Operations
+```bash
+# Resolve single label
+d365fo-client labels resolve "@SYS13342"
+
+# Search labels by pattern
+d365fo-client labels search "customer" --language "en-US"
+```
+
+### Global Options
+
+- `--base-url URL` — Specify D365 F&O environment URL
+- `--profile NAME` — Use named configuration profile  
+- `--output FORMAT` — Output format: json, table, csv, yaml (default: table)
+- `--verbose` — Enable verbose output for debugging
+- `--timeout SECONDS` — Request timeout (default: 30)
+
+### Configuration Profiles
+
+Create reusable configurations in `~/.d365fo-client/config.yaml`:
+
+```yaml
+profiles:
+  production:
+    base_url: "https://prod.dynamics.com"
+    use_default_credentials: true
+    timeout: 60
+    
+  development:
+    base_url: "https://dev.dynamics.com" 
+    client_id: "${AZURE_CLIENT_ID}"
+    client_secret: "${AZURE_CLIENT_SECRET}"
+    tenant_id: "${AZURE_TENANT_ID}"
+    use_cache_first: true
+
+default_profile: "development"
+```
+
+### Examples
+
+```bash
+# Quick entity discovery
+d365fo-client entities list --pattern "cust.*" --output json
+
+# Get comprehensive entity information
+d365fo-client entities get CustomersV3 --properties --keys --labels --output yaml
+
+# Search for calculation actions
+d365fo-client metadata actions --pattern "calculate|compute" --output table
+
+# Test environment connectivity
+d365fo-client version app --verbose
+```
+
+For a complete command reference:
+
+```bash
+d365fo-client --help
+d365fo-client entities --help
+d365fo-client metadata --help
 ```
 ### Basic Usage
 
 ```python
 import asyncio
-from d365fo_client import FOClient, FOClientConfig
+from d365fo_client import D365FOClient, FOClientConfig
 
 async def main():
-    # Simple configuration
+    # Simple configuration with default credentials
     config = FOClientConfig(
         base_url="https://your-fo-environment.dynamics.com",
         use_default_credentials=True  # Uses Azure Default Credential
     )
     
-    async with FOClient(config) as client:
+    async with D365FOClient(config) as client:
         # Test connection
         if await client.test_connection():
             print("✅ Connected successfully!")
         
-        # Download metadata
-        await client.download_metadata()
+        # Get environment information
+        env_info = await client.get_environment_info()
+        print(f"Environment: {env_info.application_version}")
         
-        # Search for entities
-        customer_entities = client.search_entities("customer")
+        # Search for entities (uses metadata cache v2)
+        customer_entities = await client.search_entities("customer")
         print(f"Found {len(customer_entities)} customer entities")
         
         # Get customers with query options
@@ -91,7 +182,7 @@ async def main():
             orderby=["Name"]
         )
         
-        customers = await client.get_entities("Customers", options)
+        customers = await client.get_data("/data/CustomersV3", options)
         print(f"Retrieved {len(customers['value'])} customers")
 
 if __name__ == "__main__":
@@ -103,9 +194,9 @@ if __name__ == "__main__":
 ```python
 from d365fo_client import create_client
 
-# Quick client creation
+# Quick client creation with enhanced defaults
 async with create_client("https://your-fo-environment.dynamics.com") as client:
-    customers = await client.get_entities("Customers", top=5)
+    customers = await client.get_data("/data/CustomersV3", top=5)
 ```
 
 ## Configuration
@@ -147,24 +238,25 @@ config = FOClientConfig(
 ### CRUD Operations
 
 ```python
-async with FOClient(config) as client:
-    # CREATE - Create new customer
+async with D365FOClient(config) as client:
+    # CREATE - Create new customer (supports composite keys)
     new_customer = {
         "CustomerAccount": "US-999",
         "Name": "Test Customer",
         "SalesCurrencyCode": "USD"
     }
-    created = await client.create_entity("Customers", new_customer)
+    created = await client.create_data("/data/CustomersV3", new_customer)
     
-    # READ - Get single customer
-    customer = await client.get_entity("Customers", "US-001")
+    # READ - Get single customer by key
+    customer = await client.get_data("/data/CustomersV3('US-001')")
     
-    # UPDATE - Update customer
+    # UPDATE - Update customer with optimistic concurrency
     updates = {"Name": "Updated Customer Name"}
-    updated = await client.update_entity("Customers", "US-001", updates)
+    updated = await client.update_data("/data/CustomersV3('US-001')", updates)
     
     # DELETE - Delete customer
-    success = await client.delete_entity("Customers", "US-999")
+    success = await client.delete_data("/data/CustomersV3('US-999')")
+    print(f"Delete successful: {success}")
 ```
 
 ### Advanced Querying
@@ -183,7 +275,7 @@ options = QueryOptions(
     count=True
 )
 
-result = await client.get_entities("Customers", options)
+result = await client.get_data("/data/CustomersV3", options)
 print(f"Total count: {result.get('@odata.count')}")
 ```
 
@@ -191,81 +283,93 @@ print(f"Total count: {result.get('@odata.count')}")
 
 ```python
 # Unbound action
-result = await client.call_action("calculateTax", {
+result = await client.post_data("/data/calculateTax", {
     "amount": 1000.00,
     "taxGroup": "STANDARD"
 })
 
-# Bound action on specific entity
-result = await client.call_action(
-    "calculateBalance",
-    parameters={"asOfDate": "2024-12-31"},
-    entity_name="Customers", 
-    entity_key="US-001"
-)
+# Bound action on entity set
+result = await client.post_data("/data/CustomersV3/calculateBalances", {
+    "asOfDate": "2024-12-31"
+})
+
+# Bound action on specific entity instance  
+result = await client.post_data("/data/CustomersV3('US-001')/calculateBalance", {
+    "asOfDate": "2024-12-31"
+})
 ```
 
 ### Metadata Operations
 
 ```python
-# Download and cache metadata
-await client.download_metadata(force_refresh=True)
+# Intelligent metadata synchronization (v2 system)
+sync_manager = await client.get_sync_manager()
+await sync_manager.smart_sync()
 
-# Search entities
-sales_entities = client.search_entities("sales")
-print("Sales-related entities:", sales_entities)
+# Search entities with enhanced filtering
+sales_entities = await client.search_entities("sales")
+print("Sales-related entities:", [e.name for e in sales_entities])
 
-# Get detailed entity information
-entity_info = client.get_entity_info("Customers")
+# Get detailed entity information with labels
+entity_info = await client.get_public_entity_info("CustomersV3")
 if entity_info:
     print(f"Entity: {entity_info.name}")
-    print(f"Keys: {entity_info.keys}")
-    print(f"Properties: {len(entity_info.properties)}")
+    print(f"Label: {entity_info.label_text}")
+    print(f"Data Service Enabled: {entity_info.data_service_enabled}")
 
-# Search actions
-calc_actions = client.search_actions("calculate")
-print("Calculation actions:", calc_actions)
+# Search actions with caching
+calc_actions = await client.search_actions("calculate")
+print("Calculation actions:", [a.name for a in calc_actions])
+
+# Get enumeration information
+enum_info = await client.get_public_enumeration_info("NoYes")
+if enum_info:
+    print(f"Enum: {enum_info.name}")
+    for member in enum_info.members:
+        print(f"  {member.name} = {member.value}")
 ```
 
 ### Label Operations
 
 ```python
-# Get specific label
+# Get specific label (v2 caching system)
 label_text = await client.get_label_text("@SYS13342")
 print(f"Label text: {label_text}")
 
-# Get multiple labels
+# Get multiple labels efficiently
 labels = await client.get_labels_batch([
     "@SYS13342", "@SYS9490", "@GLS63332"
 ])
 for label_id, text in labels.items():
     print(f"{label_id}: {text}")
 
-```
 # Enhanced entity info with resolved labels
-entity_info = await client.get_entity_info_with_labels("Customers")
+entity_info = await client.get_public_entity_info_with_labels("CustomersV3")
 if entity_info.label_text:
     print(f"Entity display name: {entity_info.label_text}")
 
+# Access enhanced properties with labels
 for prop in entity_info.enhanced_properties[:5]:
-    if prop.label_text:
+    if hasattr(prop, 'label_text') and prop.label_text:
         print(f"{prop.name}: {prop.label_text}")
 ```
 
 ## Error Handling
 
 ```python
-from d365fo_client import FOClientError, EntityError, AuthenticationError
+from d365fo_client import D365FOClientError, AuthenticationError, ConnectionError
 
 try:
-    async with FOClient(config) as client:
-        customer = await client.get_entity("Customers", "NON-EXISTENT")
-except EntityError as e:
-    print(f"Entity operation failed: {e}")
+    async with D365FOClient(config) as client:
+        customer = await client.get_data("/data/CustomersV3('NON-EXISTENT')")
+except ConnectionError as e:
+    print(f"Connection failed: {e}")
 except AuthenticationError as e:
     print(f"Authentication failed: {e}")
-except FOClientError as e:
-    print(f"General client error: {e}")
+except D365FOClientError as e:
+    print(f"Client operation failed: {e}")
+    print(f"Status code: {e.status_code}")
+    print(f"Response: {e.response_text}")
 ```
 
 ## Development
@@ -277,11 +381,14 @@ except FOClientError as e:
 git clone https://github.com/mafzaal/d365fo-client.git
 cd d365fo-client
 
-# Install with development dependencies
+# Install with development dependencies using uv
 uv sync --dev
 
 # Run tests
 uv run pytest
+
+# Run integration tests
+.\tests\integration\integration-test-simple.ps1 test-sandbox
 
 # Format code
 uv run black .
@@ -289,6 +396,11 @@ uv run isort .
 
 # Type checking
 uv run mypy src/
+
+# Quality checks
+.\make.ps1 quality-check  # Windows PowerShell
+# or
+make quality-check       # Unix/Linux/macOS
 ```
 
 ### Project Structure
@@ -298,41 +410,61 @@ d365fo-client/
 ├── src/
 │   └── d365fo_client/
 │       ├── __init__.py          # Public API exports
-│       ├── client.py            # Main FOClient class
-│       ├── models.py            # Data models and configurations
+│       ├── main.py              # CLI entry point  
+│       ├── cli.py               # CLI command handlers
+│       ├── client.py            # Enhanced D365FOClient class
+│       ├── config.py            # Configuration management
 │       ├── auth.py              # Authentication management
 │       ├── session.py           # HTTP session management
-│       ├── metadata.py          # Metadata operations
-│       ├── cache.py             # Label caching
 │       ├── crud.py              # CRUD operations
-│       ├── labels.py            # Label operations
 │       ├── query.py             # OData query utilities
+│       ├── metadata.py          # Legacy metadata operations
+│       ├── metadata_api.py      # Metadata API client
+│       ├── metadata_cache.py    # Metadata caching layer V2
+│       ├── metadata_sync.py     # Metadata synchronization V2
+│       ├── labels.py            # Label operations V2
+│       ├── profiles.py          # Profile data models
+│       ├── profile_manager.py   # Profile management
+│       ├── models.py            # Data models and configurations
+│       ├── output.py            # Output formatting
+│       ├── utils.py             # Utility functions
 │       ├── exceptions.py        # Custom exceptions
-│       ├── main.py              # CLI entry point
 │       └── mcp/                 # Model Context Protocol server
 │           ├── __init__.py      # MCP server exports
-│           ├── server.py        # Main MCP server implementation
 │           ├── main.py          # MCP server entry point
-│           ├── client_manager.py# Connection pooling for MCP
+│           ├── server.py        # Core MCP server implementation
+│           ├── client_manager.py# D365FO client connection pooling
 │           ├── models.py        # MCP-specific data models
-│           ├── tools/           # MCP tool implementations
+│           ├── tools/           # MCP tool implementations (12 tools)
 │           │   ├── connection_tools.py
 │           │   ├── crud_tools.py
 │           │   ├── metadata_tools.py
 │           │   └── label_tools.py
-│           └── resources/       # MCP resource handlers
-│               ├── entity_handler.py
-│               ├── metadata_handler.py
-│               └── query_handler.py
+│           ├── resources/       # MCP resource handlers (4 types)
+│           │   ├── entity_handler.py
+│           │   ├── metadata_handler.py
+│           │   ├── environment_handler.py
+│           │   └── query_handler.py
+│           └── prompts/         # MCP prompt templates
 ├── tests/                       # Comprehensive test suite
-│   ├── integration/             # Multi-tier integration tests (17 tests - all passing ✅)
+│   ├── unit/                    # Unit tests (pytest-based)
+│   ├── integration/             # Multi-tier integration testing
 │   │   ├── mock_server/         # Mock D365 F&O API server
-│   │   ├── test_sandbox.py      # Sandbox environment tests
-│   │   ├── test_mock_server.py  # Mock server tests  
-│   │   └── README.md           # Integration testing documentation
-│   ├── unit/                   # Unit tests
-│   └── mcp/                    # MCP server tests (14 tests - all passing ✅)
-├── docs/                        # Documentation
+│   │   ├── test_mock_server.py  # Mock server tests
+│   │   ├── test_sandbox.py      # Sandbox environment tests ✅
+│   │   ├── test_live.py         # Live environment tests
+│   │   ├── conftest.py          # Shared pytest fixtures
+│   │   ├── test_runner.py       # Python test execution engine
+│   │   └── integration-test-simple.ps1 # PowerShell automation
+│   └── test_mcp_server.py       # MCP server unit tests ✅
+├── scripts/                     # Metadata discovery scripts
+│   ├── search_data_entities.ps1 # PowerShell entity search
+│   ├── get_data_entity_schema.ps1 # PowerShell schema retrieval
+│   ├── search_enums.py          # Python enumeration search
+│   ├── get_enumeration_info.py  # Python enumeration info
+│   ├── search_actions.ps1       # PowerShell action search
+│   └── get_action_info.py       # Python action information
+├── docs/                        # Comprehensive documentation
 ├── pyproject.toml               # Project configuration
 └── README.md                    # This file
 ```
@@ -349,8 +481,9 @@ d365fo-client/
 | `verify_ssl` | bool | False | Verify SSL certificates |
 | `timeout` | int | 30 | Request timeout in seconds |
 | `metadata_cache_dir` | str | Platform-specific user cache | Metadata cache directory |
-| `use_label_cache` | bool | True | Enable label caching |
+| `use_label_cache` | bool | True | Enable label caching V2 |
 | `label_cache_expiry_minutes` | int | 60 | Label cache expiry time |
+| `use_cache_first` | bool | False | Enable cache-first mode with background sync |
 
 ### Cache Directory Behavior
 
@@ -511,7 +644,7 @@ Recent sandbox integration test results:
 
 ## Model Context Protocol (MCP) Server
 
-d365fo-client includes a comprehensive **Model Context Protocol (MCP) server** that exposes the full capabilities of the D365 Finance & Operations client to AI assistants and other MCP-compatible tools. This enables sophisticated Dynamics 365 integration workflows through standardized protocol interactions.
+d365fo-client includes a **production-ready Model Context Protocol (MCP) server** that exposes the full capabilities of the D365 Finance & Operations client to AI assistants and other MCP-compatible tools. This enables sophisticated Dynamics 365 integration workflows through standardized protocol interactions.
 
 ### Overview
 
@@ -519,8 +652,9 @@ The MCP server provides:
 - **12 functional tools** covering all major D365 F&O operations
 - **4 resource types** with comprehensive metadata exposure  
 - **Production-ready** implementation with proper error handling and authentication
-- **Performance optimization** with connection pooling and intelligent caching
+- **Performance optimization** with connection pooling and intelligent caching V2
 - **Comprehensive testing** with 14 unit tests (100% pass rate)
+- **Profile support** for multi-environment configurations
 
 ### Quick Start
 
@@ -572,10 +706,12 @@ The server provides 12 comprehensive tools organized into functional categories:
 - **`d365fo_update_entity_record`** - Update existing records with optimistic concurrency
 - **`d365fo_delete_entity_record`** - Delete entity records with conflict detection
 
-#### Metadata Tools (3 tools)
-- **`d365fo_search_entities`** - Search entities by pattern with advanced filtering
+#### Metadata Tools (5 tools)
+- **`d365fo_search_entities`** - Search entities by pattern with advanced filtering and FTS5 search
 - **`d365fo_get_entity_schema`** - Get detailed entity schemas with properties and relationships
 - **`d365fo_search_actions`** - Search available OData actions and functions
+- **`d365fo_search_enums`** - Search system enumerations with filtering
+- **`d365fo_get_enum_info`** - Get detailed enumeration information and values
 
 #### Label Tools (2 tools)  
 - **`d365fo_get_label`** - Get single label text by ID with language support
@@ -588,7 +724,7 @@ The server exposes four types of resources for discovery and access:
 #### Entity Resources
 Access entity metadata and sample data:
 ```
-d365fo://entities/Customers       # Customer entity with metadata and sample data
+d365fo://entities/CustomersV3     # Customer entity with metadata and sample data
 d365fo://entities/SalesOrders     # Sales order entity information
 d365fo://entities/Products        # Product entity details
 ```
@@ -596,7 +732,7 @@ d365fo://entities/Products        # Product entity details
 #### Metadata Resources
 Access system-wide metadata:
 ```
-d365fo://metadata/entities        # All data entities metadata
+d365fo://metadata/entities        # All data entities metadata (V2 cache)
 d365fo://metadata/actions         # Available OData actions  
 d365fo://metadata/enumerations    # System enumerations
 d365fo://metadata/labels          # System labels and translations
@@ -606,8 +742,8 @@ d365fo://metadata/labels          # System labels and translations
 Access environment status and information:
 ```
 d365fo://environment/status       # Environment health and connectivity
-d365fo://environment/version      # Version information
-d365fo://environment/cache        # Cache status and statistics
+d365fo://environment/version      # Version information (app, platform, build)
+d365fo://environment/cache        # Cache status and statistics V2
 ```
 
 #### Query Resources
@@ -615,6 +751,14 @@ Access predefined and templated queries:
 ```
 d365fo://queries/customers_recent # Recent customers query template
 d365fo://queries/sales_summary    # Sales summary query with parameters
+```
+
+#### Database Resources (New in V2)
+Access metadata database queries:
+```
+d365fo://database/entities        # SQL-based entity searches with FTS5
+d365fo://database/actions         # Action discovery with metadata
+d365fo://database/statistics      # Cache and performance statistics
 ```
 
 ### Usage Examples
@@ -625,7 +769,7 @@ d365fo://queries/sales_summary    # Sales summary query with parameters
 {
   "tool": "d365fo_query_entities",
   "arguments": {
-    "entityName": "Customers",
+    "entityName": "CustomersV3",
     "select": ["CustomerAccount", "Name", "Email"],
     "filter": "CustomerGroup eq 'VIP'",
     "top": 10
@@ -639,7 +783,7 @@ d365fo://queries/sales_summary    # Sales summary query with parameters
 {
   "tool": "d365fo_get_entity_schema", 
   "arguments": {
-    "entityName": "SalesOrders",
+    "entityName": "CustomersV3",
     "includeProperties": true,
     "resolveLabels": true,
     "language": "en-US"
