@@ -870,6 +870,8 @@ Add to your VS Code `mcp.json` for GitHub Copilot with MCP:
       "type": "stdio",
       "command": "uvx",
       "args": [
+        "--from",
+        "d365fo-client",
         "d365fo-mcp-server"
       ],
       "env": {
@@ -891,6 +893,8 @@ For environments requiring service principal authentication:
       "type": "stdio", 
       "command": "uvx",
       "args": [
+        "--from",
+        "d365fo-client",
         "d365fo-mcp-server"
       ],
       "env": {
