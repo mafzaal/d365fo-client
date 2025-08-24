@@ -851,7 +851,7 @@ Add to your Claude Desktop configuration:
     "d365fo": {
       "command": "d365fo-mcp-server",
       "env": {
-        "D365FO_BASE_URL": "https://your-environment.dynamics.com"
+        "D365FO_BASE_URL": "https://your-environment.dynamics.com" //Optional
       }
     }
   }
@@ -859,7 +859,77 @@ Add to your Claude Desktop configuration:
 ```
 
 #### VS Code Integration
-Use with MCP-compatible VS Code extensions for in-editor D365 F&O assistance.
+
+##### Option 1: Default Credentials (Recommended)
+Add to your VS Code `mcp.json` for GitHub Copilot with MCP:
+
+```json
+{
+  "servers": {
+    "d365fo-mcp-server": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "d365fo-mcp-server"
+      ],
+      "env": {
+        "D365FO_BASE_URL": "https://your-environment.dynamics.com",
+        "D365FO_LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}
+```
+
+##### Option 2: Explicit Credentials
+For environments requiring service principal authentication:
+
+```json
+{
+  "servers": {
+    "d365fo-mcp-server": {
+      "type": "stdio", 
+      "command": "uvx",
+      "args": [
+        "d365fo-mcp-server"
+      ],
+      "env": {
+        "D365FO_BASE_URL": "https://your-environment.dynamics.com",
+        "D365FO_LOG_LEVEL": "DEBUG",
+        "D365FO_CLIENT_ID": "${input:client_id}",
+        "D365FO_CLIENT_SECRET": "${input:client_secret}",
+        "D365FO_TENANT_ID": "${input:tenant_id}"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "id": "tenant_id",
+      "type": "promptString",
+      "description": "Azure AD Tenant ID for D365 F&O authentication",
+      "password": true
+    },
+    {
+      "id": "client_id", 
+      "type": "promptString",
+      "description": "Azure AD Client ID for D365 F&O authentication",
+      "password": true
+    },
+    {
+      "id": "client_secret",
+      "type": "promptString", 
+      "description": "Azure AD Client Secret for D365 F&O authentication",
+      "password": true
+    }
+  ]
+}
+```
+
+**Benefits of uvx approach:**
+- Always uses the latest version from the repository
+- No local installation required  
+- Automatic dependency management
+- Works across different environments
 
 #### Custom MCP Clients
 Connect using any MCP-compatible client library:
