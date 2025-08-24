@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -158,6 +157,17 @@ class FOClient:
             self.logger.error(f"Background sync error: {e}")
             # Don't re-raise to avoid breaking the background task
 
+    def _is_background_sync_running(self) -> bool:
+        """Check if background sync task is currently running
+
+        Returns:
+            True if background sync is actively running, False otherwise
+        """
+        return (
+            self._background_sync_task is not None
+            and not self._background_sync_task.done()
+        )
+
     async def _get_from_cache_first(
         self,
         cache_method,
@@ -179,8 +189,12 @@ class FOClient:
         if use_cache_first is None:
             use_cache_first = self.config.use_cache_first
 
-        # If cache-first is disabled, go straight to fallback
-        if not use_cache_first or not self.config.enable_metadata_cache:
+        # If cache-first is disabled, metadata cache is disabled, or background sync is running, go straight to fallback
+        if (
+            not use_cache_first
+            or not self.config.enable_metadata_cache
+            or self._is_background_sync_running()
+        ):
             return (
                 await fallback_method(*args, **kwargs)
                 if asyncio.iscoroutinefunction(fallback_method)
@@ -375,7 +389,7 @@ class FOClient:
         return await self._get_from_cache_first(
             cache_search,
             fallback_search,
-            use_cache_first=use_cache_first or self.config.use_cache_first,
+            use_cache_first=use_cache_first,
         )
 
     async def get_entity_info(
@@ -428,7 +442,7 @@ class FOClient:
         actions = await self._get_from_cache_first(
             cache_search,
             fallback_search,
-            use_cache_first=use_cache_first or self.config.use_cache_first,
+            use_cache_first=use_cache_first,
         )
 
         return await resolve_labels_generic(actions, self.label_ops)
@@ -736,7 +750,7 @@ class FOClient:
         entities = await self._get_from_cache_first(
             cache_search,
             fallback_search,
-            use_cache_first=use_cache_first or self.config.use_cache_first,
+            use_cache_first=use_cache_first,
         )
 
         if self.metadata_cache:
@@ -861,7 +875,7 @@ class FOClient:
         entity = await self._get_from_cache_first(
             cache_lookup,
             fallback_lookup,
-            use_cache_first=use_cache_first or self.config.use_cache_first,
+            use_cache_first=use_cache_first,
         )
 
         return await resolve_labels_generic(entity, self.label_ops)
@@ -924,7 +938,7 @@ class FOClient:
         enums = await self._get_from_cache_first(
             cache_search,
             fallback_search,
-            use_cache_first=use_cache_first or self.config.use_cache_first,
+            use_cache_first=use_cache_first,
         )
 
         return await resolve_labels_generic(enums, self.label_ops)
@@ -961,7 +975,7 @@ class FOClient:
         enum = await self._get_from_cache_first(
             cache_lookup,
             fallback_lookup,
-            use_cache_first=use_cache_first or self.config.use_cache_first,
+            use_cache_first=use_cache_first,
         )
         return await resolve_labels_generic(enum, self.label_ops) if enum else None
 
@@ -1136,14 +1150,7 @@ class FOClient:
                     "cache_v2_enabled": True,
                     "cache_initialized": self._metadata_initialized,
                     "sync_manager_available": self.sync_manager is not None,
-                    "background_sync_running": (
-                        (
-                            self._background_sync_task
-                            and not self._background_sync_task.done()
-                        )
-                        if self._background_sync_task
-                        else False
-                    ),
+                    "background_sync_running": self._is_background_sync_running(),
                     "statistics": stats,
                 }
                 info.update(cache_info)

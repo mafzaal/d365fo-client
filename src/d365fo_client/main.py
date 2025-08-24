@@ -20,26 +20,26 @@ async def example_usage():
 
     async with FOClient(config) as client:
         # Test connections
-        print("🔗 Testing connections...")
+        print("[INFO] Testing connections...")
         if await client.test_connection():
-            print("✅ Connected to F&O OData successfully")
+            print("[OK] Connected to F&O OData successfully")
 
         if await client.test_metadata_connection():
-            print("✅ Connected to F&O Metadata API successfully")
+            print("[OK] Connected to F&O Metadata API successfully")
 
         # Download metadata
         print("\n📥 Downloading metadata...")
         await client.download_metadata()
 
         # Search entities
-        print("\n🔍 Searching entities...")
+        print("\n[SEARCH] Searching entities...")
         customer_entities = await client.search_entities("customer")
         print(f"Found {len(customer_entities)} customer-related entities")
         for entity in customer_entities[:5]:  # Show first 5
             print(f"  - {entity}")
 
         # Get entity info with labels
-        print("\n📊 Getting entity information...")
+        print("\n[INFO] Getting entity information...")
         customers_info = await client.get_entity_info_with_labels("Customer")
         if customers_info:
             print(f"Customers entity: {customers_info.name}")
@@ -128,7 +128,7 @@ async def example_usage():
         print("\n🆕 New Metadata APIs:")
 
         # Data Entities API
-        print("\n📊 Data Entities API:")
+        print("\n[API] Data Entities API:")
         data_entities = await client.search_data_entities(
             "customer", entity_category="Master"
         )
