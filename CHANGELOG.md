@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-08-24
+
+### Added
+- **Action Cache Search and Lookup**: Complete action cache functionality with search and retrieval capabilities
+  - Added `search_actions` and `get_action_info` methods to `MetadataCacheV2` for cached action operations
+  - Integrated action search capabilities into metadata API with regex pattern matching and entity filtering
+  - Enhanced `ActionInfo` model serialization to ensure JSON compatibility for enum values
+  - Comprehensive unit tests for action search and lookup with robust error handling coverage
+- **Label Processing Utilities**: Enhanced metadata handling with comprehensive label processing
+  - New `label_utils.py` module for label processing operations
+  - Improved metadata handling with fallback logic for label resolution
+  - Enhanced synchronization manager with advanced label processing capabilities
+- **Profile Management Enhancements**: Added profile refresh and configuration reload capabilities
+  - Profile refresh functionality in `ProfileManager` for dynamic configuration updates
+  - Enhanced MCP client manager with profile refresh support
+  - Configuration reloading capabilities for runtime profile updates
+
+### Improved
+- **MCP Server Startup**: Enhanced initialization process with comprehensive logging and profile management
+  - Improved startup logging for better debugging and monitoring
+  - Enhanced profile management initialization for MCP server operations
+  - Better error handling and status reporting during server startup
+- **Logging Consistency**: Refactored logging messages across all modules for consistency and clarity
+  - Standardized logging format and message structure
+  - Improved log message clarity for better debugging experience
+  - Consistent logging patterns across client, labels, main, and output modules
+- **Metadata API Operations**: Enhanced FOClient to utilize new cache methods for improved performance
+  - Reduced API calls through intelligent caching of action metadata
+  - Better integration between client operations and metadata cache
+  - Improved performance for action discovery and execution
+
+### Changed
+- **Label Caching Simplification**: Removed label expiration functionality to simplify caching logic
+  - Streamlined label cache operations by removing expiration tracking
+  - Simplified database schema and cache management
+  - Enhanced cache performance through reduced complexity
+  - Updated database schema to remove expiration-related fields
+
+### Fixed
+- **JSON Serialization**: Enhanced enum handling in ActionInfo model for proper JSON serialization
+- **Cache Performance**: Optimized label cache operations through simplified logic and better database design
+- **Error Handling**: Improved error handling in action cache operations and metadata processing
+
 ## [0.2.0] - 2025-08-24
 
 ### Added
