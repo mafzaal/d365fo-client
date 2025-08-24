@@ -69,6 +69,14 @@ class ConfigManager:
         except Exception as e:
             print(f"Error saving config file {self.config_path}: {e}")
 
+    def reload_config(self) -> None:
+        """Reload configuration from file.
+        
+        This is useful when the config file has been modified externally
+        or by another instance of the ConfigManager.
+        """
+        self._config_data = self._load_config()
+
     def get_profile(self, profile_name: str) -> Optional[Profile]:
         """Get a specific configuration profile.
 

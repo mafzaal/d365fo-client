@@ -39,8 +39,8 @@ class D365FOMCPServer:
         """
         self.config = config or self._load_default_config()
         self.server = Server("d365fo-mcp-server")
-        self.client_manager = D365FOClientManager(self.config)
         self.profile_manager = ProfileManager()
+        self.client_manager = D365FOClientManager(self.config, self.profile_manager)
 
         # Initialize resource handlers
         self.entity_handler = EntityResourceHandler(self.client_manager)

@@ -20,17 +20,18 @@ logger = logging.getLogger(__name__)
 class D365FOClientManager:
     """Manages D365FO client instances and connection pooling."""
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, profile_manager: Optional[ProfileManager] = None):
         """Initialize the client manager.
 
         Args:
             config: Configuration dictionary with client settings
+            profile_manager: Optional shared ProfileManager instance
         """
         self.config = config
         self._client_pool: Dict[str, FOClient] = {}
         self._session_lock = asyncio.Lock()
         self._last_health_check: Optional[datetime] = None
-        self.profile_manager = ProfileManager()
+        self.profile_manager = profile_manager or ProfileManager()
 
     async def get_client(self, profile: str = "default") -> FOClient:
         """Get or create a client for the specified profile.
@@ -143,6 +144,33 @@ class D365FOClientManager:
                             f"Error closing client for profile {profile_name}: {e}"
                         )
                 self._client_pool.clear()
+
+    async def refresh_profile(self, profile: str):
+        """Refresh a specific profile by clearing its cached client.
+        
+        This forces the client manager to recreate the client with
+        updated profile configuration on next access.
+        
+        Args:
+            profile: Profile name to refresh
+        """
+        logger.info(f"Refreshing profile: {profile}")
+        # Reload configuration to see any recent changes
+        self.profile_manager.reload_config()
+        # Clear the cached client for this profile
+        await self.cleanup(profile)
+
+    async def refresh_all_profiles(self):
+        """Refresh all profiles by clearing the entire client pool.
+        
+        This forces the client manager to recreate all clients with
+        updated profile configurations on next access.
+        """
+        logger.info("Refreshing all profiles")
+        # Reload configuration to see any recent changes
+        self.profile_manager.reload_config()
+        # Clear all cached clients
+        await self.cleanup()
 
     def _build_client_config(self, profile: str) -> FOClientConfig:
         """Build FOClientConfig from profile configuration.
