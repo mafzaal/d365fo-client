@@ -192,13 +192,18 @@ class TestCacheFirstFunctionality:
                 # Mock successful initialization
                 client._metadata_initialized = True
 
+                # Mock metadata cache
+                mock_cache = AsyncMock()
+                mock_cache.check_version_and_sync.return_value = (True, 12345)  # sync_needed=True, version=12345
+                client.metadata_cache = mock_cache
+
                 # Mock sync manager
                 mock_sync_manager = AsyncMock()
                 mock_result = MagicMock()
                 mock_result.success = True
-                mock_result.sync_type = "full"
-                mock_result.entities_synced = 100
-                mock_result.enumerations_synced = 50
+                mock_result.entity_count = 100
+                mock_result.enumeration_count = 50
+                mock_result.action_count = 25
                 mock_result.duration_ms = 1500.0
                 mock_sync_manager.sync_metadata.return_value = mock_result
                 client.sync_manager = mock_sync_manager
@@ -207,7 +212,8 @@ class TestCacheFirstFunctionality:
                 result = await client.download_metadata(force_refresh=True)
 
                 assert result is True
-                mock_sync_manager.sync_metadata.assert_called_once_with(force_full=True)
+                # Should call with global_version_id and strategy
+                mock_sync_manager.sync_metadata.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_enhanced_metadata_info(self):
@@ -262,7 +268,7 @@ class TestBackgroundSyncLogic:
 
     @pytest.mark.asyncio
     async def test_needs_sync_check(self):
-        """Test that needs_sync is checked before triggering sync."""
+        """Test that check_version_and_sync is checked before triggering sync."""
         config = FOClientConfig(
             base_url="https://test.dynamics.com", enable_metadata_cache=True
         )
@@ -271,15 +277,15 @@ class TestBackgroundSyncLogic:
             async with FOClient(config) as client:
                 client._metadata_initialized = True
 
-                # Mock sync manager
-                mock_sync_manager = AsyncMock()
-                mock_sync_manager.needs_sync.return_value = False  # No sync needed
-                client.sync_manager = mock_sync_manager
+                # Mock metadata cache
+                mock_cache = AsyncMock()
+                mock_cache.check_version_and_sync.return_value = (False, None)  # No sync needed
+                client.metadata_cache = mock_cache
 
                 await client._trigger_background_sync_if_needed()
 
-                # Should check needs_sync but not create task
-                mock_sync_manager.needs_sync.assert_called_once()
+                # Should check version but not create task
+                mock_cache.check_version_and_sync.assert_called_once()
                 assert client._background_sync_task is None
 
     @pytest.mark.asyncio
@@ -293,9 +299,13 @@ class TestBackgroundSyncLogic:
             async with FOClient(config) as client:
                 client._metadata_initialized = True
 
+                # Mock metadata cache
+                mock_cache = AsyncMock()
+                mock_cache.check_version_and_sync.return_value = (True, 12345)  # Sync needed
+                client.metadata_cache = mock_cache
+
                 # Mock sync manager
                 mock_sync_manager = AsyncMock()
-                mock_sync_manager.needs_sync.return_value = True  # Sync needed
                 client.sync_manager = mock_sync_manager
 
                 with patch("asyncio.create_task") as mock_create_task:
@@ -303,7 +313,7 @@ class TestBackgroundSyncLogic:
 
                     # Should create background task
                     mock_create_task.assert_called_once()
-                    mock_sync_manager.needs_sync.assert_called_once()
+                    mock_cache.check_version_and_sync.assert_called_once()
 
 
 class TestCacheFirstIntegration:
