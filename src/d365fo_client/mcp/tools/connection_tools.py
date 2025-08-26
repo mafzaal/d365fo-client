@@ -8,6 +8,7 @@ from typing import List
 from mcp import Tool
 from mcp.types import TextContent
 
+from ... import __version__
 from ..client_manager import D365FOClientManager
 
 logger = logging.getLogger(__name__)
@@ -95,6 +96,7 @@ class ConnectionTools:
             response = {
                 "success": success,
                 "profile": profile,
+                "clientVersion": __version__,
                 "endpoints": {
                     "data": success,
                     "metadata": success,  # Simplification for now
@@ -113,6 +115,7 @@ class ConnectionTools:
             error_response = {
                 "success": False,
                 "profile": arguments.get("profile", "default"),
+                "clientVersion": __version__,
                 "endpoints": {"data": False, "metadata": False},
                 "responseTime": 0.0,
                 "error": str(e),
@@ -124,6 +127,7 @@ class ConnectionTools:
             error_response = {
                 "success": False,
                 "profile": arguments.get("profile", "default"),
+                "clientVersion": __version__,
                 "endpoints": {"data": False, "metadata": False},
                 "responseTime": 0.0,
                 "error": str(e),
@@ -146,6 +150,7 @@ class ConnectionTools:
             # Format response according to specification with enhanced metadata info
             response = {
                 "baseUrl": env_info["base_url"],
+                "clientVersion": __version__,
                 "versions": env_info["versions"],
                 "connectivity": env_info["connectivity"],
                 "metadataInfo": env_info["metadata_info"],
@@ -160,6 +165,7 @@ class ConnectionTools:
             )
             error_response = {
                 "error": str(e),
+                "clientVersion": __version__,
                 "tool": "d365fo_get_environment_info",
                 "arguments": arguments,
                 "suggestion": "Please create a profile or set a default profile using the profile management tools.",
@@ -169,6 +175,7 @@ class ConnectionTools:
             logger.error(f"Get environment info failed: {e}")
             error_response = {
                 "error": str(e),
+                "clientVersion": __version__,
                 "tool": "d365fo_get_environment_info",
                 "arguments": arguments,
             }
