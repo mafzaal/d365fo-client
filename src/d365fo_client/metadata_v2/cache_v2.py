@@ -237,7 +237,7 @@ class MetadataCacheV2:
                         entity.public_collection_name,
                         entity.label_id,
                         processed_label_text,  # Use processed label text
-                        entity.entity_category.value if entity.entity_category else None,
+                        entity.entity_category if entity.entity_category else None,
                         entity.data_service_enabled,
                         entity.data_management_enabled,
                         entity.is_read_only,
@@ -481,7 +481,7 @@ class MetadataCacheV2:
                         nav_prop.name,
                         nav_prop.related_entity,
                         nav_prop.related_relation_name,
-                        nav_prop.cardinality.value,  # Convert enum to string value
+                        nav_prop.cardinality,  # StrEnum automatically converts to string
                     ),
                 )
 
@@ -519,7 +519,7 @@ class MetadataCacheV2:
                         entity_id,
                         global_version_id,
                         action.name,
-                        action.binding_kind.value,  # Convert enum to string value
+                        action.binding_kind,  # StrEnum automatically converts to string
                         entity_schema.name,
                         entity_schema.entity_set_name,
                         action.return_type.type_name if action.return_type else None,

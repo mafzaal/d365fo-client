@@ -134,7 +134,7 @@ async def demonstrate_enhanced_caching():
             
             # Get sync strategy recommendation
             recommended_strategy = await sync_manager.recommend_sync_strategy(client, global_version_id)
-            logger.info(f"Recommended Sync Strategy: {recommended_strategy.value}")
+            logger.info(f"Recommended Sync Strategy: {recommended_strategy}")
             
             # Add progress callback
             def progress_callback(progress):
