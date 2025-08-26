@@ -213,6 +213,16 @@ class DataEntityInfo:
     is_read_only: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
+        # Handle entity_category safely - it could be an enum or a string
+        entity_category_value = None
+        if self.entity_category:
+            if hasattr(self.entity_category, 'value'):
+                # It's an enum, get the value
+                entity_category_value = self.entity_category.value
+            else:
+                # It's already a string, use it directly
+                entity_category_value = self.entity_category
+        
         return {
             "name": self.name,
             "public_entity_name": self.public_entity_name,
@@ -221,7 +231,7 @@ class DataEntityInfo:
             "label_text": self.label_text,
             "data_service_enabled": self.data_service_enabled,
             "data_management_enabled": self.data_management_enabled,
-            "entity_category": self.entity_category.value if self.entity_category else None,
+            "entity_category": entity_category_value,
             "is_read_only": self.is_read_only,
         }
 
