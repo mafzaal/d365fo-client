@@ -1495,19 +1495,24 @@ class MetadataCacheV2:
         """Get cache statistics
 
         Returns:
-            Dictionary with cache statistics
+            Dictionary with cache statistics scoped to the current environment
         """
+        await self.initialize()
+        
+        if self._environment_id is None:
+            raise ValueError("Environment not initialized")
+            
         stats = {}
 
-        # Database statistics
-        db_stats = await self.database.get_database_statistics()
+        # Environment-scoped database statistics
+        db_stats = await self.database.get_environment_database_statistics(self._environment_id)
         stats.update(db_stats)
 
-        # Version statistics
-        version_stats = await self.version_manager.get_version_statistics()
+        # Environment-scoped version statistics
+        version_stats = await self.version_manager.get_environment_version_statistics(self._environment_id)
         stats["version_manager"] = version_stats
 
-        # Current version info
+        # Current version info (already environment-scoped)
         current_version = await self._get_current_global_version_id()
         if current_version:
             version_info = await self.version_manager.get_global_version_info(
@@ -1521,7 +1526,7 @@ class MetadataCacheV2:
                     "reference_count": version_info.reference_count,
                 }
 
-        # Label cache statistics
+        # Label cache statistics (already environment-scoped via current_version)
         label_stats = await self.get_label_cache_statistics(current_version)
         stats["label_cache"] = label_stats
 

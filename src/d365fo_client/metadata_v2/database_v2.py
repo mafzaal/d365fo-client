@@ -542,6 +542,99 @@ class MetadataDatabaseV2:
 
             return stats
 
+    async def get_statistics(self) -> Dict[str, Any]:
+        """Alias for get_database_statistics for backward compatibility
+
+        Returns:
+            Dictionary with database statistics
+        """
+        return await self.get_database_statistics()
+
+    async def get_environment_database_statistics(self, environment_id: int) -> Dict[str, Any]:
+        """Get database statistics scoped to a specific environment
+
+        Args:
+            environment_id: Environment ID to get statistics for
+
+        Returns:
+            Dictionary with environment-scoped database statistics
+        """
+        async with aiosqlite.connect(self.db_path) as db:
+            stats = {}
+
+            # Get active global versions for this environment
+            cursor = await db.execute(
+                """SELECT DISTINCT global_version_id 
+                   FROM environment_versions 
+                   WHERE environment_id = ? AND is_active = 1""",
+                (environment_id,)
+            )
+            active_versions = [row[0] for row in await cursor.fetchall()]
+            
+            if not active_versions:
+                # No active versions, return zero counts
+                return {
+                    "data_entities_count": 0,
+                    "public_entities_count": 0,
+                    "entity_properties_count": 0,
+                    "navigation_properties_count": 0,
+                    "entity_actions_count": 0,
+                    "enumerations_count": 0,
+                    "labels_cache_count": 0,
+                    "environment_statistics": {
+                        "total_environments": 1,
+                        "linked_versions": 0,
+                    },
+                    "database_size_bytes": None,
+                    "database_size_mb": None,
+                }
+
+            # Create placeholders for SQL IN clause
+            version_placeholders = ",".join("?" for _ in active_versions)
+
+            # Environment-scoped metadata counts
+            tables = [
+                ("data_entities", "entities"),
+                ("public_entities", "public_entities"),
+                ("entity_properties", "properties"),
+                ("navigation_properties", "navigation_properties"),
+                ("entity_actions", "actions"),
+                ("enumerations", "enumerations"),
+                ("labels_cache", "labels"),
+            ]
+
+            for table, key in tables:
+                cursor = await db.execute(
+                    f"SELECT COUNT(*) FROM {table} WHERE global_version_id IN ({version_placeholders})",
+                    active_versions
+                )
+                stats[f"{table}_count"] = (await cursor.fetchone())[0]
+
+            # Environment-specific statistics
+            cursor = await db.execute(
+                """SELECT 
+                     COUNT(DISTINCT ev.global_version_id) as linked_versions
+                   FROM environment_versions ev
+                   WHERE ev.environment_id = ? AND ev.is_active = 1""",
+                (environment_id,)
+            )
+            env_stats = await cursor.fetchone()
+            stats["environment_statistics"] = {
+                "total_environments": 1,  # Current environment only
+                "linked_versions": env_stats[0] or 0,
+            }
+
+            # Database file size (shared across all environments)
+            try:
+                db_size = self.db_path.stat().st_size
+                stats["database_size_bytes"] = db_size
+                stats["database_size_mb"] = round(db_size / (1024 * 1024), 2)
+            except Exception:
+                stats["database_size_bytes"] = None
+                stats["database_size_mb"] = None
+
+            return stats
+
     async def vacuum_database(self) -> bool:
         """Vacuum database to reclaim space
 
