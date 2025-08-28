@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Dict, List, Optional, Union
 
 # Resource Models
@@ -37,7 +37,7 @@ class EntityResourceContent:
     last_updated: Optional[str] = None
 
 
-class MetadataType(Enum):
+class MetadataType(StrEnum):
     ENTITIES = "entities"
     ACTIONS = "actions"
     ENUMERATIONS = "enumerations"

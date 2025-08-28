@@ -940,7 +940,7 @@ class MetadataAPIOperations:
                         continue
 
                     # Filter by binding kind
-                    if binding_kind and action.binding_kind.value != binding_kind:
+                    if binding_kind and action.binding_kind != binding_kind:
                         continue
 
                     # Create ActionInfo with entity context

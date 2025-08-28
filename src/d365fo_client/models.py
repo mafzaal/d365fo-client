@@ -4,7 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from enum import Enum
+from enum import Enum, StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
@@ -14,7 +14,16 @@ if TYPE_CHECKING:
     from typing import ForwardRef
 
 
-class EntityCategory(Enum):
+def _ensure_str_for_json(field):
+    """Ensure field is JSON-serializable as string.
+    
+    StrEnum fields automatically serialize as strings, but this handles
+    the edge case where a field might be None or already a string.
+    """
+    return field  # StrEnum automatically converts to string, None stays None
+
+
+class EntityCategory(StrEnum):
     """D365 F&O Entity Categories"""
 
     MASTER = "Master"
@@ -25,7 +34,7 @@ class EntityCategory(Enum):
     PARAMETERS = "Parameters"
 
 
-class ODataXppType(Enum):
+class ODataXppType(StrEnum):
     """D365 F&O OData XPP Types"""
 
     CONTAINER = "Container"
@@ -42,7 +51,7 @@ class ODataXppType(Enum):
     VOID = "Void"
 
 
-class ODataBindingKind(Enum):
+class ODataBindingKind(StrEnum):
     """D365 F&O Action Binding Types"""
 
     BOUND_TO_ENTITY_INSTANCE = "BoundToEntityInstance"
@@ -50,7 +59,7 @@ class ODataBindingKind(Enum):
     UNBOUND = "Unbound"
 
 
-class SyncStrategy(Enum):
+class SyncStrategy(StrEnum):
     """Metadata synchronization strategies"""
 
     FULL = "full"
@@ -59,7 +68,7 @@ class SyncStrategy(Enum):
     SHARING_MODE = "sharing_mode"
 
 
-class Cardinality(Enum):
+class Cardinality(StrEnum):
     """Navigation Property Cardinality"""
 
     SINGLE = "Single"
@@ -191,7 +200,7 @@ class PublicEntityActionInfo:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "name": self.name,
-            "binding_kind": self.binding_kind.value,  # Convert enum to string value
+            "binding_kind": self.binding_kind,  # StrEnum automatically serializes as string
             "parameters": [param.to_dict() for param in self.parameters],
             "return_type": self.return_type.to_dict() if self.return_type else None,
             "field_lookup": self.field_lookup,
@@ -221,7 +230,7 @@ class DataEntityInfo:
             "label_text": self.label_text,
             "data_service_enabled": self.data_service_enabled,
             "data_management_enabled": self.data_management_enabled,
-            "entity_category": self.entity_category.value if self.entity_category else None,
+            "entity_category": self.entity_category,  # StrEnum automatically serializes as string
             "is_read_only": self.is_read_only,
         }
 
@@ -438,7 +447,7 @@ class NavigationPropertyInfo:
             "name": self.name,
             "related_entity": self.related_entity,
             "related_relation_name": self.related_relation_name,
-            "cardinality": self.cardinality.value,  # Convert enum to string value
+            "cardinality": self.cardinality,  # StrEnum automatically serializes as string
             "constraints": [constraint.to_dict() for constraint in self.constraints],
         }
 
@@ -503,7 +512,7 @@ class ActionInfo:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "name": self.name,
-            "binding_kind": self.binding_kind.value,  # Serialize enum as string value
+            "binding_kind": self.binding_kind,  # StrEnum automatically serializes as string
             "entity_name": self.entity_name,
             "entity_set_name": self.entity_set_name,
             "parameters": [param.to_dict() for param in self.parameters],

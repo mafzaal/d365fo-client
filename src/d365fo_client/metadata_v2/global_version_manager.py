@@ -571,3 +571,63 @@ class GlobalVersionManager:
             }
 
             return stats
+
+    async def get_environment_version_statistics(self, environment_id: int) -> Dict[str, Any]:
+        """Get version statistics scoped to a specific environment
+
+        Args:
+            environment_id: Environment ID to get statistics for
+
+        Returns:
+            Dictionary with environment-scoped version statistics
+        """
+        async with aiosqlite.connect(self.db_path) as db:
+            stats = {}
+
+            # Get versions for this specific environment
+            cursor = await db.execute(
+                """SELECT COUNT(DISTINCT global_version_id) 
+                   FROM environment_versions 
+                   WHERE environment_id = ? AND is_active = 1""",
+                (environment_id,)
+            )
+            stats["total_versions"] = (await cursor.fetchone())[0]
+
+            # This environment only
+            stats["total_environments"] = 1
+
+            # Reference statistics for this environment's versions
+            cursor = await db.execute(
+                """SELECT 
+                     SUM(gv.reference_count) as total_references,
+                     AVG(gv.reference_count) as avg_references,
+                     MAX(gv.reference_count) as max_references,
+                     COUNT(*) as versions_with_refs
+                   FROM global_versions gv
+                   INNER JOIN environment_versions ev ON gv.id = ev.global_version_id
+                   WHERE ev.environment_id = ? AND ev.is_active = 1 AND gv.reference_count > 0""",
+                (environment_id,)
+            )
+            ref_stats = await cursor.fetchone()
+            stats["reference_statistics"] = {
+                "total_references": ref_stats[0] or 0,
+                "avg_references": round(ref_stats[1] or 0, 2),
+                "max_references": ref_stats[2] or 0,
+                "versions_with_references": ref_stats[3] or 0,
+            }
+
+            # Version age statistics for this environment
+            cursor = await db.execute(
+                """SELECT 
+                     COUNT(*) as recent_versions
+                   FROM global_versions gv
+                   INNER JOIN environment_versions ev ON gv.id = ev.global_version_id
+                   WHERE ev.environment_id = ? AND ev.is_active = 1
+                   AND gv.last_used_at >= datetime('now', '-7 days')""",
+                (environment_id,)
+            )
+            stats["recent_activity"] = {
+                "versions_used_last_7_days": (await cursor.fetchone())[0]
+            }
+
+            return stats

@@ -113,23 +113,27 @@ class FOClient:
                 self.config.enable_metadata_cache = False
 
     async def _trigger_background_sync_if_needed(self):
-        """Trigger background sync if metadata is stale or missing"""
+        """Trigger background sync if metadata is stale or missing (non-blocking)"""
         if not self.config.enable_metadata_cache or not self._metadata_initialized:
+            return
+
+        # Don't trigger sync if already running
+        if self._is_background_sync_running():
             return
 
         try:
             # Check if we need to sync using the new v2 API
+            # This should be a quick check, not actual sync work
             sync_needed, global_version_id = (
                 await self.metadata_cache.check_version_and_sync(self.metadata_api_ops)
             )
 
             if sync_needed and global_version_id:
-                # Only start sync if not already running
-                if not self._background_sync_task or self._background_sync_task.done():
-                    self._background_sync_task = asyncio.create_task(
-                        self._background_sync_worker(global_version_id)
-                    )
-                    self.logger.debug("Background metadata sync triggered")
+                # Start sync in background without awaiting it
+                self._background_sync_task = asyncio.create_task(
+                    self._background_sync_worker(global_version_id)
+                )
+                self.logger.debug("Background metadata sync triggered")
         except Exception as e:
             self.logger.warning(f"Failed to check sync status: {e}")
 
@@ -222,7 +226,8 @@ class FOClient:
 
             # If cache returns empty result, trigger sync and try fallback
             if not result or (isinstance(result, list) and len(result) == 0):
-                await self._trigger_background_sync_if_needed()
+                # Trigger background sync without awaiting (fire-and-forget)
+                asyncio.create_task(self._trigger_background_sync_if_needed())
                 return (
                     await fallback_method(*args, **kwargs)
                     if asyncio.iscoroutinefunction(fallback_method)
@@ -233,8 +238,8 @@ class FOClient:
 
         except Exception as e:
             self.logger.warning(f"Cache lookup failed, using fallback: {e}")
-            # Trigger sync if cache failed
-            await self._trigger_background_sync_if_needed()
+            # Trigger sync if cache failed (fire-and-forget)
+            asyncio.create_task(self._trigger_background_sync_if_needed())
             return (
                 await fallback_method(*args, **kwargs)
                 if asyncio.iscoroutinefunction(fallback_method)
@@ -1037,29 +1042,44 @@ class FOClient:
             try:
                 import asyncio
 
-                # Get the current event loop or create a new one
+                # Always check if we're in an async context first
                 try:
-                    loop = asyncio.get_event_loop()
-                except RuntimeError:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-
-                if loop.is_running():
-                    # If we're in an async context, we can't run async code synchronously
+                    loop = asyncio.get_running_loop()
+                    # We're in an async context, can't run async code synchronously
                     return {
                         "enabled": True,
                         "cache_type": "metadata_v2",
                         "message": "Label caching enabled with v2 cache (statistics available via async method)",
                     }
-                else:
-                    # If we're not in an async context, we can get the statistics
-                    stats = loop.run_until_complete(
-                        self.metadata_cache.get_label_cache_statistics()
-                    )
+                except RuntimeError:
+                    # No running loop, we can safely create one
+                    pass
+
+                # Create a new event loop for synchronous execution
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        stats = loop.run_until_complete(
+                            self.metadata_cache.get_label_cache_statistics()
+                        )
+                        return {
+                            "enabled": True,
+                            "cache_type": "metadata_v2",
+                            "statistics": stats,
+                        }
+                    finally:
+                        loop.close()
+                        # Remove the loop to clean up
+                        try:
+                            asyncio.set_event_loop(None)
+                        except:
+                            pass
+                except Exception as e:
                     return {
                         "enabled": True,
                         "cache_type": "metadata_v2",
-                        "statistics": stats,
+                        "error": f"Error getting statistics: {e}",
                     }
             except Exception as e:
                 return {

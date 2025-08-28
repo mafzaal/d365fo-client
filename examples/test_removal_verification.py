@@ -9,7 +9,7 @@ def test_imports():
     try:
         import d365fo_client
         from d365fo_client import FOClient, FOClientConfig
-        from d365fo_client import MetadataCache, MetadataSearchEngine
+        
         print('✅ All imports successful')
         return True
     except Exception as e:
@@ -67,11 +67,10 @@ def test_modern_metadata_system():
     try:
         # Test that we can import modern components
         from d365fo_client.metadata_api import MetadataAPIOperations
-        from d365fo_client.metadata_cache import MetadataCache
+        
         from d365fo_client.metadata_v2.cache_v2 import MetadataCacheV2
         
         print('✅ MetadataAPIOperations imported successfully')
-        print('✅ MetadataCache imported successfully')
         print('✅ MetadataCacheV2 imported successfully')
         print('✅ Modern metadata system fully functional')
         return True
