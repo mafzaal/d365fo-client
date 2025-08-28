@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-08-28
+
+### Added
+- **Environment-scoped Statistics**: Enhanced metadata cache with environment-scoped statistics methods
+  - Added database and version management statistics scoping for better cache management
+  - Comprehensive tests for cache statistics scoping and environment isolation
+  - Improved metadata cache performance monitoring and debugging capabilities
+
+### Improved
+- **Async Context Handling**: Resolved background thread blocking issues through enhanced async operations
+  - Made sync operations non-blocking to prevent thread deadlocks
+  - Enhanced error management for better async context handling
+  - Improved stability and performance of concurrent operations
+- **Entity Category Handling**: Enhanced `DataEntityInfo.to_dict()` method for flexible entity category processing
+  - Added support for handling entity_category as both enum and string values
+  - Comprehensive tests for mixed entity_category scenarios
+  - Better backward compatibility with different data formats
+- **Connection Tools**: Updated connection tools to include client version information for better debugging
+
+### Changed
+- **BREAKING**: StrEnum refactoring across the entire d365fo-client codebase
+  - Enhanced type safety and enum handling throughout the project
+  - Better enum serialization and deserialization capabilities
+  - Improved code maintainability and type checking
+
+### Removed
+- **BREAKING**: Deprecated MetadataCache and MetadataSearchEngine classes
+  - Removed legacy metadata caching implementations
+  - All functionality migrated to MetadataCacheV2 for better performance
+  - Simplified codebase by removing redundant metadata handling
+
+### Dependencies
+- **Updated**: ruff from 0.12.9 to 0.12.10
+- **Updated**: mcp from 1.13.0 to 1.13.1  
+- **Updated**: requests from 2.32.4 to 2.32.5
+
 ## [0.2.1] - 2025-08-24
 
 ### Added
