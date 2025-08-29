@@ -5,6 +5,7 @@ from typing import Optional
 
 from azure.identity import ClientSecretCredential, DefaultAzureCredential
 
+from .credential_sources import CredentialManager, CredentialSource
 from .models import FOClientConfig
 
 
@@ -20,25 +21,44 @@ class AuthenticationManager:
         self.config = config
         self._token = None
         self._token_expires = None
-        self.credential = self._setup_credentials()
+        self._credential_manager = CredentialManager()
+        self.credential = None  # Will be set by _setup_credentials
 
-    def _setup_credentials(self):
-        """Setup authentication credentials"""
+    async def _setup_credentials(self):
+        """Setup authentication credentials with support for credential sources"""
+        
+        # Check if credential source is specified in config
+        credential_source = getattr(self.config, 'credential_source', None)
+        
+        if credential_source is not None:
+            # Use credential source to get credentials
+            try:
+                client_id, client_secret, tenant_id = await self._credential_manager.get_credentials(credential_source)
+                self.credential = ClientSecretCredential(
+                    tenant_id=tenant_id,
+                    client_id=client_id,
+                    client_secret=client_secret,
+                )
+                return
+            except Exception as e:
+                raise ValueError(f"Failed to setup credentials from source: {e}")
+        
+        # Fallback to existing logic for backward compatibility
         if self.config.use_default_credentials:
-            return DefaultAzureCredential()
+            self.credential = DefaultAzureCredential()
         elif (
             self.config.client_id
             and self.config.client_secret
             and self.config.tenant_id
         ):
-            return ClientSecretCredential(
+            self.credential = ClientSecretCredential(
                 tenant_id=self.config.tenant_id,
                 client_id=self.config.client_id,
                 client_secret=self.config.client_secret,
             )
         else:
             raise ValueError(
-                "Must provide either use_default_credentials=True or client credentials"
+                "Must provide either use_default_credentials=True, client credentials, or credential_source"
             )
 
     async def get_token(self) -> str:
@@ -50,6 +70,10 @@ class AuthenticationManager:
         # Skip authentication for localhost/mock server
         if self._is_localhost():
             return "mock-token-for-localhost"
+
+        # Initialize credentials if not already set
+        if self.credential is None:
+            await self._setup_credentials()
 
         if (
             self._token
@@ -91,3 +115,16 @@ class AuthenticationManager:
         """Invalidate cached token to force refresh"""
         self._token = None
         self._token_expires = None
+
+    async def invalidate_credentials(self):
+        """Invalidate cached credentials and token to force full refresh"""
+        self.invalidate_token()
+        self.credential = None
+        if hasattr(self, '_credential_manager'):
+            self._credential_manager.clear_cache()
+
+    def get_credential_cache_stats(self) -> dict:
+        """Get credential cache statistics for debugging"""
+        if hasattr(self, '_credential_manager'):
+            return self._credential_manager.get_cache_stats()
+        return {"total_cached": 0, "expired": 0, "active": 0}

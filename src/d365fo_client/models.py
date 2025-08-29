@@ -12,6 +12,7 @@ from .utils import get_environment_cache_directory
 
 if TYPE_CHECKING:
     from typing import ForwardRef
+    from .credential_sources import CredentialSource
 
 
 def _ensure_str_for_json(field):
@@ -98,6 +99,8 @@ class FOClientConfig:
     max_memory_cache_size: int = 1000
     # Cache-first behavior configuration
     use_cache_first: bool = True
+    # Credential source configuration
+    credential_source: Optional["CredentialSource"] = None
 
     def __post_init__(self):
         """Post-initialization to set default cache directory if not provided."""

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 if TYPE_CHECKING:
     from .models import FOClientConfig
+    from .credential_sources import CredentialSource
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ class Profile:
     tenant_id: Optional[str] = None
     verify_ssl: bool = True
     timeout: int = 60
+    credential_source: Optional["CredentialSource"] = None
 
     # Cache settings
     use_label_cache: bool = True
@@ -55,6 +57,7 @@ class Profile:
             label_cache_expiry_minutes=self.label_cache_expiry_minutes,
             use_cache_first=self.use_cache_first,
             metadata_cache_dir=self.cache_dir,
+            credential_source=self.credential_source,
         )
 
     def validate(self) -> List[str]:
@@ -108,6 +111,7 @@ class Profile:
             "cache_dir": None,
             "language": "en-US",
             "output_format": "table",
+            "credential_source": None,
         }
 
         for key, default_value in defaults.items():
@@ -118,6 +122,16 @@ class Profile:
         valid_params = {
             k: v for k, v in migrated_data.items() if k in cls.__dataclass_fields__
         }
+
+        # Handle credential_source deserialization
+        if "credential_source" in valid_params and valid_params["credential_source"] is not None:
+            from .credential_sources import CredentialSource
+            credential_source_data = valid_params["credential_source"]
+            try:
+                valid_params["credential_source"] = CredentialSource.from_dict(credential_source_data)
+            except Exception as e:
+                logger.error(f"Error deserializing credential_source: {e}")
+                valid_params["credential_source"] = None
 
         try:
             return cls(**valid_params)
@@ -150,6 +164,10 @@ class Profile:
         # Convert to dict and remove name (stored as key)
         data = asdict(self)
         data.pop("name", None)
+
+        # Handle credential_source serialization
+        if self.credential_source is not None:
+            data["credential_source"] = self.credential_source.to_dict()
 
         return data
 
