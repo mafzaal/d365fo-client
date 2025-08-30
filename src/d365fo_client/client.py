@@ -11,6 +11,7 @@ from .exceptions import FOClientError
 from .labels import LabelOperations, resolve_labels_generic
 from .metadata_api import MetadataAPIOperations
 from .metadata_v2 import MetadataCacheV2, SmartSyncManagerV2
+from .metadata_v2.sync_session_manager import SyncSessionManager
 from .models import (
     ActionInfo,
     DataEntityInfo,
@@ -58,6 +59,7 @@ class FOClient:
         # Initialize new metadata cache and sync components
         self.metadata_cache = None
         self.sync_manager = None
+        self._sync_session_manager = None
         self._metadata_initialized = False
         self._background_sync_task = None
 
@@ -82,6 +84,10 @@ class FOClient:
                 pass
 
         await self.session_manager.close()
+
+    
+    async def initialize_metadata(self):
+        await self._ensure_metadata_initialized()
 
     async def _ensure_metadata_initialized(self):
         """Ensure metadata cache and sync manager are initialized"""
@@ -171,6 +177,27 @@ class FOClient:
             self._background_sync_task is not None
             and not self._background_sync_task.done()
         )
+
+    @property
+    def sync_session_manager(self) -> SyncSessionManager:
+        """Get sync session manager (lazy initialization).
+        
+        Returns:
+            SyncSessionManager instance for enhanced sync progress tracking
+            
+        Raises:
+            RuntimeError: If metadata cache is not initialized
+        """
+        if self._sync_session_manager is None:
+            if not self.metadata_cache:
+                raise RuntimeError("Metadata cache must be initialized before accessing sync session manager")
+            
+            self._sync_session_manager = SyncSessionManager(
+                cache=self.metadata_cache,
+                metadata_api=self.metadata_api_ops
+            )
+        
+        return self._sync_session_manager
 
     async def _get_from_cache_first(
         self,

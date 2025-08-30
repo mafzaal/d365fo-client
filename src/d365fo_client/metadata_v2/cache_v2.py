@@ -245,7 +245,7 @@ class MetadataCacheV2:
                 )
 
             await db.commit()
-            logger.info(
+            logger.debug(
                 f"Stored {len(entities)} data entities for version {global_version_id}"
             )
 

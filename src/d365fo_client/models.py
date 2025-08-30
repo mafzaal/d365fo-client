@@ -873,3 +873,15 @@ class SyncResult:
     action_count: int
     enumeration_count: int
     label_count: int
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            "success": self.success,
+            "error": self.error,
+            "duration_ms": self.duration_ms,
+            "entity_count": self.entity_count,
+            "action_count": self.action_count,
+            "enumeration_count": self.enumeration_count,
+            "label_count": self.label_count
+        }
