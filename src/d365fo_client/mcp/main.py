@@ -43,28 +43,50 @@ def setup_logging(level: str = "INFO") -> None:
 
 def load_config() -> Dict[str, Any]:
     """Load configuration from environment and config files.
+    
+    Handles three startup scenarios:
+    1. No environment variables: Profile-only mode
+    2. D365FO_BASE_URL only: Default auth mode
+    3. Full variables: Client credentials mode
 
     Returns:
-        Configuration dictionary
+        Configuration dictionary with startup_mode indicator
     """
     config = {}
-
-    # Load from environment variables
-    if base_url := os.getenv("D365FO_BASE_URL"):
+    
+    # Get environment variables
+    base_url = os.getenv("D365FO_BASE_URL")
+    client_id = os.getenv("D365FO_CLIENT_ID")
+    client_secret = os.getenv("D365FO_CLIENT_SECRET")
+    tenant_id = os.getenv("D365FO_TENANT_ID")
+    
+    # Determine startup mode based on available environment variables
+    if not base_url:
+        # Scenario 1: No environment variables - profile-only mode
+        config["startup_mode"] = "profile_only"
+        config["has_base_url"] = False
+        logging.info("Startup mode: profile-only (no D365FO_BASE_URL provided)")
+        
+    elif base_url and not (client_id and client_secret and tenant_id):
+        # Scenario 2: Only base URL - default authentication
+        config["startup_mode"] = "default_auth"
+        config["has_base_url"] = True
         config.setdefault("default_environment", {})["base_url"] = base_url
-
-    if client_id := os.getenv("AZURE_CLIENT_ID"):
-        config.setdefault("default_environment", {})["client_id"] = client_id
-        config["default_environment"]["use_default_credentials"] = False
-
-    if client_secret := os.getenv("AZURE_CLIENT_SECRET"):
-        config.setdefault("default_environment", {})["client_secret"] = client_secret
-
-    if tenant_id := os.getenv("AZURE_TENANT_ID"):
-        config.setdefault("default_environment", {})["tenant_id"] = tenant_id
-
-    # Check if D365FO_BASE_URL is configured for startup behavior
-    config["has_base_url"] = bool(os.getenv("D365FO_BASE_URL"))
+        config["default_environment"]["use_default_credentials"] = True
+        logging.info("Startup mode: default authentication (D365FO_BASE_URL provided)")
+        
+    else:
+        # Scenario 3: Full credentials - client credentials authentication
+        config["startup_mode"] = "client_credentials"
+        config["has_base_url"] = True
+        config.setdefault("default_environment", {}).update({
+            "base_url": base_url,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "tenant_id": tenant_id,
+            "use_default_credentials": False
+        })
+        logging.info("Startup mode: client credentials (full D365FO environment variables provided)")
 
     return config
 

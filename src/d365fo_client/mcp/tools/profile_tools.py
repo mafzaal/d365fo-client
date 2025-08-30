@@ -96,6 +96,81 @@ class ProfileTools:
                         "type": "string",
                         "description": "Azure tenant ID (for client_credentials auth)",
                     },
+                    "credentialSource": {
+                        "type": "object",
+                        "description": "Credential source configuration",
+                        "properties": {
+                            "sourceType": {
+                                "type": "string",
+                                "description": "Type of credential source",
+                                "enum": ["environment", "keyvault"]
+                            },
+                            "clientIdVar": {
+                                "type": "string",
+                                "description": "Environment variable name for client ID (environment source)",
+                                "default": "D365FO_CLIENT_ID"
+                            },
+                            "clientSecretVar": {
+                                "type": "string",
+                                "description": "Environment variable name for client secret (environment source)",
+                                "default": "D365FO_CLIENT_SECRET"
+                            },
+                            "tenantIdVar": {
+                                "type": "string",
+                                "description": "Environment variable name for tenant ID (environment source)",
+                                "default": "D365FO_TENANT_ID"
+                            },
+                            "vaultUrl": {
+                                "type": "string",
+                                "description": "Azure Key Vault URL (keyvault source)"
+                            },
+                            "clientIdSecretName": {
+                                "type": "string",
+                                "description": "Key Vault secret name for client ID (keyvault source)",
+                                "default": "D365FO_CLIENT_ID"
+                            },
+                            "clientSecretSecretName": {
+                                "type": "string",
+                                "description": "Key Vault secret name for client secret (keyvault source)",
+                                "default": "D365FO_CLIENT_SECRET"
+                            },
+                            "tenantIdSecretName": {
+                                "type": "string",
+                                "description": "Key Vault secret name for tenant ID (keyvault source)",
+                                "default": "D365FO_TENANT_ID"
+                            },
+                            "keyvaultAuthMode": {
+                                "type": "string",
+                                "description": "Key Vault authentication mode",
+                                "enum": ["default", "client_secret"],
+                                "default": "default"
+                            },
+                            "keyvaultClientId": {
+                                "type": "string",
+                                "description": "Client ID for Key Vault authentication (client_secret mode)"
+                            },
+                            "keyvaultClientSecret": {
+                                "type": "string",
+                                "description": "Client secret for Key Vault authentication (client_secret mode)"
+                            },
+                            "keyvaultTenantId": {
+                                "type": "string",
+                                "description": "Tenant ID for Key Vault authentication (client_secret mode)"
+                            }
+                        },
+                        "required": ["sourceType"],
+                        "anyOf": [
+                            {
+                                "properties": {"sourceType": {"const": "environment"}},
+                                "additionalProperties": True
+                            },
+                            {
+                                "properties": {"sourceType": {"const": "keyvault"}},
+                                "required": ["vaultUrl"],
+                                "additionalProperties": True
+                            }
+                        ]
+                    },
                     "verifySsl": {
                         "type": "boolean",
                         "description": "Whether to verify SSL certificates",
@@ -163,6 +238,81 @@ class ProfileTools:
                         "description": "Azure client secret",
                     },
                     "tenantId": {"type": "string", "description": "Azure tenant ID"},
+                    "credentialSource": {
+                        "type": "object",
+                        "description": "Credential source configuration",
+                        "properties": {
+                            "sourceType": {
+                                "type": "string",
+                                "description": "Type of credential source",
+                                "enum": ["environment", "keyvault"]
+                            },
+                            "clientIdVar": {
+                                "type": "string",
+                                "description": "Environment variable name for client ID (environment source)",
+                                "default": "D365FO_CLIENT_ID"
+                            },
+                            "clientSecretVar": {
+                                "type": "string",
+                                "description": "Environment variable name for client secret (environment source)",
+                                "default": "D365FO_CLIENT_SECRET"
+                            },
+                            "tenantIdVar": {
+                                "type": "string",
+                                "description": "Environment variable name for tenant ID (environment source)",
+                                "default": "D365FO_TENANT_ID"
+                            },
+                            "vaultUrl": {
+                                "type": "string",
+                                "description": "Azure Key Vault URL (keyvault source)"
+                            },
+                            "clientIdSecretName": {
+                                "type": "string",
+                                "description": "Key Vault secret name for client ID (keyvault source)",
+                                "default": "D365FO_CLIENT_ID"
+                            },
+                            "clientSecretSecretName": {
+                                "type": "string",
+                                "description": "Key Vault secret name for client secret (keyvault source)",
+                                "default": "D365FO_CLIENT_SECRET"
+                            },
+                            "tenantIdSecretName": {
+                                "type": "string",
+                                "description": "Key Vault secret name for tenant ID (keyvault source)",
+                                "default": "D365FO_TENANT_ID"
+                            },
+                            "keyvaultAuthMode": {
+                                "type": "string",
+                                "description": "Key Vault authentication mode",
+                                "enum": ["default", "client_secret"],
+                                "default": "default"
+                            },
+                            "keyvaultClientId": {
+                                "type": "string",
+                                "description": "Client ID for Key Vault authentication (client_secret mode)"
+                            },
+                            "keyvaultClientSecret": {
+                                "type": "string",
+                                "description": "Client secret for Key Vault authentication (client_secret mode)"
+                            },
+                            "keyvaultTenantId": {
+                                "type": "string",
+                                "description": "Tenant ID for Key Vault authentication (client_secret mode)"
+                            }
+                        },
+                        "required": ["sourceType"],
+                        "anyOf": [
+                            {
+                                "properties": {"sourceType": {"const": "environment"}},
+                                "additionalProperties": True
+                            },
+                            {
+                                "properties": {"sourceType": {"const": "keyvault"}},
+                                "required": ["vaultUrl"],
+                                "additionalProperties": True
+                            }
+                        ]
+                    },
                     "verifySsl": {
                         "type": "boolean",
                         "description": "Whether to verify SSL certificates",
@@ -299,6 +449,11 @@ class ProfileTools:
                     "isDefault": default_profile and default_profile.name == name,
                     "description": profile.description,
                 }
+                
+                # Add credential source type if available
+                if profile.credential_source:
+                    profile_info["credentialSourceType"] = profile.credential_source.source_type
+                
                 profile_list.append(profile_info)
 
             response = {
@@ -356,6 +511,37 @@ class ProfileTools:
             if profile.tenant_id:
                 profile_dict["tenantId"] = profile.tenant_id
 
+            # Add credential source information if available
+            if profile.credential_source:
+                cred_source_dict = profile.credential_source.to_dict()
+                # Convert to camelCase for JSON response
+                credential_source = {
+                    "sourceType": cred_source_dict.get("source_type"),
+                }
+                
+                if cred_source_dict.get("source_type") == "environment":
+                    credential_source.update({
+                        "clientIdVar": cred_source_dict.get("client_id_var"),
+                        "clientSecretVar": cred_source_dict.get("client_secret_var"),
+                        "tenantIdVar": cred_source_dict.get("tenant_id_var"),
+                    })
+                elif cred_source_dict.get("source_type") == "keyvault":
+                    credential_source.update({
+                        "vaultUrl": cred_source_dict.get("vault_url"),
+                        "clientIdSecretName": cred_source_dict.get("client_id_secret_name"),
+                        "clientSecretSecretName": cred_source_dict.get("client_secret_secret_name"),
+                        "tenantIdSecretName": cred_source_dict.get("tenant_id_secret_name"),
+                        "keyvaultAuthMode": cred_source_dict.get("keyvault_auth_mode"),
+                    })
+                    # Only include auth details if using client_secret mode
+                    if cred_source_dict.get("keyvault_auth_mode") == "client_secret":
+                        credential_source.update({
+                            "keyvaultClientId": cred_source_dict.get("keyvault_client_id"),
+                            "keyvaultTenantId": cred_source_dict.get("keyvault_tenant_id"),
+                        })
+                
+                profile_dict["credentialSource"] = credential_source
+
             return [TextContent(type="text", text=json.dumps(profile_dict, indent=2))]
 
         except Exception as e:
@@ -393,6 +579,42 @@ class ProfileTools:
             description = arguments.get("description")
             set_as_default = arguments.get("setAsDefault", False)
 
+            # Handle credential source
+            credential_source = None
+            if "credentialSource" in arguments:
+                from ...credential_sources import create_credential_source
+                cred_source_data = arguments["credentialSource"]
+                
+                # Convert camelCase to snake_case for the factory function
+                source_type = cred_source_data["sourceType"]
+                kwargs = {}
+                
+                if source_type == "environment":
+                    if "clientIdVar" in cred_source_data:
+                        kwargs["client_id_var"] = cred_source_data["clientIdVar"]
+                    if "clientSecretVar" in cred_source_data:
+                        kwargs["client_secret_var"] = cred_source_data["clientSecretVar"]
+                    if "tenantIdVar" in cred_source_data:
+                        kwargs["tenant_id_var"] = cred_source_data["tenantIdVar"]
+                elif source_type == "keyvault":
+                    kwargs["vault_url"] = cred_source_data["vaultUrl"]
+                    if "clientIdSecretName" in cred_source_data:
+                        kwargs["client_id_secret_name"] = cred_source_data["clientIdSecretName"]
+                    if "clientSecretSecretName" in cred_source_data:
+                        kwargs["client_secret_secret_name"] = cred_source_data["clientSecretSecretName"]
+                    if "tenantIdSecretName" in cred_source_data:
+                        kwargs["tenant_id_secret_name"] = cred_source_data["tenantIdSecretName"]
+                    if "keyvaultAuthMode" in cred_source_data:
+                        kwargs["keyvault_auth_mode"] = cred_source_data["keyvaultAuthMode"]
+                    if "keyvaultClientId" in cred_source_data:
+                        kwargs["keyvault_client_id"] = cred_source_data["keyvaultClientId"]
+                    if "keyvaultClientSecret" in cred_source_data:
+                        kwargs["keyvault_client_secret"] = cred_source_data["keyvaultClientSecret"]
+                    if "keyvaultTenantId" in cred_source_data:
+                        kwargs["keyvault_tenant_id"] = cred_source_data["keyvaultTenantId"]
+                
+                credential_source = create_credential_source(source_type, **kwargs)
+
             # Create profile
             success = self.profile_manager.create_profile(
                 name=name,
@@ -408,6 +630,7 @@ class ProfileTools:
                 language=language,
                 cache_dir=cache_dir,
                 description=description,
+                credential_source=credential_source,
             )
 
             if not success:
@@ -477,8 +700,44 @@ class ProfileTools:
 
             mapped_params = {}
             for key, value in update_params.items():
-                mapped_key = param_mapping.get(key, key)
-                mapped_params[mapped_key] = value
+                if key == "credentialSource":
+                    # Handle credential source
+                    from ...credential_sources import create_credential_source
+                    cred_source_data = value
+                    
+                    # Convert camelCase to snake_case for the factory function
+                    source_type = cred_source_data["sourceType"]
+                    kwargs = {}
+                    
+                    if source_type == "environment":
+                        if "clientIdVar" in cred_source_data:
+                            kwargs["client_id_var"] = cred_source_data["clientIdVar"]
+                        if "clientSecretVar" in cred_source_data:
+                            kwargs["client_secret_var"] = cred_source_data["clientSecretVar"]
+                        if "tenantIdVar" in cred_source_data:
+                            kwargs["tenant_id_var"] = cred_source_data["tenantIdVar"]
+                    elif source_type == "keyvault":
+                        kwargs["vault_url"] = cred_source_data["vaultUrl"]
+                        if "clientIdSecretName" in cred_source_data:
+                            kwargs["client_id_secret_name"] = cred_source_data["clientIdSecretName"]
+                        if "clientSecretSecretName" in cred_source_data:
+                            kwargs["client_secret_secret_name"] = cred_source_data["clientSecretSecretName"]
+                        if "tenantIdSecretName" in cred_source_data:
+                            kwargs["tenant_id_secret_name"] = cred_source_data["tenantIdSecretName"]
+                        if "keyvaultAuthMode" in cred_source_data:
+                            kwargs["keyvault_auth_mode"] = cred_source_data["keyvaultAuthMode"]
+                        if "keyvaultClientId" in cred_source_data:
+                            kwargs["keyvault_client_id"] = cred_source_data["keyvaultClientId"]
+                        if "keyvaultClientSecret" in cred_source_data:
+                            kwargs["keyvault_client_secret"] = cred_source_data["keyvaultClientSecret"]
+                        if "keyvaultTenantId" in cred_source_data:
+                            kwargs["keyvault_tenant_id"] = cred_source_data["keyvaultTenantId"]
+                    
+                    credential_source = create_credential_source(source_type, **kwargs)
+                    mapped_params["credential_source"] = credential_source
+                else:
+                    mapped_key = param_mapping.get(key, key)
+                    mapped_params[mapped_key] = value
 
             success = self.profile_manager.update_profile(name, **mapped_params)
 
