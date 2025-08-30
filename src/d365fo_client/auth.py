@@ -43,10 +43,10 @@ class AuthenticationManager:
             except Exception as e:
                 raise ValueError(f"Failed to setup credentials from source: {e}")
         
+        
         # Fallback to existing logic for backward compatibility
-        if self.config.use_default_credentials:
-            self.credential = DefaultAzureCredential()
-        elif (
+  
+        if (
             self.config.client_id
             and self.config.client_secret
             and self.config.tenant_id
@@ -56,6 +56,8 @@ class AuthenticationManager:
                 client_id=self.config.client_id,
                 client_secret=self.config.client_secret,
             )
+        elif self.config.use_default_credentials:
+            self.credential = DefaultAzureCredential()
         else:
             raise ValueError(
                 "Must provide either use_default_credentials=True, client credentials, or credential_source"

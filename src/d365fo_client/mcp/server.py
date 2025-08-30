@@ -358,24 +358,34 @@ class D365FOMCPServer:
     async def _startup_initialization(self):
         """Perform startup initialization based on configuration."""
         try:
-            # Check if D365FO_BASE_URL is configured
-            has_base_url = self.config.get("has_base_url", False)
+            startup_mode = self.config.get("startup_mode", "profile_only")
             
-            if has_base_url:
-                logger.info("D365FO_BASE_URL environment variable detected - performing health checks and profile setup")
+            if startup_mode == "profile_only":
+                logger.info("Server started in profile-only mode")
+                logger.info("No environment variables configured - use profile management tools to configure D365FO connections")
                 
-                # Perform health checks
+            elif startup_mode == "default_auth":
+                logger.info("Server started with default authentication mode")
+                logger.info("D365FO_BASE_URL configured - performing health checks and creating default profile with default auth")
+                
+                # Perform health checks and create default profile
                 await self._startup_health_checks()
-                
-                # Create default profile if environment variables are configured
                 await self._create_default_profile_if_needed()
+                
+            elif startup_mode == "client_credentials":
+                logger.info("Server started with client credentials authentication mode")
+                logger.info("Full D365FO environment variables configured - performing health checks and creating default profile with client credentials")
+                
+                # Perform health checks and create default profile
+                await self._startup_health_checks()
+                await self._create_default_profile_if_needed()
+                
             else:
-                logger.info("D365FO_BASE_URL not configured - server started in profile-only mode")
-                logger.info("Use profile management tools to configure D365FO connections")
+                logger.warning(f"Unknown startup mode: {startup_mode}")
 
         except Exception as e:
             logger.error(f"Startup initialization failed: {e}")
-            # Don't fail startup on initialization failures
+            # Don't fail startup on initialization failures - allow server to start in profile-only mode
 
     async def _create_default_profile_if_needed(self):
         """Create a default profile from environment variables if needed."""
@@ -386,20 +396,30 @@ class D365FOMCPServer:
                 logger.info(f"Default profile already exists: {existing_default.name}")
                 return
 
-            # Get environment variables
+            # Get environment variables with correct names
             base_url = os.getenv("D365FO_BASE_URL")
-            client_id = os.getenv("AZURE_CLIENT_ID")
-            client_secret = os.getenv("AZURE_CLIENT_SECRET")
-            tenant_id = os.getenv("AZURE_TENANT_ID")
+            client_id = os.getenv("D365FO_CLIENT_ID")
+            client_secret = os.getenv("D365FO_CLIENT_SECRET")
+            tenant_id = os.getenv("D365FO_TENANT_ID")
 
             if not base_url:
                 logger.warning("Cannot create default profile - D365FO_BASE_URL not set")
                 return
 
-            # Determine authentication mode
-            auth_mode = "default"
-            if client_id and client_secret and tenant_id:
+            # Determine authentication mode based on startup mode
+            startup_mode = self.config.get("startup_mode", "profile_only")
+            
+            if startup_mode == "client_credentials":
                 auth_mode = "client_credentials"
+                if not all([client_id, client_secret, tenant_id]):
+                    logger.error("Client credentials mode requires D365FO_CLIENT_ID, D365FO_CLIENT_SECRET, and D365FO_TENANT_ID")
+                    return
+            else:
+                auth_mode = "default"
+                # Clear client credentials for default auth mode
+                client_id = None
+                client_secret = None
+                tenant_id = None
 
             # Create default profile with unique name
             profile_name = "default-from-env"
@@ -418,7 +438,7 @@ class D365FOMCPServer:
                 client_id=client_id,
                 client_secret=client_secret,
                 tenant_id=tenant_id,
-                description="Auto-created from environment variables at startup",
+                description=f"Auto-created from environment variables at startup (mode: {startup_mode})",
                 use_label_cache=True,
                 timeout=60,
                 verify_ssl=True
@@ -430,6 +450,11 @@ class D365FOMCPServer:
                 logger.info(f"Created and set default profile: {profile_name}")
                 logger.info(f"Profile configured for: {base_url}")
                 logger.info(f"Authentication mode: {auth_mode}")
+                
+                if auth_mode == "client_credentials":
+                    logger.info(f"Client ID: {client_id}")
+                    logger.info(f"Tenant ID: {tenant_id}")
+                    
             else:
                 logger.warning(f"Failed to create default profile: {profile_name}")
 
