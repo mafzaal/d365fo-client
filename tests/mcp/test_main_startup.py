@@ -249,9 +249,9 @@ class TestCreateDefaultProfile:
                     call_args = mock_profile_manager.create_profile.call_args
                     assert call_args.kwargs["auth_mode"] == "client_credentials"
                     assert call_args.kwargs["base_url"] == "https://test.dynamics.com"
-                    assert call_args.kwargs["client_id"] == "test-client-id"
-                    assert call_args.kwargs["client_secret"] == "test-client-secret"
-                    assert call_args.kwargs["tenant_id"] == "test-tenant-id"
+                    assert call_args.kwargs["credential_source"].client_id_var == "D365FO_CLIENT_ID"
+                    assert call_args.kwargs["credential_source"].client_secret_var == "D365FO_CLIENT_SECRET"
+                    assert call_args.kwargs["credential_source"].tenant_id_var == "D365FO_TENANT_ID"
 
     @pytest.mark.asyncio
     async def test_create_default_profile_skips_if_exists(self):
