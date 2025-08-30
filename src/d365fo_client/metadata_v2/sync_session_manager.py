@@ -257,6 +257,9 @@ class SyncSessionManager:
             activity.items_total = len(entities) if entities else 0
 
             if entities:
+                # Collect label IDs from all entities
+                self._collect_label_ids_from_entities(session, entities)
+                
                 for i, entity in enumerate(entities):
                     activity.current_item = f"Processing {entity.name}"
                     activity.items_processed = i + 1
@@ -292,6 +295,9 @@ class SyncSessionManager:
             action_count = 0
 
             if public_entities:
+                # Collect label IDs from all public entities and their fields/actions
+                self._collect_label_ids_from_public_entities(session, public_entities)
+                
                 for i, entity in enumerate(public_entities):
                     activity.current_item = f"Processing schema for {entity.name}"
                     activity.items_processed = i + 1
@@ -328,6 +334,9 @@ class SyncSessionManager:
             activity.items_total = len(enumerations) if enumerations else 0
 
             if enumerations:
+                # Collect label IDs from all enumerations and their members
+                self._collect_label_ids_from_enumerations(session, enumerations)
+                
                 await self.cache.store_enumerations(session.global_version_id, enumerations)
                 activity.items_processed = len(enumerations)
                 activity.progress_percent = 100.0
@@ -343,38 +352,63 @@ class SyncSessionManager:
 
     async def _sync_labels_with_progress(self, session: SyncSession):
         """Sync labels with detailed progress reporting"""
+
+        if not self.metadata_api.label_ops:
+            logger.info("Label operations not available, skipping label sync")
+            await self._complete_phase(session, SyncPhase.LABELS)
+            return
+
         phase = SyncPhase.LABELS
         await self._update_phase_progress(session, phase, SyncStatus.RUNNING)
 
         activity = session.phases[phase]
-        activity.current_item = "Syncing common labels..."
+        activity.current_item = "Processing collected labels..."
         self._notify_progress(session.session_id)
 
         try:
-            # Get previously synced data for label extraction
-            entities_activity = session.phases.get(SyncPhase.ENTITIES)
-            schemas_activity = session.phases.get(SyncPhase.SCHEMAS) 
-            enums_activity = session.phases.get(SyncPhase.ENUMERATIONS)
+            # Use collected label IDs from previous phases
+            label_ids = list(session.collected_label_ids)
+            activity.items_total = len(label_ids)
+            
+            logger.info(f"Processing {len(label_ids)} collected label IDs for version {session.global_version_id}")
 
-            # For progress estimation, assume we'll cache some labels
-            activity.items_total = 100  # Estimate
+            label_count = 0
+            if label_ids:
+                # Process labels in batches for better progress reporting
+                batch_size = 50
+                for i in range(0, len(label_ids), batch_size):
+                    labels_to_cache = []
+                    batch = label_ids[i:i + batch_size]
+                    
+                    activity.current_item = f"Fetching labels {i+1}-{min(i+batch_size, len(label_ids))} of {len(label_ids)}"
+                    self._notify_progress(session.session_id)
+                    
+                    # Fetch and store this batch of labels using label operations
+                    label_texts = await self.metadata_api.label_ops.get_labels_batch(batch)
 
-            # Get synced data
-            entities = await self.cache.get_data_entities(session.global_version_id)
-            public_entities = await self.cache.get_public_entities(session.global_version_id)
-            enumerations = await self.cache.get_enumerations(session.global_version_id)
+                    for label_id, label_text in label_texts.items():
+                        if label_text:  # Only cache labels that have actual text
+                            labels_to_cache.append(
+                                LabelInfo(id=label_id, language="en-US", value=label_text)
+                            )
+                            label_count += 1
 
-            # Sync common labels using the existing method
-            label_count = await self._sync_common_labels(
-                session.global_version_id,
-                entities,
-                public_entities,
-                enumerations,
-            )
+                    # Batch cache labels
+                    if labels_to_cache:
+                        await self.cache.set_labels_batch(
+                            labels_to_cache, session.global_version_id
+                        )
+                   
+                    # Update progress
+                    activity.items_processed = min(i + batch_size, len(label_ids))
+                    activity.progress_percent = (activity.items_processed / len(label_ids)) * 100
+                    self._notify_progress(session.session_id)
+            else:
+                logger.info(f"No label IDs collected for version {session.global_version_id}")
+                activity.items_processed = 0
+                activity.progress_percent = 100.0
 
-            activity.items_processed = label_count
-            activity.progress_percent = 100.0
-            self._notify_progress(session.session_id)
+            logger.info(f"Successfully synced {label_count} labels from {len(label_ids)} collected label IDs")
             await self._complete_phase(session, phase)
 
         except Exception as e:
@@ -575,6 +609,35 @@ class SyncSessionManager:
             # Clean up callbacks
             self._progress_callbacks.pop(session_id, None)
 
+    def _collect_label_id(self, session: SyncSession, label_id: Optional[str]):
+        """Collect a label ID for later processing if it's valid"""
+        if label_id and label_id.startswith("@"):
+            session.collected_label_ids.add(label_id)
+
+    def _collect_label_ids_from_entities(self, session: SyncSession, entities: List[DataEntityInfo]):
+        """Collect label IDs from data entities"""
+        for entity in entities:
+            self._collect_label_id(session, entity.label_id)
+
+    def _collect_label_ids_from_public_entities(self, session: SyncSession, public_entities: List[PublicEntityInfo]):
+        """Collect label IDs from public entities and their fields/actions"""
+        for entity in public_entities:
+            self._collect_label_id(session, entity.label_id)
+            
+            # Collect from properties
+            for property in entity.properties:
+                self._collect_label_id(session, property.label_id)
+           
+
+    def _collect_label_ids_from_enumerations(self, session: SyncSession, enumerations: List[EnumerationInfo]):
+        """Collect label IDs from enumerations and their members"""
+        for enum in enumerations:
+            self._collect_label_id(session, enum.label_id)
+            
+            # Collect from members
+            for member in enum.members:
+                self._collect_label_id(session, member.label_id)
+
     # Delegate to metadata API operations and cache methods
     async def _get_data_entities(self) -> List[DataEntityInfo]:
         """Get data entities using MetadataAPIOperations"""
@@ -627,12 +690,9 @@ class SyncSessionManager:
             for entity in public_entities:
                 if entity.label_id:
                     label_ids.add(entity.label_id)
-                for field in entity.fields:
-                    if field.label_id:
-                        label_ids.add(field.label_id)
-                for action in entity.actions:
-                    if action.label_id:
-                        label_ids.add(action.label_id)
+                for property in entity.properties:
+                    if property.label_id:
+                        label_ids.add(property.label_id)
             
             # From enumerations
             for enum in enumerations:

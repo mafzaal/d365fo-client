@@ -84,7 +84,7 @@ async def test_sync_entities_count():
                 logger.info(f"Sync session progress: {sync_session.progress_percent}%")
                 await asyncio.sleep(5)
                 sync_session = client.sync_session_manager.get_sync_session(session_id)
-                if sync_session.status in ["completed", "failed", "canceled"]:
+                if sync_session is None or sync_session.status in ["completed", "failed", "canceled"]:
                     break
 
             logger.info("Sync session completed successfully.")

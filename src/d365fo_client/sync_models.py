@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Dict, List, Optional, Callable
+from typing import Dict, List, Optional, Callable, Set
 
 from .models import SyncStrategy, SyncResult
 
@@ -89,6 +89,9 @@ class SyncSession:
     # Metadata
     initiated_by: str = "system"  # user, system, scheduled, mcp
     can_cancel: bool = True
+    
+    # Collected label IDs during sync for efficient label processing
+    collected_label_ids: Set[str] = field(default_factory=set)
     
     def get_overall_progress(self) -> float:
         """Calculate overall progress across all phases"""
