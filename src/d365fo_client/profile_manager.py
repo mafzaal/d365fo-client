@@ -97,6 +97,7 @@ class ProfileManager:
             language: Default language code
             cache_dir: Cache directory path
             description: Profile description (stored separately from CLI profile)
+            credential_source: Credential source configuration
 
         Returns:
             True if created successfully
