@@ -30,16 +30,16 @@ class CredentialSource:
         
         if source_type == "environment":
             return EnvironmentCredentialSource(
-                client_id_var=data.get("client_id_var", "AZURE_CLIENT_ID"),
-                client_secret_var=data.get("client_secret_var", "AZURE_CLIENT_SECRET"),
-                tenant_id_var=data.get("tenant_id_var", "AZURE_TENANT_ID")
+                client_id_var=data.get("client_id_var", "D365FO_CLIENT_ID"),
+                client_secret_var=data.get("client_secret_var", "D365FO_CLIENT_SECRET"),
+                tenant_id_var=data.get("tenant_id_var", "D365FO_TENANT_ID")
             )
         elif source_type == "keyvault":
             return KeyVaultCredentialSource(
                 vault_url=data.get("vault_url", ""),
-                client_id_secret_name=data.get("client_id_secret_name", ""),
-                client_secret_secret_name=data.get("client_secret_secret_name", ""),
-                tenant_id_secret_name=data.get("tenant_id_secret_name", ""),
+                client_id_secret_name=data.get("client_id_secret_name", "D365FO_CLIENT_ID"),
+                client_secret_secret_name=data.get("client_secret_secret_name", "D365FO_CLIENT_SECRET"),
+                tenant_id_secret_name=data.get("tenant_id_secret_name", "D365FO_TENANT_ID"),
                 keyvault_auth_mode=data.get("keyvault_auth_mode", "default"),
                 keyvault_client_id=data.get("keyvault_client_id"),
                 keyvault_client_secret=data.get("keyvault_client_secret"),
@@ -53,13 +53,13 @@ class CredentialSource:
 class EnvironmentCredentialSource(CredentialSource):
     """Environment variable credential source."""
     
-    client_id_var: str = "AZURE_CLIENT_ID"
-    client_secret_var: str = "AZURE_CLIENT_SECRET" 
-    tenant_id_var: str = "AZURE_TENANT_ID"
-    
-    def __init__(self, client_id_var: str = "AZURE_CLIENT_ID", 
-                 client_secret_var: str = "AZURE_CLIENT_SECRET",
-                 tenant_id_var: str = "AZURE_TENANT_ID"):
+    client_id_var: str = "D365FO_CLIENT_ID"
+    client_secret_var: str = "D365FO_CLIENT_SECRET"
+    tenant_id_var: str = "D365FO_TENANT_ID"
+
+    def __init__(self, client_id_var: str = "D365FO_CLIENT_ID",
+                 client_secret_var: str = "D365FO_CLIENT_SECRET",
+                 tenant_id_var: str = "D365FO_TENANT_ID"):
         """Initialize environment credential source."""
         super().__init__(source_type="environment")
         self.client_id_var = client_id_var

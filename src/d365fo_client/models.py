@@ -81,6 +81,7 @@ class FOClientConfig:
     """Configuration for F&O Client"""
 
     base_url: str
+    auth_mode: Optional[str] = "defaut" # default | client_credentials
     client_id: Optional[str] = None
     client_secret: Optional[str] = None
     tenant_id: Optional[str] = None

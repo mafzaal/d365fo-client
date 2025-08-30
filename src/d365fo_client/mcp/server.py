@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional
 from mcp import GetPromptResult, Resource, Tool
 from mcp.server import InitializationOptions, Server
 
+from d365fo_client.credential_sources import CredentialSource, EnvironmentCredentialSource
+
 from .. import __version__
 from ..profile_manager import ProfileManager
 from mcp.server.lowlevel.server import NotificationOptions
@@ -431,17 +433,22 @@ class D365FOMCPServer:
                 self.profile_manager.set_default_profile(profile_name)
                 return
 
+            credential_source = None
+            if startup_mode == "client_credentials":
+                credential_source = EnvironmentCredentialSource()
+
             success = self.profile_manager.create_profile(
                 name=profile_name,
                 base_url=base_url,
                 auth_mode=auth_mode,
-                client_id=client_id,
-                client_secret=client_secret,
-                tenant_id=tenant_id,
+                client_id=None, #use from env var
+                client_secret=None, #use from env var
+                tenant_id=None, #use from env var
                 description=f"Auto-created from environment variables at startup (mode: {startup_mode})",
                 use_label_cache=True,
                 timeout=60,
-                verify_ssl=True
+                verify_ssl=True,
+                credential_source=credential_source
             )
 
             if success:

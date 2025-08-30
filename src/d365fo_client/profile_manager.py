@@ -7,13 +7,15 @@ import logging
 import os
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import yaml
 
 from .config import ConfigManager
 from .models import FOClientConfig
 from .profiles import Profile
+if TYPE_CHECKING:
+    from .credential_sources import CredentialSource
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +78,8 @@ class ProfileManager:
         language: str = "en-US",
         cache_dir: Optional[str] = None,
         description: Optional[str] = None,
+        credential_source: Optional["CredentialSource"] = None
+
     ) -> bool:
         """Create a new profile.
 
@@ -120,6 +124,7 @@ class ProfileManager:
                 cache_dir=cache_dir,
                 description=description,
                 output_format="table",  # Default for CLI compatibility
+                credential_source=credential_source
             )
 
             self.config_manager.save_profile(profile)

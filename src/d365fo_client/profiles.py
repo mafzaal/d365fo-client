@@ -47,6 +47,7 @@ class Profile:
 
         return FOClientConfig(
             base_url=self.base_url,
+            auth_mode=self.auth_mode,
             client_id=self.client_id,
             client_secret=self.client_secret,
             tenant_id=self.tenant_id,
