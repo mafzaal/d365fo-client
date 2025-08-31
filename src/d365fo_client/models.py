@@ -66,7 +66,10 @@ class SyncStrategy(StrEnum):
     FULL = "full"
     INCREMENTAL = "incremental"
     ENTITIES_ONLY = "entities_only"
+    LABELS_ONLY = "labels_only"
     SHARING_MODE = "sharing_mode"
+    FULL_WITHOUT_LABELS = "full_without_labels"
+
 
 
 class Cardinality(StrEnum):
@@ -742,9 +745,9 @@ class GlobalVersionInfo:
     first_seen_at: datetime
     last_used_at: datetime
     reference_count: int
-    sample_modules: List[ModuleVersionInfo] = field(
+    modules: List[ModuleVersionInfo] = field(
         default_factory=list
-    )  # Sample for debugging
+    )  # Modules for debugging
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
@@ -755,7 +758,7 @@ class GlobalVersionInfo:
             "first_seen_at": self.first_seen_at.isoformat(),
             "last_used_at": self.last_used_at.isoformat(),
             "reference_count": self.reference_count,
-            "sample_modules": [module.to_dict() for module in self.sample_modules],
+            "modules": [module.to_dict() for module in self.modules],
         }
 
 
@@ -873,3 +876,15 @@ class SyncResult:
     action_count: int
     enumeration_count: int
     label_count: int
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            "success": self.success,
+            "error": self.error,
+            "duration_ms": self.duration_ms,
+            "entity_count": self.entity_count,
+            "action_count": self.action_count,
+            "enumeration_count": self.enumeration_count,
+            "label_count": self.label_count
+        }

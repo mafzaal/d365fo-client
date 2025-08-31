@@ -170,9 +170,9 @@ Examples:
 Environment Variables:
   D365FO_SANDBOX_BASE_URL    - URL for sandbox environment
   D365FO_LIVE_BASE_URL       - URL for live environment
-  AZURE_CLIENT_ID            - Azure AD client ID
-  AZURE_CLIENT_SECRET        - Azure AD client secret
-  AZURE_TENANT_ID            - Azure AD tenant ID
+  D365FO_CLIENT_ID            - Azure AD client ID
+  D365FO_CLIENT_SECRET        - Azure AD client secret
+  D365FO_TENANT_ID            - Azure AD tenant ID
         """,
     )
 

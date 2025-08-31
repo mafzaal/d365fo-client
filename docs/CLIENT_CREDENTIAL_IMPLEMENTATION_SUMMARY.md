@@ -87,9 +87,9 @@ azure-keyvault-secrets = ">=4.8.0"
 ### 1. Environment Variable Credentials
 ```python
 env_source = EnvironmentCredentialSource(
-    client_id_var="AZURE_CLIENT_ID",
-    client_secret_var="AZURE_CLIENT_SECRET",
-    tenant_id_var="AZURE_TENANT_ID"
+    client_id_var="D365FO_CLIENT_ID",
+    client_secret_var="D365FO_CLIENT_SECRET",
+    tenant_id_var="D365FO_TENANT_ID"
 )
 ```
 

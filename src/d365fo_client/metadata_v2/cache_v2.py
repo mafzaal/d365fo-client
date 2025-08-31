@@ -213,17 +213,19 @@ class MetadataCacheV2:
             entities: List of data entity information
         """
         async with aiosqlite.connect(self.db_path) as db:
-            # Clear existing entities for this version
-            await db.execute(
-                "DELETE FROM data_entities WHERE global_version_id = ?",
-                (global_version_id,),
-            )
+            
 
             # Insert new entities with label processing
             for entity in entities:
                 # Process label fallback for this entity
                 processed_label_text = process_label_fallback(entity.label_id, entity.label_text)
-                
+
+                # Clear existing entity for this version
+                await db.execute(
+                    "DELETE FROM data_entities WHERE global_version_id = ? and name = ?",
+                    (global_version_id, entity.name,),
+                )
+                    
                 await db.execute(
                     """INSERT INTO data_entities
                        (global_version_id, name, public_entity_name, public_collection_name,
@@ -245,7 +247,7 @@ class MetadataCacheV2:
                 )
 
             await db.commit()
-            logger.info(
+            logger.debug(
                 f"Stored {len(entities)} data entities for version {global_version_id}"
             )
 
@@ -1357,7 +1359,7 @@ class MetadataCacheV2:
             )
             await db.commit()
 
-        logger.info(
+        logger.debug(
             f"Batch cached {len(labels)} labels for version {global_version_id}"
         )
 
@@ -1522,7 +1524,7 @@ class MetadataCacheV2:
                 stats["current_version"] = {
                     "global_version_id": version_info.id,
                     "version_hash": version_info.version_hash,
-                    "modules_count": len(version_info.sample_modules),
+                    "modules_count": len(version_info.modules),
                     "reference_count": version_info.reference_count,
                 }
 

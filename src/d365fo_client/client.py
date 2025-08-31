@@ -11,6 +11,7 @@ from .exceptions import FOClientError
 from .labels import LabelOperations, resolve_labels_generic
 from .metadata_api import MetadataAPIOperations
 from .metadata_v2 import MetadataCacheV2, SmartSyncManagerV2
+from .metadata_v2.sync_session_manager import SyncSessionManager
 from .models import (
     ActionInfo,
     DataEntityInfo,
@@ -58,6 +59,7 @@ class FOClient:
         # Initialize new metadata cache and sync components
         self.metadata_cache = None
         self.sync_manager = None
+        self._sync_session_manager = None
         self._metadata_initialized = False
         self._background_sync_task = None
 
@@ -83,6 +85,10 @@ class FOClient:
 
         await self.session_manager.close()
 
+    
+    async def initialize_metadata(self):
+        await self._ensure_metadata_initialized()
+
     async def _ensure_metadata_initialized(self):
         """Ensure metadata cache and sync manager are initialized"""
         if not self._metadata_initialized and self.config.enable_metadata_cache:
@@ -103,6 +109,9 @@ class FOClient:
                 self.sync_manager = SmartSyncManagerV2(
                     self.metadata_cache, self.metadata_api_ops
                 )
+
+                # Initialize sync message with session
+                self._sync_session_manager = SyncSessionManager(self.metadata_cache, self.metadata_api_ops)
 
                 self._metadata_initialized = True
                 self.logger.debug("Metadata cache v2 with label caching initialized")
@@ -144,18 +153,9 @@ class FOClient:
                 f"Starting background metadata sync for version {global_version_id}"
             )
 
-            # Use self as the fo_client for sync - SmartSyncManagerV2 expects a client with metadata API operations
-            result = await self.sync_manager.sync_metadata(global_version_id)
-
-            if result.success:
-                self.logger.info(
-                    f"Background sync completed: "
-                    f"{result.entity_count} entities, "
-                    f"{result.enumeration_count} enumerations, "
-                    f"{result.duration_ms:.2f}ms"
-                )
-            else:
-                self.logger.warning(f"Background sync failed: {result.error}")
+ 
+            self.sync_session_manager.start_sync_session(global_version_id=global_version_id,initiated_by="background_task")
+            
 
         except Exception as e:
             self.logger.error(f"Background sync error: {e}")
@@ -171,6 +171,27 @@ class FOClient:
             self._background_sync_task is not None
             and not self._background_sync_task.done()
         )
+
+    @property
+    def sync_session_manager(self) -> SyncSessionManager:
+        """Get sync session manager (lazy initialization).
+        
+        Returns:
+            SyncSessionManager instance for enhanced sync progress tracking
+            
+        Raises:
+            RuntimeError: If metadata cache is not initialized
+        """
+        if self._sync_session_manager is None:
+            if not self.metadata_cache:
+                raise RuntimeError("Metadata cache must be initialized before accessing sync session manager")
+            
+            self._sync_session_manager = SyncSessionManager(
+                cache=self.metadata_cache,
+                metadata_api=self.metadata_api_ops
+            )
+        
+        return self._sync_session_manager
 
     async def _get_from_cache_first(
         self,
@@ -687,17 +708,16 @@ class FOClient:
 
     async def get_data_entities(
         self, options: Optional[QueryOptions] = None
-    ) -> List[DataEntityInfo]:
-        """Get data entities - updated to return list for v2 sync compatibility
+    ) -> Dict[str, Any]:
+        """Get data entities from DataEntities metadata endpoint
 
         Args:
-            options: OData query options (ignored for now)
+            options: OData query options
 
         Returns:
-            List of DataEntityInfo objects
+            Response containing data entities
         """
-        # For sync manager compatibility, return list of DataEntityInfo objects
-        return await self.metadata_api_ops.search_data_entities("")  # Get all entities
+        return await self.metadata_api_ops.get_data_entities(options)
 
     async def get_data_entities_raw(
         self, options: Optional[QueryOptions] = None
@@ -934,7 +954,7 @@ class FOClient:
         Returns:
             Response containing public enumerations
         """
-        self._ensure_metadata_initialized()
+        await self._ensure_metadata_initialized()
 
         return await self.metadata_api_ops.get_public_enumerations(options)
 
@@ -1188,7 +1208,7 @@ class FOClient:
                     "advanced_cache_enabled": True,
                     "cache_v2_enabled": True,
                     "cache_initialized": self._metadata_initialized,
-                    "sync_manager_available": self.sync_manager is not None,
+                    "sync_manager_available": self.sync_manager is not None or self._sync_session_manager is not None,
                     "background_sync_running": self._is_background_sync_running(),
                     "statistics": stats,
                 }

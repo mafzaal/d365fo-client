@@ -89,9 +89,9 @@ d365fo-mcp-server
 #### Environment Configuration
 ```bash
 export D365FO_BASE_URL="https://your-env.dynamics.com"
-export AZURE_CLIENT_ID="optional-with-default-creds"
-export AZURE_CLIENT_SECRET="optional-with-default-creds"
-export AZURE_TENANT_ID="optional-with-default-creds"
+export D365FO_CLIENT_ID="optional-with-default-creds"
+export D365FO_CLIENT_SECRET="optional-with-default-creds"
+export D365FO_TENANT_ID="optional-with-default-creds"
 ```
 
 #### Programmatic Usage

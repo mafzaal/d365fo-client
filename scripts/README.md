@@ -34,9 +34,9 @@ Set these environment variables or use command-line parameters:
 export D365FO_BASE_URL="https://your-environment.dynamics.com"
 
 # Optional (for explicit authentication)
-export AZURE_CLIENT_ID="your-client-id"
-export AZURE_CLIENT_SECRET="your-client-secret"  
-export AZURE_TENANT_ID="your-tenant-id"
+export D365FO_CLIENT_ID="your-client-id"
+export D365FO_CLIENT_SECRET="your-client-secret"  
+export D365FO_TENANT_ID="your-tenant-id"
 ```
 
 ### Authentication

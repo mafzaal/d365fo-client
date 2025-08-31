@@ -33,7 +33,7 @@ async def example_environment_credentials():
     print(f"Custom environment source: {custom_env_source.to_dict()}")
     
     # Test credential retrieval (requires environment variables to be set)
-    if all(os.getenv(var) for var in ["AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_TENANT_ID"]):
+    if all(os.getenv(var) for var in ["D365FO_CLIENT_ID", "D365FO_CLIENT_SECRET", "D365FO_TENANT_ID"]):
         credential_manager = CredentialManager()
         try:
             client_id, client_secret, tenant_id = await credential_manager.get_credentials(env_source)
@@ -114,7 +114,7 @@ async def example_credential_caching():
     # Create a credential source
     source = EnvironmentCredentialSource()
     
-    if all(os.getenv(var) for var in ["AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET", "AZURE_TENANT_ID"]):
+    if all(os.getenv(var) for var in ["D365FO_CLIENT_ID", "D365FO_CLIENT_SECRET", "D365FO_TENANT_ID"]):
         try:
             # First retrieval - will fetch from source
             print("First credential retrieval (from source)...")
@@ -190,7 +190,7 @@ async def main():
     print("\n" + "=" * 50)
     print("Example completed successfully!")
     print("\nNext Steps:")
-    print("1. Set environment variables (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID)")
+    print("1. Set environment variables (D365FO_CLIENT_ID, D365FO_CLIENT_SECRET, D365FO_TENANT_ID)")
     print("2. Configure Azure Key Vault with appropriate secrets")
     print("3. Use credential sources in your D365FO client configuration")
 

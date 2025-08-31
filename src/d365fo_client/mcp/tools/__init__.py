@@ -6,6 +6,7 @@ from .database_tools import DatabaseTools
 from .label_tools import LabelTools
 from .metadata_tools import MetadataTools
 from .profile_tools import ProfileTools
+from .sync_tools import SyncTools
 
 __all__ = [
     "ConnectionTools",
@@ -14,4 +15,5 @@ __all__ = [
     "LabelTools",
     "ProfileTools",
     "DatabaseTools",
+    "SyncTools",
 ]

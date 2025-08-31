@@ -16,9 +16,9 @@ Usage:
 
 Environment Variables:
     D365FO_BASE_URL: Base URL of your D365 F&O environment
-    AZURE_CLIENT_ID: Azure AD Client ID (if not using default credentials)
-    AZURE_CLIENT_SECRET: Azure AD Client Secret (if not using default credentials)
-    AZURE_TENANT_ID: Azure AD Tenant ID (if not using default credentials)
+    D365FO_CLIENT_ID: Azure AD Client ID (if not using default credentials)
+    D365FO_CLIENT_SECRET: Azure AD Client Secret (if not using default credentials)
+    D365FO_TENANT_ID: Azure AD Tenant ID (if not using default credentials)
 """
 
 import asyncio

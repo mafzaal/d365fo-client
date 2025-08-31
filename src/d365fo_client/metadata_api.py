@@ -360,6 +360,73 @@ class MetadataAPIOperations:
 
         return entities
 
+    async def get_all_data_entities(self) -> List[DataEntityInfo]:
+        """Get all data entities without pagination limits
+
+        Returns:
+            List of all data entities
+        """
+        try:
+            # Use the search method without any filters to get all entities
+            # We could also use get_data_entities() with no top limit, but search handles pagination better
+            entities = []
+            
+            # Get all entities by calling the raw endpoint with no top limit
+            options = QueryOptions()
+            options.select = [
+                "Name",
+                "PublicEntityName", 
+                "PublicCollectionName",
+                "LabelId",
+                "DataServiceEnabled",
+                "DataManagementEnabled",
+                "EntityCategory",
+                "IsReadOnly"
+            ]
+            
+            data = await self.get_data_entities(options)
+            
+            for item in data.get("value", []):
+                # Convert entity category string to enum
+                entity_category_str = item.get("EntityCategory")
+                entity_category = None
+                if entity_category_str:
+                    try:
+                        # Try to map the string to the enum
+                        if entity_category_str == "Master":
+                            entity_category = EntityCategory.MASTER
+                        elif entity_category_str == "Transaction":
+                            entity_category = EntityCategory.TRANSACTION
+                        elif entity_category_str == "Configuration":
+                            entity_category = EntityCategory.CONFIGURATION
+                        elif entity_category_str == "Reference":
+                            entity_category = EntityCategory.REFERENCE
+                        elif entity_category_str == "Document":
+                            entity_category = EntityCategory.DOCUMENT
+                        elif entity_category_str == "Parameters":
+                            entity_category = EntityCategory.PARAMETERS
+                        # If no match, leave as None
+                    except Exception:
+                        entity_category = None
+                
+                entity = DataEntityInfo(
+                    name=item.get("Name", ""),
+                    public_entity_name=item.get("PublicEntityName", ""),
+                    public_collection_name=item.get("PublicCollectionName", ""),
+                    label_id=item.get("LabelId"),
+                    data_service_enabled=item.get("DataServiceEnabled", False),
+                    data_management_enabled=item.get("DataManagementEnabled", False),
+                    entity_category=entity_category,
+                    is_read_only=item.get("IsReadOnly", False),
+                )
+                entities.append(entity)
+            
+            return entities
+            
+        except Exception as e:
+            logger.error(f"Error getting all data entities: {e}")
+            raise
+
     async def get_data_entity_info(
         self, entity_name: str, resolve_labels: bool = True, language: str = "en-US"
     ) -> Optional[DataEntityInfo]:

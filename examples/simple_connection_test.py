@@ -12,7 +12,7 @@ Usage:
 
 Environment Variables (optional):
     D365FO_BASE_URL - D365 F&O environment URL
-    AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID - Azure AD credentials
+    D365FO_CLIENT_ID, D365FO_CLIENT_SECRET, D365FO_TENANT_ID - Azure AD credentials
 """
 
 import asyncio
@@ -128,9 +128,9 @@ def show_environment():
 
     env_vars = {
         "D365FO_BASE_URL": os.getenv("D365FO_BASE_URL", "Not set"),
-        "AZURE_CLIENT_ID": os.getenv("AZURE_CLIENT_ID", "Not set"),
-        "AZURE_CLIENT_SECRET": "***" if os.getenv("AZURE_CLIENT_SECRET") else "Not set",
-        "AZURE_TENANT_ID": os.getenv("AZURE_TENANT_ID", "Not set"),
+        "D365FO_CLIENT_ID": os.getenv("D365FO_CLIENT_ID", "Not set"),
+        "D365FO_CLIENT_SECRET": "***" if os.getenv("D365FO_CLIENT_SECRET") else "Not set",
+        "D365FO_TENANT_ID": os.getenv("D365FO_TENANT_ID", "Not set"),
     }
 
     for key, value in env_vars.items():

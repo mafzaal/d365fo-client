@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2025-08-31
+
+### Added
+- **Enhanced Credential Management**: Complete credential source management system for D365 F&O client authentication
+  - Added `CredentialSource`, `EnvironmentCredentialSource`, and `KeyVaultCredentialSource` classes for managing different credential sources
+  - Implemented `CredentialProvider` interface with `EnvironmentCredentialProvider` and `KeyVaultCredentialProvider` for retrieving credentials
+  - Introduced `CredentialManager` to handle credential retrieval with caching and validation
+  - Azure Key Vault integration for secure credential storage and retrieval
+- **Advanced Sync Session Management**: Enhanced metadata synchronization with detailed progress tracking and session management
+  - Added `SyncSessionManager` to manage sync sessions with session-based progress tracking
+  - Introduced `SyncSession`, `SyncActivity`, and `SyncPhase` models for detailed tracking of sync operations
+  - Implemented methods for starting, executing, and canceling sync sessions with comprehensive error handling
+  - Support for multiple sync strategies (`FULL`, `ENTITIES_ONLY`, `SHARING_MODE`, `LABELS`, `FULL_WITHOUT_LABELS`)
+  - Enhanced label synchronization by efficiently collecting missing labels from stored metadata with fallback to fresh metadata fetch
+
+### Improved
+- **MCP Server Startup Logic**: Enhanced initialization process with multiple authentication modes and improved error handling
+  - Implemented three startup scenarios: profile-only mode, default authentication mode, and client credentials mode
+  - Updated `load_config()` function to determine startup mode based on environment variables
+  - Improved `_startup_initialization()` method to handle each startup mode appropriately with detailed logging
+  - Better error handling and status reporting during server startup
+- **Authentication Configuration**: Enhanced profile creation and credential source support
+  - Updated credential source management to use D365FO-specific environment variables
+  - Enhanced profile creation with credential source support and validation
+  - Improved authentication manager to support multiple credential sources
+- **Background Synchronization**: Initialize sync session manager in FOClient for background metadata synchronization
+  - Better integration between client operations and sync session management
+  - Enhanced sync performance through session-based tracking and progress reporting
+
+### Changed
+- **BREAKING**: Environment variable names standardized for D365FO-specific authentication
+  - Updated from `AZURE_*` to `D365FO_*` environment variables for consistency:
+    - `AZURE_CLIENT_ID` → `D365FO_CLIENT_ID`
+    - `AZURE_CLIENT_SECRET` → `D365FO_CLIENT_SECRET`
+    - `AZURE_TENANT_ID` → `D365FO_TENANT_ID`
+  - Enhanced compatibility with D365FO-specific authentication workflows
+- **Metadata Field Naming**: Renamed 'sample_modules' to 'modules' for consistency in version tracking and debugging
+  - Better alignment with D365FO terminology and improved debugging capabilities
+  - Consistent naming across metadata operations and cache management
+
+### Removed
+- **Deprecated Demo Scripts**: Removed legacy demo scripts to simplify codebase
+  - Cleaned up deprecated demonstration scripts and examples
+  - Streamlined sync session manager functionality
+  - Enhanced codebase maintainability by removing redundant examples
+
+### Dependencies
+- **Added**: `azure-keyvault-secrets>=4.8.0` for secure credential management with Azure Key Vault integration
+- **Added**: `isodate` dependency for proper date/time handling in Azure Key Vault operations
+
+### Fixed
+- **Sync Session Management**: Improved sync session lifecycle management and error handling
+- **Label Collection**: Enhanced label ID collection and processing in sync operations
+- **Authentication Flow**: Better handling of different authentication scenarios in MCP server startup
+
 ## [0.2.2] - 2025-08-28
 
 ### Added

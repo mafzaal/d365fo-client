@@ -322,9 +322,9 @@ profiles:
   production:
     base_url: "https://prod.dynamics.com"
     auth_mode: "explicit"
-    client_id: "${AZURE_CLIENT_ID}"
-    client_secret: "${AZURE_CLIENT_SECRET}"
-    tenant_id: "${AZURE_TENANT_ID}"
+    client_id: "${D365FO_CLIENT_ID}"
+    client_secret: "${D365FO_CLIENT_SECRET}"
+    tenant_id: "${D365FO_TENANT_ID}"
     verify_ssl: true
     cache_dir: "~/.d365fo-client/cache/prod"
     label_cache: true

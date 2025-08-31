@@ -65,6 +65,16 @@ The `SmartSyncManagerV2` has been made **feature complete** by removing the depe
 - Minimal steps for quick metadata refresh
 - Ideal for basic entity discovery
 
+#### **Labels Only (`SyncStrategy.LABELS_ONLY`)**
+- Downloads only label metadata (text translations)
+- Useful for updating label cache without full sync
+- Can collect label IDs from existing cached metadata or fetch fresh metadata if needed
+
+#### **Full Without Labels (`SyncStrategy.FULL_WITHOUT_LABELS`)**
+- Downloads all metadata except labels
+- Faster than full sync while providing comprehensive metadata
+- Ideal when labels are not needed or will be synced separately
+
 #### **Sharing Mode (`SyncStrategy.SHARING_MODE`)**
 - Copies metadata from compatible global versions
 - Avoids redundant downloads across environments

@@ -134,7 +134,7 @@ class GlobalVersionInfo:
     first_seen_at: datetime
     last_used_at: datetime
     reference_count: int
-    sample_modules: List[ModuleVersionInfo] = field(default_factory=list)  # Sample for debugging
+    modules: List[ModuleVersionInfo] = field(default_factory=list)  # Modules for debugging
 
 @dataclass
 class CacheStatistics:
@@ -505,9 +505,9 @@ class GlobalVersionManager:
                 
                 global_version_id = cursor.lastrowid
                 
-                # Store sample modules for debugging (first 10)
-                sample_modules = env_version.modules[:10]
-                for i, module in enumerate(sample_modules):
+                # Store modules for debugging (first 10)
+                modules = env_version.modules[:10]
+                for i, module in enumerate(modules):
                     await db.execute(
                         """INSERT INTO global_version_modules
                            (global_version_id, module_id, module_name, version, 
@@ -529,7 +529,7 @@ class GlobalVersionManager:
                     first_seen_at=now,
                     last_used_at=now,
                     reference_count=1,
-                    sample_modules=sample_modules
+                    modules=modules
                 )
     
     async def link_environment_to_version(self, environment_id: int, 

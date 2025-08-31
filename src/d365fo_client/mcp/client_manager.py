@@ -201,6 +201,14 @@ class D365FOClientManager:
                 raise ValueError(
                     f"Profile '{env_profile.name}' has no base_url configured"
                 )
+            
+            # Check if legacy config should override certain settings
+            default_config = self.config.get("default_environment", {})
+            if default_config and profile == "default":
+                # Override use_default_credentials if specified in legacy config
+                if "use_default_credentials" in default_config:
+                    config.use_default_credentials = default_config["use_default_credentials"]
+            
             return config
 
         # Fallback to legacy config-based profiles

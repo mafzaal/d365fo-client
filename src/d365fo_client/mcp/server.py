@@ -25,7 +25,7 @@ from .resources import (
     MetadataResourceHandler,
     QueryResourceHandler,
 )
-from .tools import ConnectionTools, CrudTools, DatabaseTools, LabelTools, MetadataTools, ProfileTools
+from .tools import ConnectionTools, CrudTools, DatabaseTools, LabelTools, MetadataTools, ProfileTools, SyncTools
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,7 @@ class D365FOMCPServer:
         self.label_tools = LabelTools(self.client_manager)
         self.profile_tools = ProfileTools(self.client_manager)
         self.database_tools = DatabaseTools(self.client_manager)
+        self.sync_tools = SyncTools(self.client_manager)
 
         # Tool registry for execution
         self.tool_registry = {}
@@ -217,6 +218,10 @@ class D365FOMCPServer:
                 database_tools = self.database_tools.get_tools()
                 tools.extend(database_tools)
 
+                # Add sync tools
+                sync_tools = self.sync_tools.get_tools()
+                tools.extend(sync_tools)
+
                 # Register tools for execution
                 for tool in tools:
                     self.tool_registry[tool.name] = tool
@@ -312,6 +317,16 @@ class D365FOMCPServer:
                     return await self.database_tools.execute_get_table_info(arguments)
                 elif name == "d365fo_get_database_statistics":
                     return await self.database_tools.execute_get_database_statistics(arguments)
+                elif name == "d365fo_start_sync":
+                    return await self.sync_tools.execute_start_sync(arguments)
+                elif name == "d365fo_get_sync_progress":
+                    return await self.sync_tools.execute_get_sync_progress(arguments)
+                elif name == "d365fo_cancel_sync":
+                    return await self.sync_tools.execute_cancel_sync(arguments)
+                elif name == "d365fo_list_sync_sessions":
+                    return await self.sync_tools.execute_list_sync_sessions(arguments)
+                elif name == "d365fo_get_sync_history":
+                    return await self.sync_tools.execute_get_sync_history(arguments)
                 else:
                     raise ValueError(f"Unknown tool: {name}")
 

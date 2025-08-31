@@ -33,9 +33,9 @@ class CredentialSource:
 @dataclass 
 class EnvironmentCredentialSource(CredentialSource):
     """Environment variable credential source"""
-    client_id_var: str = "AZURE_CLIENT_ID"
-    client_secret_var: str = "AZURE_CLIENT_SECRET" 
-    tenant_id_var: str = "AZURE_TENANT_ID"
+    client_id_var: str = "D365FO_CLIENT_ID"
+    client_secret_var: str = "D365FO_CLIENT_SECRET" 
+    tenant_id_var: str = "D365FO_TENANT_ID"
     
 @dataclass
 class KeyVaultCredentialSource(CredentialSource):
@@ -228,9 +228,9 @@ Total: 40 passed in 0.83s
 profiles:
   prod:
     base_url: "https://prod.dynamics.com"
-    client_id: "${AZURE_CLIENT_ID}"
-    client_secret: "${AZURE_CLIENT_SECRET}"
-    tenant_id: "${AZURE_TENANT_ID}"
+    client_id: "${D365FO_CLIENT_ID}"
+    client_secret: "${D365FO_CLIENT_SECRET}"
+    tenant_id: "${D365FO_TENANT_ID}"
 
 # After (new approach)
 profiles:

@@ -656,7 +656,7 @@ class SmartSyncManagerV2:
 
             # Check for compatible versions (sharing opportunity)
             compatible_versions = await self.version_manager.find_compatible_versions(
-                version_info.sample_modules, exact_match=True
+                version_info.modules, exact_match=True
             )
 
             for version in compatible_versions:

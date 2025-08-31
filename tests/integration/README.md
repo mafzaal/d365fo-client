@@ -75,9 +75,9 @@ python tests/integration/test_runner.py mock --test test_mock_server.py
 **Required Environment Variables:**
 ```bash
 D365FO_SANDBOX_BASE_URL=https://your-test-environment.dynamics.com
-AZURE_CLIENT_ID=your-client-id
-AZURE_CLIENT_SECRET=your-client-secret  
-AZURE_TENANT_ID=your-tenant-id
+D365FO_CLIENT_ID=your-client-id
+D365FO_CLIENT_SECRET=your-client-secret  
+D365FO_TENANT_ID=your-tenant-id
 ```
 
 ### 3. Live Tests (`live`)
@@ -138,9 +138,9 @@ For sandbox and live tests, configure Azure AD authentication:
 
 ```bash
 # Using Service Principal
-export AZURE_CLIENT_ID="your-app-registration-id"
-export AZURE_CLIENT_SECRET="your-app-secret"
-export AZURE_TENANT_ID="your-tenant-id"
+export D365FO_CLIENT_ID="your-app-registration-id"
+export D365FO_CLIENT_SECRET="your-app-secret"
+export D365FO_TENANT_ID="your-tenant-id"
 
 # Or use Default Azure Credential (Azure CLI, Managed Identity, etc.)
 # No environment variables needed if using DefaultAzureCredential
@@ -254,9 +254,9 @@ jobs:
       if: env.D365FO_SANDBOX_BASE_URL != ''
       env:
         D365FO_SANDBOX_BASE_URL: ${{ secrets.D365FO_SANDBOX_BASE_URL }}
-        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        D365FO_CLIENT_ID: ${{ secrets.D365FO_CLIENT_ID }}
+        D365FO_CLIENT_SECRET: ${{ secrets.D365FO_CLIENT_SECRET }}
+        D365FO_TENANT_ID: ${{ secrets.D365FO_TENANT_ID }}
       run: |
         python tests/integration/test_runner.py sandbox
 ```
@@ -304,9 +304,9 @@ stages:
         python tests/integration/test_runner.py sandbox
       env:
         D365FO_SANDBOX_BASE_URL: $(D365FO_SANDBOX_BASE_URL)
-        AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
-        AZURE_CLIENT_SECRET: $(AZURE_CLIENT_SECRET)
-        AZURE_TENANT_ID: $(AZURE_TENANT_ID)
+        D365FO_CLIENT_ID: $(D365FO_CLIENT_ID)
+        D365FO_CLIENT_SECRET: $(D365FO_CLIENT_SECRET)
+        D365FO_TENANT_ID: $(D365FO_TENANT_ID)
       displayName: 'Run sandbox tests'
 ```
 
