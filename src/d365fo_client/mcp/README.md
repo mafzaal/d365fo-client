@@ -14,9 +14,9 @@ pip install d365fo-client[mcp]
 Set environment variables for your D365FO environment:
 ```bash
 export D365FO_BASE_URL="https://your-d365fo-environment.dynamics.com"
-export AZURE_CLIENT_ID="your-client-id"
-export AZURE_CLIENT_SECRET="your-client-secret"  
-export AZURE_TENANT_ID="your-tenant-id"
+export D365FO_CLIENT_ID="your-client-id"
+export D365FO_CLIENT_SECRET="your-client-secret"  
+export D365FO_TENANT_ID="your-tenant-id"
 ```
 
 Or use default credentials (recommended for Azure environments):
@@ -98,9 +98,9 @@ List all available resources:
 
 ### Environment Variables
 - `D365FO_BASE_URL` - D365FO environment URL
-- `AZURE_CLIENT_ID` - Azure AD application client ID (optional with default credentials)
-- `AZURE_CLIENT_SECRET` - Azure AD application secret (optional with default credentials)
-- `AZURE_TENANT_ID` - Azure AD tenant ID (optional with default credentials)
+- `D365FO_CLIENT_ID` - Azure AD application client ID (optional with default credentials)
+- `D365FO_CLIENT_SECRET` - Azure AD application secret (optional with default credentials)
+- `D365FO_TENANT_ID` - Azure AD tenant ID (optional with default credentials)
 - `D365FO_CACHE_DIR` - Cache directory (default: `~/.d365fo-mcp/cache`)
 - `D365FO_LOG_LEVEL` - Logging level (default: INFO)
 

@@ -975,9 +975,9 @@ profiles:
     
   test:
     base_url: "${D365FO_TEST_URL}"
-    client_id: "${AZURE_CLIENT_ID}"
-    client_secret: "${AZURE_CLIENT_SECRET}"
-    tenant_id: "${AZURE_TENANT_ID}"
+    client_id: "${D365FO_CLIENT_ID}"
+    client_secret: "${D365FO_CLIENT_SECRET}"
+    tenant_id: "${D365FO_TENANT_ID}"
     
   production:
     base_url: "${D365FO_PROD_URL}"

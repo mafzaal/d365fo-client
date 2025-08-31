@@ -117,9 +117,9 @@ profiles:
     
   development:
     base_url: "https://dev.dynamics.com" 
-    client_id: "${AZURE_CLIENT_ID}"
-    client_secret: "${AZURE_CLIENT_SECRET}"
-    tenant_id: "${AZURE_TENANT_ID}"
+    client_id: "${D365FO_CLIENT_ID}"
+    client_secret: "${D365FO_CLIENT_SECRET}"
+    tenant_id: "${D365FO_TENANT_ID}"
     use_cache_first: true
 
 default_profile: "development"
@@ -578,9 +578,9 @@ cp tests/integration/.env.template tests/integration/.env
 # Edit .env file with your settings:
 INTEGRATION_TEST_LEVEL=sandbox
 D365FO_SANDBOX_BASE_URL=https://your-test.dynamics.com
-AZURE_CLIENT_ID=your-client-id
-AZURE_CLIENT_SECRET=your-client-secret
-AZURE_TENANT_ID=your-tenant-id
+D365FO_CLIENT_ID=your-client-id
+D365FO_CLIENT_SECRET=your-client-secret
+D365FO_TENANT_ID=your-tenant-id
 ```
 
 #### Available Commands
@@ -666,9 +666,9 @@ pip install d365fo-client
 
 # Set up environment variables
 export D365FO_BASE_URL="https://your-environment.dynamics.com"
-export AZURE_CLIENT_ID="your-client-id"          # Optional with default credentials
-export AZURE_CLIENT_SECRET="your-client-secret"  # Optional with default credentials  
-export AZURE_TENANT_ID="your-tenant-id"          # Optional with default credentials
+export D365FO_CLIENT_ID="your-client-id"          # Optional with default credentials
+export D365FO_CLIENT_SECRET="your-client-secret"  # Optional with default credentials  
+export D365FO_TENANT_ID="your-tenant-id"          # Optional with default credentials
 
 # Start the MCP server
 d365fo-mcp-server
@@ -816,9 +816,9 @@ For service principal authentication:
 
 ```bash
 export D365FO_BASE_URL="https://your-environment.dynamics.com"
-export AZURE_CLIENT_ID="your-client-id"
-export AZURE_CLIENT_SECRET="your-client-secret"
-export AZURE_TENANT_ID="your-tenant-id"
+export D365FO_CLIENT_ID="your-client-id"
+export D365FO_CLIENT_SECRET="your-client-secret"
+export D365FO_TENANT_ID="your-tenant-id"
 d365fo-mcp-server
 ```
 
@@ -991,7 +991,7 @@ tail -f ~/.d365fo-mcp/logs/mcp-server.log
 az account show
 
 # Test with explicit credentials
-export AZURE_CLIENT_ID="your-client-id"
+export D365FO_CLIENT_ID="your-client-id"
 # ... set other variables
 d365fo-mcp-server
 ```

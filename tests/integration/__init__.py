@@ -16,7 +16,7 @@ Environment Variables:
 - D365FO_TEST_BASE_URL: Base URL for test environment
 - D365FO_SANDBOX_BASE_URL: Base URL for sandbox environment
 - D365FO_LIVE_BASE_URL: Base URL for live environment (if available)
-- AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID: Auth credentials
+- D365FO_CLIENT_ID, D365FO_CLIENT_SECRET, D365FO_TENANT_ID: Auth credentials
 """
 
 import os

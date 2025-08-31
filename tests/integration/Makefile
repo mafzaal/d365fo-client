@@ -155,5 +155,5 @@ env-info:
 	@echo "  Integration test level: $${INTEGRATION_TEST_LEVEL:-mock}"
 	@echo "  Sandbox URL: $${D365FO_SANDBOX_BASE_URL:-not set}"
 	@echo "  Live URL: $${D365FO_LIVE_BASE_URL:-not set}"
-	@echo "  Azure Client ID: $${AZURE_CLIENT_ID:+set}"
+	@echo "  Azure Client ID: $${D365FO_CLIENT_ID:+set}"
 	@if command -v uv >/dev/null 2>&1; then echo "  uv: installed"; else echo "  uv: not installed"; fi

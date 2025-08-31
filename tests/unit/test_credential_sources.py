@@ -31,15 +31,15 @@ class TestCredentialSourceModels:
         source = EnvironmentCredentialSource()
         
         assert source.source_type == "environment"
-        assert source.client_id_var == "AZURE_CLIENT_ID"
-        assert source.client_secret_var == "AZURE_CLIENT_SECRET"
-        assert source.tenant_id_var == "AZURE_TENANT_ID"
+        assert source.client_id_var == "D365FO_CLIENT_ID"
+        assert source.client_secret_var == "D365FO_CLIENT_SECRET"
+        assert source.tenant_id_var == "D365FO_TENANT_ID"
         
         expected_dict = {
             "source_type": "environment",
-            "client_id_var": "AZURE_CLIENT_ID",
-            "client_secret_var": "AZURE_CLIENT_SECRET",
-            "tenant_id_var": "AZURE_TENANT_ID",
+            "client_id_var": "D365FO_CLIENT_ID",
+            "client_secret_var": "D365FO_CLIENT_SECRET",
+            "tenant_id_var": "D365FO_TENANT_ID",
         }
         assert source.to_dict() == expected_dict
 
@@ -148,9 +148,9 @@ class TestEnvironmentCredentialProvider:
         source = EnvironmentCredentialSource()
         
         with patch.dict(os.environ, {
-            "AZURE_CLIENT_ID": "test-client-id",
-            "AZURE_CLIENT_SECRET": "test-client-secret",
-            "AZURE_TENANT_ID": "test-tenant-id"
+            "D365FO_CLIENT_ID": "test-client-id",
+            "D365FO_CLIENT_SECRET": "test-client-secret",
+            "D365FO_TENANT_ID": "test-tenant-id"
         }):
             client_id, client_secret, tenant_id = await self.provider.get_credentials(source)
             
@@ -189,7 +189,7 @@ class TestEnvironmentCredentialProvider:
                 await self.provider.get_credentials(source)
             
             assert "Missing required environment variables" in str(exc_info.value)
-            assert "AZURE_CLIENT_ID" in str(exc_info.value)
+            assert "D365FO_CLIENT_ID" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_get_credentials_wrong_source_type(self):
@@ -358,9 +358,9 @@ class TestCredentialManager:
         source = EnvironmentCredentialSource()
         
         with patch.dict(os.environ, {
-            "AZURE_CLIENT_ID": "test-client-id",
-            "AZURE_CLIENT_SECRET": "test-client-secret",
-            "AZURE_TENANT_ID": "test-tenant-id"
+            "D365FO_CLIENT_ID": "test-client-id",
+            "D365FO_CLIENT_SECRET": "test-client-secret",
+            "D365FO_TENANT_ID": "test-tenant-id"
         }):
             client_id, client_secret, tenant_id = await self.manager.get_credentials(source)
             
@@ -374,9 +374,9 @@ class TestCredentialManager:
         source = EnvironmentCredentialSource()
         
         with patch.dict(os.environ, {
-            "AZURE_CLIENT_ID": "test-client-id",
-            "AZURE_CLIENT_SECRET": "test-client-secret",
-            "AZURE_TENANT_ID": "test-tenant-id"
+            "D365FO_CLIENT_ID": "test-client-id",
+            "D365FO_CLIENT_SECRET": "test-client-secret",
+            "D365FO_TENANT_ID": "test-tenant-id"
         }):
             # First call
             result1 = await self.manager.get_credentials(source)

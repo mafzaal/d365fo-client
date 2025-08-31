@@ -181,7 +181,7 @@ async def test_connection_with_headers():
         print("4. Check if you need to set environment variables:")
         print("   - D365FO_BASE_URL")
         print(
-            "   - AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID (if not using default credentials)"
+            "   - D365FO_CLIENT_ID, D365FO_CLIENT_SECRET, D365FO_TENANT_ID (if not using default credentials)"
         )
 
         return False
@@ -204,9 +204,9 @@ def display_environment_info():
 
     env_vars = [
         "D365FO_BASE_URL",
-        "AZURE_CLIENT_ID",
-        "AZURE_CLIENT_SECRET",
-        "AZURE_TENANT_ID",
+        "D365FO_CLIENT_ID",
+        "D365FO_CLIENT_SECRET",
+        "D365FO_TENANT_ID",
     ]
 
     for var in env_vars:

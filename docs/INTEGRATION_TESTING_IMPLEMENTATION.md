@@ -163,9 +163,9 @@ INTEGRATION_TEST_LEVEL=sandbox
 D365FO_SANDBOX_BASE_URL=https://your-test-environment.dynamics.com
 
 # Authentication (uses Azure Default Credential by default)
-AZURE_CLIENT_ID=your-client-id
-AZURE_CLIENT_SECRET=your-client-secret
-AZURE_TENANT_ID=your-tenant-id
+D365FO_CLIENT_ID=your-client-id
+D365FO_CLIENT_SECRET=your-client-secret
+D365FO_TENANT_ID=your-tenant-id
 ```
 
 ### PowerShell Automation
@@ -222,9 +222,9 @@ python tests/integration/test_runner.py sandbox --test test_sandbox.py
     python tests/integration/test_runner.py sandbox
   env:
     D365FO_SANDBOX_BASE_URL: ${{ secrets.D365FO_SANDBOX_BASE_URL }}
-    AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-    AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-    AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    D365FO_CLIENT_ID: ${{ secrets.D365FO_CLIENT_ID }}
+    D365FO_CLIENT_SECRET: ${{ secrets.D365FO_CLIENT_SECRET }}
+    D365FO_TENANT_ID: ${{ secrets.D365FO_TENANT_ID }}
 ```
 
 ### Azure DevOps Compatible

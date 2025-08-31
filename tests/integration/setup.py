@@ -155,7 +155,7 @@ Next Steps:
    
    For sandbox tests:
    - Set D365FO_SANDBOX_BASE_URL
-   - Set Azure AD credentials (AZURE_CLIENT_ID, etc.)
+   - Set Azure AD credentials (D365FO_CLIENT_ID, etc.)
    
    For live tests:
    - Set D365FO_LIVE_BASE_URL

@@ -219,9 +219,9 @@ Integration tests use environment variables configured in `.env` file:
 # Default configuration (copy from .env.template)
 INTEGRATION_TEST_LEVEL=sandbox
 D365FO_SANDBOX_BASE_URL=https://your-test-environment.dynamics.com
-AZURE_CLIENT_ID=your-client-id
-AZURE_CLIENT_SECRET=your-client-secret
-AZURE_TENANT_ID=your-tenant-id
+D365FO_CLIENT_ID=your-client-id
+D365FO_CLIENT_SECRET=your-client-secret
+D365FO_TENANT_ID=your-tenant-id
 ```
 
 **Test Coverage Areas:**
@@ -837,9 +837,9 @@ config = FOClientConfig(
 # Alternative: explicit credentials if needed
 # config = FOClientConfig(
 #     base_url=base_url,
-#     client_id=os.getenv('AZURE_CLIENT_ID'),
-#     client_secret=os.getenv('AZURE_CLIENT_SECRET'),
-#     tenant_id=os.getenv('AZURE_TENANT_ID'),
+#     client_id=os.getenv('D365FO_CLIENT_ID'),
+#     client_secret=os.getenv('D365FO_CLIENT_SECRET'),
+#     tenant_id=os.getenv('D365FO_TENANT_ID'),
 #     use_label_cache=True
 # )
 ```
@@ -872,9 +872,9 @@ client = D365FOClient(config=config)
 # Alternative: explicit credentials configuration (commented out)
 # config = FOClientConfig(
 #     base_url=base_url,
-#     client_id=os.getenv('AZURE_CLIENT_ID'),
-#     client_secret=os.getenv('AZURE_CLIENT_SECRET'),
-#     tenant_id=os.getenv('AZURE_TENANT_ID'),
+#     client_id=os.getenv('D365FO_CLIENT_ID'),
+#     client_secret=os.getenv('D365FO_CLIENT_SECRET'),
+#     tenant_id=os.getenv('D365FO_TENANT_ID'),
 #     use_label_cache=True
 # )
 # client = D365FOClient(config=config)

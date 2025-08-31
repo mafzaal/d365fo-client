@@ -38,9 +38,9 @@ cd c:\path\to\your\d365fo-client
 # Set environment variables for the session
 $env:INTEGRATION_TEST_LEVEL = "mock"
 $env:D365FO_SANDBOX_BASE_URL = "https://your-sandbox.dynamics.com"
-$env:AZURE_CLIENT_ID = "your-client-id"
-$env:AZURE_CLIENT_SECRET = "your-secret"
-$env:AZURE_TENANT_ID = "your-tenant-id"
+$env:D365FO_CLIENT_ID = "your-client-id"
+$env:D365FO_CLIENT_SECRET = "your-secret"
+$env:D365FO_TENANT_ID = "your-tenant-id"
 ```
 
 ### Persistent Environment Variables

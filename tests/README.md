@@ -247,9 +247,9 @@ Integration tests may require environment variables for authentication and endpo
 D365FO_SANDBOX_BASE_URL=https://your-test-environment.dynamics.com
 
 # Optional: Explicit authentication (if not using default credentials)
-AZURE_CLIENT_ID=your-client-id
-AZURE_CLIENT_SECRET=your-client-secret
-AZURE_TENANT_ID=your-tenant-id
+D365FO_CLIENT_ID=your-client-id
+D365FO_CLIENT_SECRET=your-client-secret
+D365FO_TENANT_ID=your-tenant-id
 
 # Test level control
 INTEGRATION_TEST_LEVEL=sandbox  # mock, sandbox, live, or all

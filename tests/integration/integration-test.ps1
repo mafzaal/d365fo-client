@@ -170,7 +170,7 @@ function Show-Environment {
     $liveUrl = if ($env:D365FO_LIVE_BASE_URL) { $env:D365FO_LIVE_BASE_URL } else { 'not set' }
     Write-Host "Live URL: $liveUrl" -ForegroundColor White
     
-    if ($env:AZURE_CLIENT_ID) {
+    if ($env:D365FO_CLIENT_ID) {
         Write-Host "Azure Client ID: set" -ForegroundColor White
     } else {
         Write-Host "Azure Client ID: not set" -ForegroundColor White
