@@ -110,6 +110,9 @@ class FOClient:
                     self.metadata_cache, self.metadata_api_ops
                 )
 
+                # Initialize sync message with session
+                self._sync_session_manager = SyncSessionManager(self.metadata_cache, self.metadata_api_ops)
+
                 self._metadata_initialized = True
                 self.logger.debug("Metadata cache v2 with label caching initialized")
 
@@ -150,18 +153,9 @@ class FOClient:
                 f"Starting background metadata sync for version {global_version_id}"
             )
 
-            # Use self as the fo_client for sync - SmartSyncManagerV2 expects a client with metadata API operations
-            result = await self.sync_manager.sync_metadata(global_version_id)
-
-            if result.success:
-                self.logger.info(
-                    f"Background sync completed: "
-                    f"{result.entity_count} entities, "
-                    f"{result.enumeration_count} enumerations, "
-                    f"{result.duration_ms:.2f}ms"
-                )
-            else:
-                self.logger.warning(f"Background sync failed: {result.error}")
+ 
+            self.sync_session_manager.start_sync_session(global_version_id=global_version_id,initiated_by="background_task")
+            
 
         except Exception as e:
             self.logger.error(f"Background sync error: {e}")
