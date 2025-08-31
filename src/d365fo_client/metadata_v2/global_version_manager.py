@@ -325,13 +325,11 @@ class GlobalVersionManager:
                 first_seen_at=datetime.fromisoformat(row[3]),
                 last_used_at=datetime.fromisoformat(row[4]),
                 reference_count=row[5],
-                sample_modules=(
-                    modules[:10] if modules else []
-                ),  # Use first 10 modules as sample
+                modules=modules
             )
 
     async def find_compatible_versions(
-        self, modules: List[ModuleVersionInfo], exact_match: bool = False
+        self, modules: List[ModuleVersionInfo], exact_match: bool = True
     ) -> List[GlobalVersionInfo]:
         """Find compatible global versions
 

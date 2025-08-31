@@ -1215,7 +1215,7 @@ class FOClient:
                     "advanced_cache_enabled": True,
                     "cache_v2_enabled": True,
                     "cache_initialized": self._metadata_initialized,
-                    "sync_manager_available": self.sync_manager is not None,
+                    "sync_manager_available": self.sync_manager is not None or self._sync_session_manager is not None,
                     "background_sync_running": self._is_background_sync_running(),
                     "statistics": stats,
                 }

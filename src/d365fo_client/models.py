@@ -742,9 +742,9 @@ class GlobalVersionInfo:
     first_seen_at: datetime
     last_used_at: datetime
     reference_count: int
-    sample_modules: List[ModuleVersionInfo] = field(
+    modules: List[ModuleVersionInfo] = field(
         default_factory=list
-    )  # Sample for debugging
+    )  # Modules for debugging
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
@@ -755,7 +755,7 @@ class GlobalVersionInfo:
             "first_seen_at": self.first_seen_at.isoformat(),
             "last_used_at": self.last_used_at.isoformat(),
             "reference_count": self.reference_count,
-            "sample_modules": [module.to_dict() for module in self.sample_modules],
+            "modules": [module.to_dict() for module in self.modules],
         }
 
 

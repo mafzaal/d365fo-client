@@ -1524,7 +1524,7 @@ class MetadataCacheV2:
                 stats["current_version"] = {
                     "global_version_id": version_info.id,
                     "version_hash": version_info.version_hash,
-                    "modules_count": len(version_info.sample_modules),
+                    "modules_count": len(version_info.modules),
                     "reference_count": version_info.reference_count,
                 }
 
