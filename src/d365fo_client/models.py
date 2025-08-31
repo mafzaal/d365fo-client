@@ -66,7 +66,10 @@ class SyncStrategy(StrEnum):
     FULL = "full"
     INCREMENTAL = "incremental"
     ENTITIES_ONLY = "entities_only"
+    LABELS_ONLY = "labels_only"
     SHARING_MODE = "sharing_mode"
+    FULL_WITHOUT_LABELS = "full_without_labels"
+
 
 
 class Cardinality(StrEnum):

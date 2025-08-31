@@ -51,7 +51,7 @@ Successfully implemented enhanced sync progress reporting with session-based tra
 ### 1. `d365fo_start_sync`
 **Purpose**: Start a metadata synchronization session
 **Parameters**:
-- `strategy` (optional): "full", "entities_only", "sharing_mode", "incremental"
+- `strategy` (optional): "full", "entities_only", "labels_only", "full_without_labels", "sharing_mode", "incremental"
 - `global_version_id` (optional): Specific version to sync (auto-detect if not provided)
 - `profile` (optional): Configuration profile to use
 

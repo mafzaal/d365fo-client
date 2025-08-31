@@ -49,9 +49,9 @@ class SyncTools:
                 "properties": {
                     "strategy": {
                         "type": "string",
-                        "enum": ["full", "entities_only", "sharing_mode", "incremental"],
-                        "description": "Sync strategy to use. 'full' downloads all metadata, 'entities_only' downloads just entities for quick refresh, 'sharing_mode' copies from compatible versions, 'incremental' updates only changes (fallback to full).",
-                        "default": "full"
+                        "enum": ["full", "entities_only", "labels_only", "full_without_labels", "sharing_mode", "incremental"],
+                        "description": "Sync strategy to use. 'full' downloads all metadata, 'entities_only' downloads just entities for quick refresh, 'labels_only' downloads only labels, 'full_without_labels' downloads all metadata except labels, 'sharing_mode' copies from compatible versions, 'incremental' updates only changes (fallback to full).",
+                        "default": "full_without_labels"
                     },
                     "global_version_id": {
                         "type": "integer", 
@@ -164,7 +164,7 @@ class SyncTools:
                 # Fall back to the original sync manager if session manager not available
                 return await self._fallback_start_sync(client, arguments)
 
-            strategy_str = arguments.get("strategy", "full")
+            strategy_str = arguments.get("strategy", "full_without_labels")
             strategy = SyncStrategy(strategy_str)
             global_version_id = arguments.get("global_version_id")
             sync_needed = True
@@ -177,7 +177,7 @@ class SyncTools:
                     raise ValueError("Could not detect global version ID")
                 global_version_id = detected_version_id
 
-            if sync_needed:
+            if sync_needed or strategy == SyncStrategy.LABELS_ONLY:
                 # Start sync session
                 session_id = await client.sync_session_manager.start_sync_session(
                     global_version_id=global_version_id,
@@ -187,11 +187,11 @@ class SyncTools:
 
             response = {
                 "success": True,
-                "session_id": session_id if sync_needed else None,
+                "session_id": session_id if sync_needed or strategy == SyncStrategy.LABELS_ONLY else None,
                 "global_version_id": global_version_id,
                 "strategy": strategy_str,
-                "message": f"Sync session {session_id} started successfully" if sync_needed else f"Metadata already up to date at version {global_version_id}, no sync needed",
-                "instructions": f"Use d365fo_get_sync_progress with session_id '{session_id}' to monitor progress" if sync_needed else None
+                "message": f"Sync session {session_id} started successfully" if sync_needed or strategy == SyncStrategy.LABELS_ONLY else f"Metadata already up to date at version {global_version_id}, no sync needed",
+                "instructions": f"Use d365fo_get_sync_progress with session_id '{session_id}' to monitor progress" if sync_needed or strategy == SyncStrategy.LABELS_ONLY else None
             }
 
             return [TextContent(type="text", text=json.dumps(response, indent=2))]
