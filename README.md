@@ -9,7 +9,7 @@ A comprehensive Python client library and MCP server for Microsoft Dynamics 365 
 - 🏷️ **Label Operations V2**: Multilingual label caching with performance improvements and async support
 - 🔍 **Advanced Querying**: Support for all OData query parameters ($select, $filter, $expand, etc.)
 - ⚡ **Action Execution**: Execute bound and unbound OData actions with comprehensive parameter handling
-- 🔒 **Authentication**: Azure AD integration with default credentials and service principal support
+- 🔒 **Authentication**: Azure AD integration with default credentials, service principal, and Azure Key Vault support
 - 💾 **Intelligent Caching**: Cross-environment cache sharing with module-based version detection
 - 🌐 **Async/Await**: Modern async/await patterns with optimized session management
 - 📝 **Type Hints**: Full type annotation support with enhanced data models
@@ -17,6 +17,8 @@ A comprehensive Python client library and MCP server for Microsoft Dynamics 365 
 - 🖥️ **Comprehensive CLI**: Hierarchical command-line interface for all D365 F&O operations
 - 🧪 **Multi-tier Testing**: Mock, sandbox, and live integration testing framework (17/17 tests passing)
 - 📋 **Metadata Scripts**: PowerShell and Python utilities for entity, enumeration, and action discovery
+- 🔐 **Enhanced Credential Management**: Support for Azure Key Vault and multiple credential sources
+- 📊 **Advanced Sync Management**: Session-based synchronization with detailed progress tracking
 
 ## Installation
 
@@ -31,6 +33,13 @@ uv sync  # Installs with exact dependencies from uv.lock
 ```
 
 **Note**: The package includes MCP (Model Context Protocol) dependencies by default, enabling AI assistant integration. Both `d365fo-client` CLI and `d365fo-mcp-server` commands will be available after installation.
+
+**Breaking Change in v0.2.3**: Environment variable names have been updated for consistency:
+- `AZURE_CLIENT_ID` → `D365FO_CLIENT_ID`
+- `AZURE_CLIENT_SECRET` → `D365FO_CLIENT_SECRET`  
+- `AZURE_TENANT_ID` → `D365FO_TENANT_ID`
+
+Please update your environment variables accordingly when upgrading.
 
 ## Quick Start
 
@@ -221,7 +230,14 @@ config = FOClientConfig(
     use_default_credentials=False
 )
 
-# Option 3: With custom settings
+# Option 3: Azure Key Vault integration (New in v0.2.3)
+config = FOClientConfig(
+    base_url="https://your-fo-environment.dynamics.com",
+    credential_source="keyvault",  # Use Azure Key Vault for credentials
+    keyvault_url="https://your-keyvault.vault.azure.net/"
+)
+
+# Option 4: With custom settings
 config = FOClientConfig(
     base_url="https://your-fo-environment.dynamics.com",
     use_default_credentials=True,
@@ -421,7 +437,9 @@ d365fo-client/
 │       ├── metadata.py          # Legacy metadata operations
 │       ├── metadata_api.py      # Metadata API client
 │       ├── metadata_cache.py    # Metadata caching layer V2
-│       ├── metadata_sync.py     # Metadata synchronization V2
+│       ├── metadata_sync.py     # Metadata synchronization V2 with session management
+│       ├── sync_session.py      # Enhanced sync session management (New in v0.2.3)
+│       ├── credential_manager.py # Credential source management (New in v0.2.3)
 │       ├── labels.py            # Label operations V2
 │       ├── profiles.py          # Profile data models
 │       ├── profile_manager.py   # Profile management
@@ -478,6 +496,8 @@ d365fo-client/
 | `client_secret` | str | None | Azure AD client secret |
 | `tenant_id` | str | None | Azure AD tenant ID |
 | `use_default_credentials` | bool | True | Use Azure Default Credential |
+| `credential_source` | str | "environment" | Credential source: "environment", "keyvault" |
+| `keyvault_url` | str | None | Azure Key Vault URL for credential storage |
 | `verify_ssl` | bool | False | Verify SSL certificates |
 | `timeout` | int | 30 | Request timeout in seconds |
 | `metadata_cache_dir` | str | Platform-specific user cache | Metadata cache directory |
@@ -819,6 +839,16 @@ export D365FO_BASE_URL="https://your-environment.dynamics.com"
 export D365FO_CLIENT_ID="your-client-id"
 export D365FO_CLIENT_SECRET="your-client-secret"
 export D365FO_TENANT_ID="your-tenant-id"
+d365fo-mcp-server
+```
+
+#### Azure Key Vault Integration (New in v0.2.3)
+For secure credential storage using Azure Key Vault:
+
+```bash
+export D365FO_BASE_URL="https://your-environment.dynamics.com"
+export D365FO_CREDENTIAL_SOURCE="keyvault"
+export D365FO_KEYVAULT_URL="https://your-keyvault.vault.azure.net/"
 d365fo-mcp-server
 ```
 
