@@ -472,8 +472,8 @@ class SyncSessionManager:
     async def _sync_labels_only_with_progress(self, session: SyncSession):
         """Sync labels only with detailed progress reporting
         
-        This method tries to collect label IDs from existing cached metadata first,
-        and if no cached metadata exists, it will fetch entities to collect label IDs.
+        This method efficiently collects missing labels from stored metadata using SQL queries,
+        then fetches and caches the missing label texts.
         """
         if not self.metadata_api.label_ops:
             logger.info("Label operations not available, skipping label sync")
@@ -484,80 +484,31 @@ class SyncSessionManager:
         await self._update_phase_progress(session, phase, SyncStatus.RUNNING)
 
         activity = session.phases[phase]
-        activity.current_item = "Collecting label IDs from cached metadata..."
+        activity.current_item = "Finding missing labels from cached metadata..."
         self._notify_progress(session.session_id)
 
         try:
-            # Try to collect label IDs from existing cached metadata first
-            label_ids_set = set()
+            # Use SQL to efficiently find missing labels from stored metadata
+            missing_label_ids = await self._get_missing_label_ids_from_database(session.global_version_id)
             
-            # Check if we have cached entities and collect their label IDs
-            try:
-                cached_entities = await self.cache.get_data_entities(session.global_version_id)
-                if cached_entities:
-                    logger.info(f"Found {len(cached_entities)} cached entities, collecting label IDs")
-                    for entity in cached_entities:
-                        self._collect_label_id(session, entity.label_id)
-                    activity.current_item = f"Collected label IDs from {len(cached_entities)} cached entities"
-                    self._notify_progress(session.session_id)
-            except Exception as e:
-                logger.debug(f"Error getting cached entities: {e}")
-
-            # If we don't have enough label IDs from cache, fetch fresh metadata to collect them
-            if len(session.collected_label_ids) < 10:  # Arbitrary threshold
-                logger.info("Not enough cached label IDs found, fetching fresh metadata for label collection")
-                
-                activity.current_item = "Fetching entities to collect label IDs..."
-                self._notify_progress(session.session_id)
-                
-                # Fetch entities and collect their label IDs
-                entities = await self._get_data_entities()
-                if entities:
-                    self._collect_label_ids_from_entities(session, entities)
-                    activity.current_item = f"Collected label IDs from {len(entities)} entities"
-                    self._notify_progress(session.session_id)
-
-                # Fetch public entities and collect their label IDs  
-                try:
-                    activity.current_item = "Fetching public entities to collect label IDs..."
-                    self._notify_progress(session.session_id)
-                    
-                    public_entities = await self._get_public_entities()
-                    if public_entities:
-                        self._collect_label_ids_from_public_entities(session, public_entities)
-                        activity.current_item = f"Collected label IDs from {len(public_entities)} public entities"
-                        self._notify_progress(session.session_id)
-                except Exception as e:
-                    logger.warning(f"Error fetching public entities for label collection: {e}")
-
-                # Fetch enumerations and collect their label IDs
-                try:
-                    activity.current_item = "Fetching enumerations to collect label IDs..."
-                    self._notify_progress(session.session_id)
-                    
-                    enumerations = await self._get_public_enumerations()
-                    if enumerations:
-                        self._collect_label_ids_from_enumerations(session, enumerations)
-                        activity.current_item = f"Collected label IDs from {len(enumerations)} enumerations"
-                        self._notify_progress(session.session_id)
-                except Exception as e:
-                    logger.warning(f"Error fetching enumerations for label collection: {e}")
-
-            # Now sync the collected labels
-            label_ids = list(session.collected_label_ids)
-            activity.items_total = len(label_ids)
+            if not missing_label_ids:
+                logger.info("No missing labels found, trying to collect from fresh metadata fetch...")
+                # Fallback to collection from fresh metadata if no stored metadata
+                await self._collect_labels_from_fresh_metadata(session)
+                missing_label_ids = list(session.collected_label_ids)
             
-            logger.info(f"Processing {len(label_ids)} collected label IDs for version {session.global_version_id}")
+            activity.items_total = len(missing_label_ids)
+            logger.info(f"Found {len(missing_label_ids)} missing labels for version {session.global_version_id}")
 
             label_count = 0
-            if label_ids:
+            if missing_label_ids:
                 # Process labels in batches for better progress reporting
                 batch_size = 50
-                for i in range(0, len(label_ids), batch_size):
+                for i in range(0, len(missing_label_ids), batch_size):
                     labels_to_cache = []
-                    batch = label_ids[i:i + batch_size]
+                    batch = missing_label_ids[i:i + batch_size]
                     
-                    activity.current_item = f"Fetching labels {i+1}-{min(i+batch_size, len(label_ids))} of {len(label_ids)}"
+                    activity.current_item = f"Fetching labels {i+1}-{min(i+batch_size, len(missing_label_ids))} of {len(missing_label_ids)}"
                     self._notify_progress(session.session_id)
                     
                     # Fetch and store this batch of labels using label operations
@@ -577,15 +528,15 @@ class SyncSessionManager:
                         )
                    
                     # Update progress
-                    activity.items_processed = min(i + batch_size, len(label_ids))
-                    activity.progress_percent = (activity.items_processed / len(label_ids)) * 100
+                    activity.items_processed = min(i + batch_size, len(missing_label_ids))
+                    activity.progress_percent = (activity.items_processed / len(missing_label_ids)) * 100
                     self._notify_progress(session.session_id)
             else:
-                logger.info(f"No label IDs found for version {session.global_version_id}")
+                logger.info(f"No missing labels found for version {session.global_version_id}")
                 activity.items_processed = 0
                 activity.progress_percent = 100.0
 
-            logger.info(f"Successfully synced {label_count} labels from {len(label_ids)} collected label IDs")
+            logger.info(f"Successfully synced {label_count} labels from {len(missing_label_ids)} missing label IDs")
             await self._complete_phase(session, phase)
 
         except Exception as e:
@@ -785,6 +736,106 @@ class SyncSessionManager:
             
             # Clean up callbacks
             self._progress_callbacks.pop(session_id, None)
+
+    async def _get_missing_label_ids_from_database(self, global_version_id: int) -> List[str]:
+        """Get missing label IDs from database using efficient SQL query
+        
+        This method uses SQL to find all label IDs that exist in metadata tables
+        but are missing from the labels_cache table.
+        
+        Args:
+            global_version_id: Global version ID to check for missing labels
+            
+        Returns:
+            List of missing label IDs that need to be fetched
+        """
+        import aiosqlite
+        
+        async with aiosqlite.connect(self.cache.db_path) as db:
+            # Comprehensive SQL query to find missing labels from all metadata tables with label_id fields
+            cursor = await db.execute(
+                """
+                SELECT DISTINCT T1.label_id FROM (
+                    SELECT DISTINCT label_id, label_text FROM data_entities 
+                    WHERE global_version_id = ? AND label_text IS NULL AND label_id LIKE '@%'
+                    UNION ALL
+                    SELECT DISTINCT label_id, label_text FROM entity_properties 
+                    WHERE global_version_id = ? AND label_text IS NULL AND label_id LIKE '@%'
+                    UNION ALL
+                    SELECT DISTINCT label_id, label_text FROM public_entities 
+                    WHERE global_version_id = ? AND label_text IS NULL AND label_id LIKE '@%'
+                    UNION ALL
+                    SELECT DISTINCT label_id, label_text FROM enumerations 
+                    WHERE global_version_id = ? AND label_text IS NULL AND label_id LIKE '@%'
+                    UNION ALL
+                    SELECT DISTINCT label_id, label_text FROM enumeration_members 
+                    WHERE global_version_id = ? AND label_text IS NULL AND label_id LIKE '@%'
+                ) T1 
+                LEFT OUTER JOIN labels_cache T2 ON T1.label_id = T2.label_id AND T2.global_version_id = ?
+                WHERE T2.label_id IS NULL
+                ORDER BY T1.label_id ASC
+                """,
+                (global_version_id, global_version_id, global_version_id, 
+                 global_version_id, global_version_id, global_version_id)
+            )
+            
+            rows = await cursor.fetchall()
+            missing_label_ids = [row[0] for row in rows if row[0]]
+            
+            logger.info(f"Found {len(missing_label_ids)} missing labels in database for version {global_version_id}")
+            return missing_label_ids
+
+    async def _collect_labels_from_fresh_metadata(self, session: SyncSession):
+        """Collect labels from fresh metadata fetch as fallback
+        
+        This method is used when no stored metadata is available and we need
+        to fetch fresh metadata to collect label IDs.
+        
+        Args:
+            session: Sync session to collect labels for
+        """
+        activity = session.phases[SyncPhase.LABELS]
+        
+        try:
+            activity.current_item = "Fetching entities to collect label IDs..."
+            self._notify_progress(session.session_id)
+            
+            # Fetch entities and collect their label IDs
+            entities = await self._get_data_entities()
+            if entities:
+                self._collect_label_ids_from_entities(session, entities)
+                activity.current_item = f"Collected label IDs from {len(entities)} entities"
+                self._notify_progress(session.session_id)
+
+            # Fetch public entities and collect their label IDs  
+            try:
+                activity.current_item = "Fetching public entities to collect label IDs..."
+                self._notify_progress(session.session_id)
+                
+                public_entities = await self._get_public_entities()
+                if public_entities:
+                    self._collect_label_ids_from_public_entities(session, public_entities)
+                    activity.current_item = f"Collected label IDs from {len(public_entities)} public entities"
+                    self._notify_progress(session.session_id)
+            except Exception as e:
+                logger.warning(f"Error fetching public entities for label collection: {e}")
+
+            # Fetch enumerations and collect their label IDs
+            try:
+                activity.current_item = "Fetching enumerations to collect label IDs..."
+                self._notify_progress(session.session_id)
+                
+                enumerations = await self._get_public_enumerations()
+                if enumerations:
+                    self._collect_label_ids_from_enumerations(session, enumerations)
+                    activity.current_item = f"Collected label IDs from {len(enumerations)} enumerations"
+                    self._notify_progress(session.session_id)
+            except Exception as e:
+                logger.warning(f"Error fetching enumerations for label collection: {e}")
+                
+        except Exception as e:
+            logger.error(f"Error collecting labels from fresh metadata: {e}")
+            raise
 
     def _should_collect_label_ids(self, session: SyncSession) -> bool:
         """Determine if label IDs should be collected based on sync strategy"""
