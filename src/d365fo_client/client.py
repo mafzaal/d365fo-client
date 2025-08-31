@@ -708,17 +708,16 @@ class FOClient:
 
     async def get_data_entities(
         self, options: Optional[QueryOptions] = None
-    ) -> List[DataEntityInfo]:
-        """Get data entities - updated to return list for v2 sync compatibility
+    ) -> Dict[str, Any]:
+        """Get data entities from DataEntities metadata endpoint
 
         Args:
-            options: OData query options (ignored for now)
+            options: OData query options
 
         Returns:
-            List of DataEntityInfo objects
+            Response containing data entities
         """
-        # For sync manager compatibility, return list of DataEntityInfo objects
-        return await self.metadata_api_ops.search_data_entities("")  # Get all entities
+        return await self.metadata_api_ops.get_data_entities(options)
 
     async def get_data_entities_raw(
         self, options: Optional[QueryOptions] = None
@@ -955,7 +954,7 @@ class FOClient:
         Returns:
             Response containing public enumerations
         """
-        self._ensure_metadata_initialized()
+        await self._ensure_metadata_initialized()
 
         return await self.metadata_api_ops.get_public_enumerations(options)
 

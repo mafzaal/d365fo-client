@@ -25,6 +25,7 @@ class Profile:
     client_id: Optional[str] = None
     client_secret: Optional[str] = None
     tenant_id: Optional[str] = None
+    use_default_credentials: Optional[bool] = None  # None means derive from auth_mode
     verify_ssl: bool = True
     timeout: int = 60
     credential_source: Optional["CredentialSource"] = None
@@ -45,13 +46,19 @@ class Profile:
         """Convert profile to FOClientConfig."""
         from .models import FOClientConfig
 
+        # Determine use_default_credentials: explicit setting takes precedence over auth_mode
+        if self.use_default_credentials is not None:
+            use_default_creds = self.use_default_credentials
+        else:
+            use_default_creds = self.auth_mode == "default"
+
         return FOClientConfig(
             base_url=self.base_url,
             auth_mode=self.auth_mode,
             client_id=self.client_id,
             client_secret=self.client_secret,
             tenant_id=self.tenant_id,
-            use_default_credentials=self.auth_mode == "default",
+            use_default_credentials=use_default_creds,
             timeout=self.timeout,
             verify_ssl=self.verify_ssl,
             use_label_cache=self.use_label_cache,
@@ -104,6 +111,7 @@ class Profile:
             "client_id": None,
             "client_secret": None,
             "tenant_id": None,
+            "use_default_credentials": None,
             "verify_ssl": True,
             "timeout": 60,
             "use_label_cache": True,
