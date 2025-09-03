@@ -737,6 +737,8 @@ The server provides 12 comprehensive tools organized into functional categories:
 - **`d365fo_get_label`** - Get single label text by ID with language support
 - **`d365fo_get_labels_batch`** - Get multiple labels efficiently in batch operations
 
+**📖 For detailed information about all MCP tools including usage examples and best practices, see the [Comprehensive MCP Tools Introduction](docs/MCP_TOOLS_COMPREHENSIVE_INTRODUCTION.md).**
+
 ### MCP Resources
 
 The server exposes four types of resources for discovery and access:
