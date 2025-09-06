@@ -1,8 +1,435 @@
-# Dynamics 365 Finance & Operations Client and MCP Server
+# Dynamics 365 Finance & Operations MCP Server
 
-A comprehensive Python client library and MCP server for Microsoft Dynamics 365 Finance & Operations (D365 F&O) that provides easy access to OData endpoints, metadata operations, label management, and AI assistant integration.
+**Production-ready Model Context Protocol (MCP) server** that exposes the full capabilities of Microsoft Dynamics 365 Finance & Operations (D365 F&O) to AI assistants and other MCP-compatible tools. This enables sophisticated Dynamics 365 integration workflows through standardized protocol interactions.
 
-## Features
+**🚀 One-Click Installation for VS Code:**
+
+[![Install with UVX in VS Code](https://img.shields.io/badge/VS_Code-Install_D365_FO_MCP_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://vscode.dev/redirect/mcp/install?name=d365fo&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22d365fo-client%40latest%22%2C%22d365fo-mcp-server%22%5D%2C%22env%22%3A%7B%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20tenant%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20secret%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%5D)
+[![Install with UVX in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_D365_FO_MCP_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=d365fo&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22d365fo-client%40latest%22%2C%22d365fo-mcp-server%22%5D%2C%22env%22%3A%7B%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20tenant%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20secret%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%5D)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/d365fo-client?label=Downloads)](https://pypi.org/project/d365fo-client/)
+
+**Also includes a comprehensive Python client library** for Microsoft Dynamics 365 Finance & Operations with OData endpoints, metadata operations, label management, and CLI tools.
+
+## MCP Server Overview
+
+The d365fo-client includes a **production-ready Model Context Protocol (MCP) server** that exposes the full capabilities of the D365 Finance & Operations client to AI assistants and other MCP-compatible tools. This enables sophisticated Dynamics 365 integration workflows through standardized protocol interactions.
+
+### Key Features
+
+- **34 comprehensive tools** covering all major D365 F&O operations across 7 functional categories
+- **6 resource types** with comprehensive metadata exposure and discovery capabilities
+- **Production-ready** implementation with proper error handling, authentication, and security validation
+- **Performance optimization** with connection pooling, intelligent caching V2, and session management
+- **Comprehensive testing** with 14 unit tests (100% pass rate) and multi-tier integration testing
+- **Advanced profile management** supporting multiple environments with secure credential storage
+- **Database analysis capabilities** with secure SQL querying and metadata insights
+- **Session-based synchronization** with detailed progress tracking and multiple sync strategies
+- **Multi-language support** with label resolution and localization capabilities
+- **Enterprise security** with Azure AD integration, Key Vault support, and audit logging
+
+### Quick Start
+
+#### Installation and Setup
+
+```bash
+# Install d365fo-client with MCP dependencies
+pip install d365fo-client
+
+# Set up environment variables
+export D365FO_BASE_URL="https://your-environment.dynamics.com"
+export D365FO_CLIENT_ID="your-client-id"          # Optional with default credentials
+export D365FO_CLIENT_SECRET="your-client-secret"  # Optional with default credentials  
+export D365FO_TENANT_ID="your-tenant-id"          # Optional with default credentials
+
+# Start the MCP server
+d365fo-mcp-server
+```
+
+#### Integration with AI Assistants
+
+##### VS Code Integration (Recommended)
+
+**Option 1: Default Credentials**
+Add to your VS Code `mcp.json` for GitHub Copilot with MCP:
+
+```json
+{
+  "servers": {
+    "d365fo-mcp-server": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "d365fo-client",
+        "d365fo-mcp-server"
+      ],
+      "env": {
+        "D365FO_BASE_URL": "https://your-environment.dynamics.com",
+        "D365FO_LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}
+```
+
+**Option 2: Explicit Credentials**
+For environments requiring service principal authentication:
+
+```json
+{
+  "servers": {
+    "d365fo-mcp-server": {
+      "type": "stdio", 
+      "command": "uvx",
+      "args": [
+        "--from",
+        "d365fo-client",
+        "d365fo-mcp-server"
+      ],
+      "env": {
+        "D365FO_BASE_URL": "https://your-environment.dynamics.com",
+        "D365FO_LOG_LEVEL": "DEBUG",
+        "D365FO_CLIENT_ID": "${input:client_id}",
+        "D365FO_CLIENT_SECRET": "${input:client_secret}",
+        "D365FO_TENANT_ID": "${input:tenant_id}"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "id": "tenant_id",
+      "type": "promptString",
+      "description": "Azure AD Tenant ID for D365 F&O authentication",
+      "password": true
+    },
+    {
+      "id": "client_id", 
+      "type": "promptString",
+      "description": "Azure AD Client ID for D365 F&O authentication",
+      "password": true
+    },
+    {
+      "id": "client_secret",
+      "type": "promptString", 
+      "description": "Azure AD Client Secret for D365 F&O authentication",
+      "password": true
+    }
+  ]
+}
+```
+
+##### Claude Desktop Integration
+
+Add to your Claude Desktop configuration:
+
+```json
+{
+  "mcpServers": {
+    "d365fo": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "d365fo-client",
+        "d365fo-mcp-server"
+      ],
+      "env": {
+        "D365FO_BASE_URL": "https://your-environment.dynamics.com",
+        "D365FO_LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}
+```
+
+**Benefits of uvx approach:**
+- Always uses the latest version from the repository
+- No local installation required  
+- Automatic dependency management
+- Works across different environments
+
+#### Alternative: Programmatic Usage
+
+```python
+from d365fo_client.mcp import D365FOMCPServer
+
+# Create and run server with custom configuration
+config = {
+    "default_environment": {
+        "base_url": "https://your-environment.dynamics.com",
+        "use_default_credentials": True
+    }
+}
+
+server = D365FOMCPServer(config)
+await server.run()
+```
+
+#### Custom MCP Clients
+Connect using any MCP-compatible client library:
+
+```python
+from mcp import Client
+
+async with Client("d365fo-mcp-server") as client:
+    # Discover available tools
+    tools = await client.list_tools()
+    
+    # Execute operations
+    result = await client.call_tool(
+        "d365fo_query_entities",
+        {"entityName": "Customers", "top": 5}
+    )
+```
+
+### Architecture Benefits
+
+#### For AI Assistants
+- **Standardized Interface**: Consistent MCP protocol access to D365 F&O
+- **Rich Metadata**: Self-describing entities and operations
+- **Type Safety**: Schema validation for all operations
+- **Error Context**: Detailed error information for troubleshooting
+
+#### For Developers  
+- **Minimal Integration**: Standard MCP client libraries
+- **Comprehensive Coverage**: Full D365 F&O functionality exposed
+- **Performance Optimized**: Efficient connection and caching strategies
+- **Well Documented**: Complete API documentation and examples
+
+#### For Organizations
+- **Secure Access**: Enterprise-grade authentication (Azure AD, Managed Identity)
+- **Audit Logging**: Complete operation tracking and monitoring
+- **Scalable Design**: Connection pooling and session management
+- **Maintenance Friendly**: Clear architecture and comprehensive test coverage
+
+### Troubleshooting
+
+#### Common Issues
+
+**Connection Failures**
+```bash
+# Test connectivity
+d365fo-client version app --base-url https://your-environment.dynamics.com
+
+# Check logs
+tail -f ~/.d365fo-mcp/logs/mcp-server.log
+```
+
+**Authentication Issues**
+```bash
+# Verify Azure CLI authentication
+az account show
+
+# Test with explicit credentials
+export D365FO_CLIENT_ID="your-client-id"
+# ... set other variables
+d365fo-mcp-server
+```
+
+**Performance Issues**
+```bash
+# Enable debug logging
+export D365FO_LOG_LEVEL="DEBUG"
+
+# Adjust connection settings
+export D365FO_CONNECTION_TIMEOUT="120"
+export D365FO_MAX_CONCURRENT_REQUESTS="5"
+```
+
+#### Getting Help
+
+- **Logs**: Check `~/.d365fo-mcp/logs/mcp-server.log` for detailed error information
+- **Environment**: Use `d365fo_get_environment_info` tool to check system status
+- **Documentation**: See [MCP Implementation Summary](docs/MCP_IMPLEMENTATION_SUMMARY.md) for technical details
+- **Issues**: Report problems at [GitHub Issues](https://github.com/mafzaal/d365fo-client/issues)
+
+### MCP Tools
+
+The server provides **34 comprehensive tools** organized into functional categories:
+
+#### Connection & Environment Tools (2 tools)
+- **`d365fo_test_connection`** - Test connectivity and authentication with performance metrics and error diagnostics
+- **`d365fo_get_environment_info`** - Get comprehensive environment details including versions, configurations, and capabilities
+
+#### CRUD Operations Tools (6 tools)
+- **`d365fo_query_entities`** - Advanced OData querying with filters, selections, pagination, and performance optimization
+- **`d365fo_get_entity_record`** - Retrieve specific records by key with expansion options and ETag support
+- **`d365fo_create_entity_record`** - Create new entity records with validation and business logic execution
+- **`d365fo_update_entity_record`** - Update existing records with partial updates and optimistic concurrency control
+- **`d365fo_delete_entity_record`** - Delete entity records with referential integrity checking and cascading rules
+- **`d365fo_call_action`** - Execute OData actions and functions for complex business operations
+
+#### Metadata Discovery Tools (6 tools)
+- **`d365fo_search_entities`** - Search entities by pattern with category filtering and full-text search capabilities
+- **`d365fo_get_entity_schema`** - Get detailed entity schemas with properties, relationships, and label resolution
+- **`d365fo_search_actions`** - Search available OData actions with binding type and parameter information
+- **`d365fo_search_enumerations`** - Search system enumerations with keyword-based filtering
+- **`d365fo_get_enumeration_fields`** - Get detailed enumeration member information with multi-language support
+- **`d365fo_get_installed_modules`** - Retrieve information about installed modules and their configurations
+
+#### Label Management Tools (2 tools)
+- **`d365fo_get_label`** - Get single label text by ID with multi-language support and fallback options
+- **`d365fo_get_labels_batch`** - Get multiple labels efficiently with batch processing and performance optimization
+
+#### Profile Management Tools (10 tools)
+- **`d365fo_list_profiles`** - List all configured D365FO environment profiles with status information
+- **`d365fo_get_profile`** - Get detailed configuration information for specific profiles
+- **`d365fo_create_profile`** - Create new environment profiles with comprehensive authentication options
+- **`d365fo_update_profile`** - Modify existing profile configurations with partial update support
+- **`d365fo_delete_profile`** - Remove environment profiles with proper cleanup and validation
+- **`d365fo_set_default_profile`** - Designate a specific profile as the default for operations
+- **`d365fo_get_default_profile`** - Retrieve information about the currently configured default profile
+- **`d365fo_validate_profile`** - Validate profile configurations for completeness and security compliance
+- **`d365fo_test_profile_connection`** - Test connectivity and authentication for specific profiles
+- **`d365fo_get_profile_status`** - Get comprehensive status information for profiles
+
+#### Database Analysis Tools (4 tools)
+- **`d365fo_execute_sql_query`** - Execute SELECT queries against metadata database with security validation
+- **`d365fo_get_database_schema`** - Get comprehensive database schema information including relationships
+- **`d365fo_get_table_info`** - Get detailed information about specific database tables with sample data
+- **`d365fo_get_database_statistics`** - Generate database statistics and analytics for performance monitoring
+
+#### Synchronization Tools (4 tools)
+- **`d365fo_start_sync`** - Initiate metadata synchronization with various strategies and session tracking
+- **`d365fo_get_sync_progress`** - Monitor detailed progress of sync sessions with time estimates
+- **`d365fo_cancel_sync`** - Cancel running sync sessions with graceful cleanup
+- **`d365fo_list_sync_sessions`** - List all active sync sessions with status and progress information
+
+**📖 For detailed information about all MCP tools including usage examples and best practices, see the [Comprehensive MCP Tools Introduction](docs/MCP_TOOLS_COMPREHENSIVE_INTRODUCTION.md).**
+
+### MCP Resources
+
+The server exposes four types of resources for discovery and access:
+
+#### Entity Resources
+Access entity metadata and sample data:
+```
+d365fo://entities/CustomersV3     # Customer entity with metadata and sample data
+d365fo://entities/SalesOrders     # Sales order entity information
+d365fo://entities/Products        # Product entity details
+```
+
+#### Metadata Resources
+Access system-wide metadata:
+```
+d365fo://metadata/entities        # All data entities metadata (V2 cache)
+d365fo://metadata/actions         # Available OData actions  
+d365fo://metadata/enumerations    # System enumerations
+d365fo://metadata/labels          # System labels and translations
+```
+
+#### Environment Resources
+Access environment status and information:
+```
+d365fo://environment/status       # Environment health and connectivity
+d365fo://environment/version      # Version information (app, platform, build)
+d365fo://environment/cache        # Cache status and statistics V2
+```
+
+#### Query Resources
+Access predefined and templated queries:
+```
+d365fo://queries/customers_recent # Recent customers query template
+d365fo://queries/sales_summary    # Sales summary query with parameters
+```
+
+#### Database Resources (New in V2)
+Access metadata database queries:
+```
+d365fo://database/entities        # SQL-based entity searches with FTS5
+d365fo://database/actions         # Action discovery with metadata
+d365fo://database/statistics      # Cache and performance statistics
+```
+
+### Usage Examples
+
+#### Basic Tool Execution
+
+```json
+{
+  "tool": "d365fo_query_entities",
+  "arguments": {
+    "entityName": "CustomersV3",
+    "select": ["CustomerAccount", "Name", "Email"],
+    "filter": "CustomerGroup eq 'VIP'",
+    "top": 10
+  }
+}
+```
+
+#### Entity Schema Discovery
+
+```json
+{
+  "tool": "d365fo_get_entity_schema", 
+  "arguments": {
+    "entityName": "CustomersV3",
+    "includeProperties": true,
+    "resolveLabels": true,
+    "language": "en-US"
+  }
+}
+```
+
+#### Environment Information
+
+```json
+{
+  "tool": "d365fo_get_environment_info",
+  "arguments": {}
+}
+```
+
+### Authentication & Configuration
+
+#### Default Credentials (Recommended)
+Uses Azure Default Credential chain (Managed Identity, Azure CLI, etc.):
+
+```bash
+export D365FO_BASE_URL="https://your-environment.dynamics.com"
+# No additional auth environment variables needed
+d365fo-mcp-server
+```
+
+#### Explicit Credentials
+For service principal authentication:
+
+```bash
+export D365FO_BASE_URL="https://your-environment.dynamics.com"
+export D365FO_CLIENT_ID="your-client-id"
+export D365FO_CLIENT_SECRET="your-client-secret"
+export D365FO_TENANT_ID="your-tenant-id"
+d365fo-mcp-server
+```
+
+#### Azure Key Vault Integration (New in v0.2.3)
+For secure credential storage using Azure Key Vault:
+
+```bash
+export D365FO_BASE_URL="https://your-environment.dynamics.com"
+export D365FO_CREDENTIAL_SOURCE="keyvault"
+export D365FO_KEYVAULT_URL="https://your-keyvault.vault.azure.net/"
+d365fo-mcp-server
+```
+
+#### Advanced Configuration
+
+Create a configuration file or set additional environment variables:
+
+```bash
+# Optional: Logging configuration
+export D365FO_LOG_LEVEL="DEBUG"
+
+# Optional: Cache settings
+export D365FO_CACHE_DIR="/custom/cache/path"
+
+# Optional: Performance tuning
+export D365FO_CONNECTION_TIMEOUT="60"
+export D365FO_MAX_CONCURRENT_REQUESTS="10"
+```
+
+## Python Client Library
+
+### Features
 
 - 🔗 **OData Client**: Full CRUD operations on D365 F&O data entities with composite key support
 - 📊 **Metadata Management V2**: Enhanced caching system with intelligent synchronization and FTS5 search
@@ -20,7 +447,7 @@ A comprehensive Python client library and MCP server for Microsoft Dynamics 365 
 - 🔐 **Enhanced Credential Management**: Support for Azure Key Vault and multiple credential sources
 - 📊 **Advanced Sync Management**: Session-based synchronization with detailed progress tracking
 
-## Installation
+### Installation
 
 ```bash
 # Install from PyPI
@@ -41,7 +468,7 @@ uv sync  # Installs with exact dependencies from uv.lock
 
 Please update your environment variables accordingly when upgrading.
 
-## Quick Start
+## Python Client Quick Start
 
 ## Command Line Interface (CLI)
 
@@ -661,389 +1088,6 @@ Recent sandbox integration test results:
 ✅ TestSandboxPerformance::test_response_times
 ✅ TestSandboxPerformance::test_concurrent_operations
 ```
-
-## Model Context Protocol (MCP) Server
-
-d365fo-client includes a **production-ready Model Context Protocol (MCP) server** that exposes the full capabilities of the D365 Finance & Operations client to AI assistants and other MCP-compatible tools. This enables sophisticated Dynamics 365 integration workflows through standardized protocol interactions.
-
-### Overview
-
-The MCP server provides:
-- **12 functional tools** covering all major D365 F&O operations
-- **4 resource types** with comprehensive metadata exposure  
-- **Production-ready** implementation with proper error handling and authentication
-- **Performance optimization** with connection pooling and intelligent caching V2
-- **Comprehensive testing** with 14 unit tests (100% pass rate)
-- **Profile support** for multi-environment configurations
-
-### Quick Start
-
-#### Installation and Setup
-
-```bash
-# Install d365fo-client with MCP dependencies
-pip install d365fo-client
-
-# Set up environment variables
-export D365FO_BASE_URL="https://your-environment.dynamics.com"
-export D365FO_CLIENT_ID="your-client-id"          # Optional with default credentials
-export D365FO_CLIENT_SECRET="your-client-secret"  # Optional with default credentials  
-export D365FO_TENANT_ID="your-tenant-id"          # Optional with default credentials
-
-# Start the MCP server
-d365fo-mcp-server
-```
-
-#### Alternative: Programmatic Usage
-
-```python
-from d365fo_client.mcp import D365FOMCPServer
-
-# Create and run server with custom configuration
-config = {
-    "default_environment": {
-        "base_url": "https://your-environment.dynamics.com",
-        "use_default_credentials": True
-    }
-}
-
-server = D365FOMCPServer(config)
-await server.run()
-```
-
-### MCP Tools
-
-The server provides 12 comprehensive tools organized into functional categories:
-
-#### Connection Tools (2 tools)
-- **`d365fo_test_connection`** - Test environment connectivity and health
-- **`d365fo_get_environment_info`** - Get comprehensive environment details, versions, and statistics
-
-#### CRUD Operations (5 tools)
-- **`d365fo_query_entities`** - Advanced OData querying with filters, selections, and pagination
-- **`d365fo_get_entity_record`** - Retrieve specific records by key with expansion options
-- **`d365fo_create_entity_record`** - Create new entity records with validation
-- **`d365fo_update_entity_record`** - Update existing records with optimistic concurrency
-- **`d365fo_delete_entity_record`** - Delete entity records with conflict detection
-
-#### Metadata Tools (5 tools)
-- **`d365fo_search_entities`** - Search entities by pattern with advanced filtering and FTS5 search
-- **`d365fo_get_entity_schema`** - Get detailed entity schemas with properties and relationships
-- **`d365fo_search_actions`** - Search available OData actions and functions
-- **`d365fo_search_enums`** - Search system enumerations with filtering
-- **`d365fo_get_enum_info`** - Get detailed enumeration information and values
-
-#### Label Tools (2 tools)  
-- **`d365fo_get_label`** - Get single label text by ID with language support
-- **`d365fo_get_labels_batch`** - Get multiple labels efficiently in batch operations
-
-**📖 For detailed information about all MCP tools including usage examples and best practices, see the [Comprehensive MCP Tools Introduction](docs/MCP_TOOLS_COMPREHENSIVE_INTRODUCTION.md).**
-
-### MCP Resources
-
-The server exposes four types of resources for discovery and access:
-
-#### Entity Resources
-Access entity metadata and sample data:
-```
-d365fo://entities/CustomersV3     # Customer entity with metadata and sample data
-d365fo://entities/SalesOrders     # Sales order entity information
-d365fo://entities/Products        # Product entity details
-```
-
-#### Metadata Resources
-Access system-wide metadata:
-```
-d365fo://metadata/entities        # All data entities metadata (V2 cache)
-d365fo://metadata/actions         # Available OData actions  
-d365fo://metadata/enumerations    # System enumerations
-d365fo://metadata/labels          # System labels and translations
-```
-
-#### Environment Resources
-Access environment status and information:
-```
-d365fo://environment/status       # Environment health and connectivity
-d365fo://environment/version      # Version information (app, platform, build)
-d365fo://environment/cache        # Cache status and statistics V2
-```
-
-#### Query Resources
-Access predefined and templated queries:
-```
-d365fo://queries/customers_recent # Recent customers query template
-d365fo://queries/sales_summary    # Sales summary query with parameters
-```
-
-#### Database Resources (New in V2)
-Access metadata database queries:
-```
-d365fo://database/entities        # SQL-based entity searches with FTS5
-d365fo://database/actions         # Action discovery with metadata
-d365fo://database/statistics      # Cache and performance statistics
-```
-
-### Usage Examples
-
-#### Basic Tool Execution
-
-```json
-{
-  "tool": "d365fo_query_entities",
-  "arguments": {
-    "entityName": "CustomersV3",
-    "select": ["CustomerAccount", "Name", "Email"],
-    "filter": "CustomerGroup eq 'VIP'",
-    "top": 10
-  }
-}
-```
-
-#### Entity Schema Discovery
-
-```json
-{
-  "tool": "d365fo_get_entity_schema", 
-  "arguments": {
-    "entityName": "CustomersV3",
-    "includeProperties": true,
-    "resolveLabels": true,
-    "language": "en-US"
-  }
-}
-```
-
-#### Environment Information
-
-```json
-{
-  "tool": "d365fo_get_environment_info",
-  "arguments": {}
-}
-```
-
-### Authentication & Configuration
-
-#### Default Credentials (Recommended)
-Uses Azure Default Credential chain (Managed Identity, Azure CLI, etc.):
-
-```bash
-export D365FO_BASE_URL="https://your-environment.dynamics.com"
-# No additional auth environment variables needed
-d365fo-mcp-server
-```
-
-#### Explicit Credentials
-For service principal authentication:
-
-```bash
-export D365FO_BASE_URL="https://your-environment.dynamics.com"
-export D365FO_CLIENT_ID="your-client-id"
-export D365FO_CLIENT_SECRET="your-client-secret"
-export D365FO_TENANT_ID="your-tenant-id"
-d365fo-mcp-server
-```
-
-#### Azure Key Vault Integration (New in v0.2.3)
-For secure credential storage using Azure Key Vault:
-
-```bash
-export D365FO_BASE_URL="https://your-environment.dynamics.com"
-export D365FO_CREDENTIAL_SOURCE="keyvault"
-export D365FO_KEYVAULT_URL="https://your-keyvault.vault.azure.net/"
-d365fo-mcp-server
-```
-
-#### Advanced Configuration
-
-Create a configuration file or set additional environment variables:
-
-```bash
-# Optional: Logging configuration
-export D365FO_LOG_LEVEL="DEBUG"
-
-# Optional: Cache settings
-export D365FO_CACHE_DIR="/custom/cache/path"
-
-# Optional: Performance tuning
-export D365FO_CONNECTION_TIMEOUT="60"
-export D365FO_MAX_CONCURRENT_REQUESTS="10"
-```
-
-### Integration with AI Assistants
-
-The MCP server seamlessly integrates with AI assistants and development tools:
-
-#### Claude Desktop Integration
-Add to your Claude Desktop configuration:
-
-```json
-{
-  "mcpServers": {
-    "d365fo": {
-      "command": "d365fo-mcp-server",
-      "env": {
-        "D365FO_BASE_URL": "https://your-environment.dynamics.com" //Optional
-      }
-    }
-  }
-}
-```
-
-#### VS Code Integration
-
-##### Option 1: Default Credentials (Recommended)
-Add to your VS Code `mcp.json` for GitHub Copilot with MCP:
-
-```json
-{
-  "servers": {
-    "d365fo-mcp-server": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": [
-        "--from",
-        "d365fo-client",
-        "d365fo-mcp-server"
-      ],
-      "env": {
-        "D365FO_BASE_URL": "https://your-environment.dynamics.com",
-        "D365FO_LOG_LEVEL": "INFO"
-      }
-    }
-  }
-}
-```
-
-##### Option 2: Explicit Credentials
-For environments requiring service principal authentication:
-
-```json
-{
-  "servers": {
-    "d365fo-mcp-server": {
-      "type": "stdio", 
-      "command": "uvx",
-      "args": [
-        "--from",
-        "d365fo-client",
-        "d365fo-mcp-server"
-      ],
-      "env": {
-        "D365FO_BASE_URL": "https://your-environment.dynamics.com",
-        "D365FO_LOG_LEVEL": "DEBUG",
-        "D365FO_CLIENT_ID": "${input:client_id}",
-        "D365FO_CLIENT_SECRET": "${input:client_secret}",
-        "D365FO_TENANT_ID": "${input:tenant_id}"
-      }
-    }
-  },
-  "inputs": [
-    {
-      "id": "tenant_id",
-      "type": "promptString",
-      "description": "Azure AD Tenant ID for D365 F&O authentication",
-      "password": true
-    },
-    {
-      "id": "client_id", 
-      "type": "promptString",
-      "description": "Azure AD Client ID for D365 F&O authentication",
-      "password": true
-    },
-    {
-      "id": "client_secret",
-      "type": "promptString", 
-      "description": "Azure AD Client Secret for D365 F&O authentication",
-      "password": true
-    }
-  ]
-}
-```
-
-**Benefits of uvx approach:**
-- Always uses the latest version from the repository
-- No local installation required  
-- Automatic dependency management
-- Works across different environments
-
-#### Custom MCP Clients
-Connect using any MCP-compatible client library:
-
-```python
-from mcp import Client
-
-async with Client("d365fo-mcp-server") as client:
-    # Discover available tools
-    tools = await client.list_tools()
-    
-    # Execute operations
-    result = await client.call_tool(
-        "d365fo_query_entities",
-        {"entityName": "Customers", "top": 5}
-    )
-```
-
-### Architecture Benefits
-
-#### For AI Assistants
-- **Standardized Interface**: Consistent MCP protocol access to D365 F&O
-- **Rich Metadata**: Self-describing entities and operations
-- **Type Safety**: Schema validation for all operations
-- **Error Context**: Detailed error information for troubleshooting
-
-#### For Developers  
-- **Minimal Integration**: Standard MCP client libraries
-- **Comprehensive Coverage**: Full D365 F&O functionality exposed
-- **Performance Optimized**: Efficient connection and caching strategies
-- **Well Documented**: Complete API documentation and examples
-
-#### For Organizations
-- **Secure Access**: Enterprise-grade authentication (Azure AD, Managed Identity)
-- **Audit Logging**: Complete operation tracking and monitoring
-- **Scalable Design**: Connection pooling and session management
-- **Maintenance Friendly**: Clear architecture and comprehensive test coverage
-
-### Troubleshooting
-
-#### Common Issues
-
-**Connection Failures**
-```bash
-# Test connectivity
-d365fo-client get-version --base-url https://your-environment.dynamics.com
-
-# Check logs
-tail -f ~/.d365fo-mcp/logs/mcp-server.log
-```
-
-**Authentication Issues**
-```bash
-# Verify Azure CLI authentication
-az account show
-
-# Test with explicit credentials
-export D365FO_CLIENT_ID="your-client-id"
-# ... set other variables
-d365fo-mcp-server
-```
-
-**Performance Issues**
-```bash
-# Enable debug logging
-export D365FO_LOG_LEVEL="DEBUG"
-
-# Adjust connection settings
-export D365FO_CONNECTION_TIMEOUT="120"
-export D365FO_MAX_CONCURRENT_REQUESTS="5"
-```
-
-#### Getting Help
-
-- **Logs**: Check `~/.d365fo-mcp/logs/mcp-server.log` for detailed error information
-- **Environment**: Use `d365fo_get_environment_info` tool to check system status
-- **Documentation**: See [MCP Implementation Summary](docs/MCP_IMPLEMENTATION_SUMMARY.md) for technical details
-- **Issues**: Report problems at [GitHub Issues](https://github.com/mafzaal/d365fo-client/issues)
 
 ## Contributing
 
