@@ -2,6 +2,10 @@
 
 A comprehensive Python client library and MCP server for Microsoft Dynamics 365 Finance & Operations (D365 F&O) that provides easy access to OData endpoints, metadata operations, label management, and AI assistant integration.
 
+[Install D365 F&O MCP](vscode:mcp/install?name=D365FO-MCP%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22d365fo-client%40latest%22%2C%22d365fo-mcp-server%22%5D%7D&config=)
+
+![PyPI - Downloads](https://img.shields.io/pypi/dm/d365fo-client)
+
 ## Features
 
 - 🔗 **OData Client**: Full CRUD operations on D365 F&O data entities with composite key support
@@ -881,9 +885,15 @@ Add to your Claude Desktop configuration:
 {
   "mcpServers": {
     "d365fo": {
-      "command": "d365fo-mcp-server",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "d365fo-client",
+        "d365fo-mcp-server"
+      ],
       "env": {
-        "D365FO_BASE_URL": "https://your-environment.dynamics.com" //Optional
+        "D365FO_BASE_URL": "https://your-environment.dynamics.com",
+        "D365FO_LOG_LEVEL": "INFO"
       }
     }
   }
