@@ -4,6 +4,7 @@
 import argparse
 import asyncio
 import logging
+import logging.handlers
 import os
 import sys
 from pathlib import Path
@@ -14,20 +15,49 @@ from d365fo_client.mcp import FastD365FOMCPServer
 
 
 def setup_logging(level: str = "INFO") -> None:
-    """Set up logging configuration.
+    """Set up logging configuration with 24-hour log rotation.
 
     Args:
         level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     """
-    # Configure logging
     log_level = getattr(logging, level.upper(), logging.INFO)
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler(sys.stderr),
-        ]
+
+    # Create logs directory
+    log_dir = Path.home() / ".d365fo-mcp" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    # Clear existing handlers to avoid duplicate logging
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    # Create rotating file handler - rotates every 24 hours (midnight)
+    log_file = log_dir / "fastmcp-server.log"
+    file_handler = logging.handlers.TimedRotatingFileHandler(
+        filename=str(log_file),
+        when='midnight',        # Rotate at midnight
+        interval=1,             # Every 1 day
+        backupCount=30,         # Keep 30 days of logs
+        encoding='utf-8',       # Use UTF-8 encoding
+        utc=False              # Use local time for rotation
     )
+    file_handler.setLevel(log_level)
+    
+    # Create console handler
+    console_handler = logging.StreamHandler(sys.stderr)
+    console_handler.setLevel(log_level)
+    
+    # Create formatter
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+
+    # Configure root logger
+    root_logger.setLevel(log_level)
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
 
 
 def parse_arguments() -> argparse.Namespace:
