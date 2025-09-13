@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D365FO SSE Client Example</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            margin: 0;
+            color: #007acc;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .panel {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            background: #fafafa;
+        }
+        .panel h3 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+        .status {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.disconnected { background: #f8d7da; color: #721c24; }
+        .status.connecting { background: #ffeaa7; color: #856404; }
+        .event-log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            height: 300px;
+            overflow-y: auto;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .event {
+            margin: 5px 0;
+            padding: 8px;
+            border-left: 3px solid #007acc;
+            background: white;
+            border-radius: 3px;
+        }
+        .event.error { border-color: #dc3545; background: #fff5f5; }
+        .event.success { border-color: #28a745; background: #f8fff9; }
+        .event.info { border-color: #17a2b8; background: #f0f9ff; }
+        .form-group {
+            margin: 15px 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .btn {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        .btn:hover { background: #005999; }
+        .btn.secondary { background: #6c757d; }
+        .btn.secondary:hover { background: #545b62; }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .metric {
+            text-align: center;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 6px;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .metric-label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .tool-card {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            background: white;
+            transition: box-shadow 0.2s;
+        }
+        .tool-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .tool-card h4 {
+            margin: 0 0 10px 0;
+            color: #007acc;
+        }
+        .tool-card p {
+            margin: 0 0 15px 0;
+            color: #666;
+            font-size: 13px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #007acc, #00a0ff);
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>D365FO Server-Sent Events Client</h1>
+            <p>Real-time Microsoft Dynamics 365 Finance & Operations Integration</p>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="panel">
+            <h3>🔗 Connection Status</h3>
+            <div id="connectionStatus" class="status connecting">Connecting to SSE server...</div>
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-value" id="eventsReceived">0</div>
+                    <div class="metric-label">Events Received</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="toolsExecuted">0</div>
+                    <div class="metric-label">Tools Executed</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="resourcesAccessed">0</div>
+                    <div class="metric-label">Resources Accessed</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value" id="connectionTime">--:--</div>
+                    <div class="metric-label">Connected Since</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- D365FO Tools -->
+            <div class="panel">
+                <h3>🛠️ D365FO Tools</h3>
+                <div class="tools-grid">
+                    <div class="tool-card">
+                        <h4>Test Connection</h4>
+                        <p>Verify connectivity to D365FO environment</p>
+                        <button class="btn" onclick="executeTool('d365fo_test_connection', {})">Test</button>
+                    </div>
+                    <div class="tool-card">
+                        <h4>Query Entities</h4>
+                        <p>Search for data entities</p>
+                        <input type="text" id="entityPattern" placeholder="Entity pattern" />
+                        <button class="btn" onclick="searchEntities()">Search</button>
+                    </div>
+                    <div class="tool-card">
+                        <h4>Get Environment Info</h4>
+                        <p>Retrieve environment details</p>
+                        <button class="btn" onclick="executeTool('d365fo_get_environment_info', {})">Get Info</button>
+                    </div>
+                    <div class="tool-card">
+                        <h4>Sync Metadata</h4>
+                        <p>Start metadata synchronization</p>
+                        <button class="btn" onclick="startSync()">Start Sync</button>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="syncProgress" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resource Browser -->
+            <div class="panel">
+                <h3>📁 Resource Browser</h3>
+                <div class="form-group">
+                    <label>Resource Type:</label>
+                    <select id="resourceType">
+                        <option value="entities">Entities</option>
+                        <option value="metadata">Metadata</option>
+                        <option value="environment">Environment</option>
+                        <option value="queries">Queries</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Resource ID:</label>
+                    <input type="text" id="resourceId" placeholder="e.g., CustomersV3" />
+                </div>
+                <button class="btn" onclick="getResource()">Get Resource</button>
+                <button class="btn secondary" onclick="listResources()">List All</button>
+            </div>
+        </div>
+
+        <!-- Event Log -->
+        <div class="panel">
+            <h3>📊 Real-time Event Log</h3>
+            <div style="margin-bottom: 10px;">
+                <button class="btn secondary" onclick="clearEventLog()">Clear Log</button>
+                <button class="btn secondary" onclick="toggleAutoScroll()">Toggle Auto-scroll</button>
+                <span id="autoScrollStatus" style="margin-left: 10px; color: #666;">Auto-scroll: ON</span>
+            </div>
+            <div id="eventLog" class="event-log"></div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let eventSource;
+        let eventCount = 0;
+        let toolsExecuted = 0;
+        let resourcesAccessed = 0;
+        let connectionStartTime;
+        let autoScroll = true;
+
+        // Initialize SSE connection
+        function initializeSSE() {
+            const serverUrl = window.location.origin.replace(/:\d+/, ':8080'); // Adjust for demo
+            eventSource = new EventSource(`${serverUrl}/sse/events`);
+
+            eventSource.onopen = function(event) {
+                connectionStartTime = new Date();
+                updateConnectionStatus('connected', 'Connected to D365FO SSE Server');
+                logEvent('Connected to D365FO SSE Server', 'success');
+                updateConnectionTime();
+            };
+
+            eventSource.onerror = function(event) {
+                updateConnectionStatus('disconnected', 'Connection error - attempting to reconnect...');
+                logEvent('SSE connection error - will auto-reconnect', 'error');
+            };
+
+            // Listen for specific event types
+            const eventTypes = [
+                'server_connected',
+                'mcp_tool_call',
+                'mcp_tool_response', 
+                'mcp_resource_request',
+                'mcp_resource_response',
+                'd365fo_entity_update',
+                'd365fo_sync_progress',
+                'd365fo_connection_status',
+                'd365fo_error',
+                'server_status'
+            ];
+
+            eventTypes.forEach(eventType => {
+                eventSource.addEventListener(eventType, function(event) {
+                    handleSSEEvent(eventType, event.data, event.lastEventId);
+                });
+            });
+        }
+
+        // Handle SSE events
+        function handleSSEEvent(eventType, data, eventId) {
+            eventCount++;
+            updateMetric('eventsReceived', eventCount);
+
+            try {
+                const eventData = JSON.parse(data);
+                
+                switch(eventType) {
+                    case 'server_connected':
+                        logEvent(`Welcome: ${eventData.message}`, 'success');
+                        break;
+                        
+                    case 'mcp_tool_call':
+                        logEvent(`🔧 Tool Called: ${eventData.tool_name}`, 'info');
+                        break;
+                        
+                    case 'mcp_tool_response':
+                        toolsExecuted++;
+                        updateMetric('toolsExecuted', toolsExecuted);
+                        logEvent(`✅ Tool Result: ${eventData.tool_name} - ${JSON.stringify(eventData.result)}`, 'success');
+                        break;
+                        
+                    case 'mcp_resource_response':
+                        resourcesAccessed++;
+                        updateMetric('resourcesAccessed', resourcesAccessed);
+                        logEvent(`📁 Resource: ${eventData.resource_uri}`, 'info');
+                        break;
+                        
+                    case 'd365fo_sync_progress':
+                        const progress = eventData.progress;
+                        updateSyncProgress(progress.percentage);
+                        logEvent(`⏳ Sync Progress: ${progress.percentage}% - ${progress.current_entity}`, 'info');
+                        break;
+                        
+                    case 'd365fo_entity_update':
+                        logEvent(`🔄 Entity Update: ${eventData.entity} - ${eventData.operation}`, 'info');
+                        break;
+                        
+                    case 'd365fo_connection_status':
+                        logEvent(`🌐 Connection: ${eventData.environment} - ${eventData.status}`, 'success');
+                        break;
+                        
+                    case 'd365fo_error':
+                        logEvent(`❌ Error: ${eventData.error_type} - ${eventData.message}`, 'error');
+                        break;
+                        
+                    case 'server_status':
+                        // Update server metrics silently
+                        break;
+                        
+                    default:
+                        logEvent(`📨 ${eventType}: ${data}`, 'info');
+                }
+            } catch (e) {
+                logEvent(`📨 ${eventType}: ${data}`, 'info');
+            }
+        }
+
+        // Update connection status
+        function updateConnectionStatus(status, message) {
+            const statusEl = document.getElementById('connectionStatus');
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = message;
+        }
+
+        // Update metrics
+        function updateMetric(metricId, value) {
+            document.getElementById(metricId).textContent = value;
+        }
+
+        // Update connection time
+        function updateConnectionTime() {
+            if (connectionStartTime) {
+                const now = new Date();
+                const diff = now - connectionStartTime;
+                const minutes = Math.floor(diff / 60000);
+                const seconds = Math.floor((diff % 60000) / 1000);
+                updateMetric('connectionTime', `${minutes}:${seconds.toString().padStart(2, '0')}`);
+            }
+            setTimeout(updateConnectionTime, 1000);
+        }
+
+        // Update sync progress
+        function updateSyncProgress(percentage) {
+            document.getElementById('syncProgress').style.width = `${percentage}%`;
+        }
+
+        // Log events
+        function logEvent(message, type = 'info') {
+            const logEl = document.getElementById('eventLog');
+            const eventEl = document.createElement('div');
+            eventEl.className = `event ${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            eventEl.innerHTML = `<strong>${timestamp}</strong> ${message}`;
+            
+            logEl.appendChild(eventEl);
+            
+            // Auto-scroll
+            if (autoScroll) {
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+            
+            // Keep only last 100 events
+            while (logEl.children.length > 100) {
+                logEl.removeChild(logEl.firstChild);
+            }
+        }
+
+        // Tool execution functions
+        async function executeTool(toolName, arguments) {
+            try {
+                logEvent(`Executing tool: ${toolName}`, 'info');
+                
+                const response = await fetch(`/api/tools/${toolName}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(arguments)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                // Tool response will be handled via SSE event
+                
+            } catch (error) {
+                logEvent(`Tool execution error: ${error.message}`, 'error');
+            }
+        }
+
+        async function searchEntities() {
+            const pattern = document.getElementById('entityPattern').value || '.*';
+            await executeTool('d365fo_search_entities', { pattern: pattern });
+        }
+
+        async function startSync() {
+            await executeTool('d365fo_start_sync', { sync_type: 'metadata' });
+        }
+
+        async function getResource() {
+            const resourceType = document.getElementById('resourceType').value;
+            const resourceId = document.getElementById('resourceId').value;
+            
+            try {
+                logEvent(`Getting resource: ${resourceType}/${resourceId}`, 'info');
+                
+                const url = `/api/resources/${resourceType}${resourceId ? '?id=' + resourceId : ''}`;
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.text();
+                // Resource response will be handled via SSE event
+                
+            } catch (error) {
+                logEvent(`Resource fetch error: ${error.message}`, 'error');
+            }
+        }
+
+        async function listResources() {
+            const resourceType = document.getElementById('resourceType').value;
+            await getResource(); // Without ID, will list all
+        }
+
+        // Utility functions
+        function clearEventLog() {
+            document.getElementById('eventLog').innerHTML = '';
+            eventCount = 0;
+            updateMetric('eventsReceived', eventCount);
+        }
+
+        function toggleAutoScroll() {
+            autoScroll = !autoScroll;
+            document.getElementById('autoScrollStatus').textContent = `Auto-scroll: ${autoScroll ? 'ON' : 'OFF'}`;
+        }
+
+        // Initialize when page loads
+        window.onload = function() {
+            initializeSSE();
+            
+            // Demo data simulation (since we don't have real server)
+            setTimeout(() => {
+                // Simulate some events for demo purposes
+                handleSSEEvent('server_connected', '{"message": "Demo SSE client loaded successfully"}', '1');
+                
+                // Simulate periodic status updates
+                setInterval(() => {
+                    const demoEvents = [
+                        ['d365fo_connection_status', '{"environment": "demo.dynamics.com", "status": "healthy", "last_ping_ms": 85}'],
+                        ['d365fo_sync_progress', '{"operation": "metadata_sync", "progress": {"percentage": ' + (Math.floor(Math.random() * 100)) + ', "current_entity": "DemoEntity"}}']
+                    ];
+                    
+                    const randomEvent = demoEvents[Math.floor(Math.random() * demoEvents.length)];
+                    handleSSEEvent(randomEvent[0], randomEvent[1], Date.now().toString());
+                }, 10000); // Every 10 seconds
+                
+            }, 1000);
+        };
+
+        // Cleanup on page unload
+        window.onbeforeunload = function() {
+            if (eventSource) {
+                eventSource.close();
+            }
+        };
+    </script>
+</body>
+</html>
