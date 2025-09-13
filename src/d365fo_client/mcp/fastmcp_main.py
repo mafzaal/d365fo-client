@@ -232,7 +232,7 @@ async def async_main() -> None:
         
         # Create and run server
         server = FastD365FOMCPServer(config)
-        await server.run(transport=transport)
+        await server.run_async(transport=transport)
         
     except KeyboardInterrupt:
         logger.info("Server stopped by user")

@@ -1942,8 +1942,46 @@ Please follow this systematic approach for reliable action execution.
 
         logger.info("Registered core D365FO prompts with FastMCP")
 
-    async def run(self, transport: Literal["stdio", "sse", "streamable-http"] = "stdio"):
+    def run(self, transport: Literal["stdio", "sse", "streamable-http"] = "stdio"):
         """Run the FastMCP server with specified transport.
+        
+        Args:
+            transport: Transport protocol to use
+        """
+        async def _run_async():
+            try:
+                logger.info(f"Starting FastD365FOMCPServer v{__version__} with {transport} transport...")
+
+                # Perform startup initialization
+                await self._startup_initialization()
+
+                # Run server with specified transport using appropriate async method
+                if transport == "stdio":
+                    await self.mcp.run_stdio_async()
+                elif transport == "sse":
+                    await self.mcp.run_sse_async()
+                elif transport in ["http", "streamable-http"]:
+                    await self.mcp.run_streamable_http_async()
+                else:
+                    raise ValueError(f"Unsupported transport: {transport}")
+
+            except Exception as e:
+                logger.error(f"Error running FastMCP server: {e}")
+                raise
+            finally:
+                await self.cleanup()
+
+        # Check if we're already in an event loop
+        try:
+            loop = asyncio.get_running_loop()
+            # If we reach here, we're in an async context
+            raise RuntimeError("run() should not be called from async context. Use run_async() instead.")
+        except RuntimeError:
+            # No running loop, safe to use asyncio.run()
+            asyncio.run(_run_async())
+
+    async def run_async(self, transport: Literal["stdio", "sse", "streamable-http"] = "stdio"):
+        """Run the FastMCP server with specified transport (async version).
         
         Args:
             transport: Transport protocol to use
@@ -1954,8 +1992,15 @@ Please follow this systematic approach for reliable action execution.
             # Perform startup initialization
             await self._startup_initialization()
 
-            # Run server with specified transport
-            self.mcp.run(transport=transport)
+            # Run server with specified transport using appropriate async method
+            if transport == "stdio":
+                await self.mcp.run_stdio_async()
+            elif transport == "sse":
+                await self.mcp.run_sse_async()
+            elif transport in ["http", "streamable-http"]:
+                await self.mcp.run_streamable_http_async()
+            else:
+                raise ValueError(f"Unsupported transport: {transport}")
 
         except Exception as e:
             logger.error(f"Error running FastMCP server: {e}")
