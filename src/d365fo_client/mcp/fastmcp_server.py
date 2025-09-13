@@ -9,10 +9,42 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime
+import time
+from collections import defaultdict
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Literal, Optional
+from weakref import WeakValueDictionary
 
 from mcp.server.fastmcp import FastMCP
+
+
+class SessionContext:
+    """Simple session context that can be weakly referenced."""
+    
+    def __init__(self, session_id: str, stateless: bool = True):
+        self.session_id = session_id
+        self.created_at = datetime.now()
+        self.last_accessed = datetime.now()
+        self.stateless = stateless
+        self.request_count = 0
+        
+    def to_dict(self) -> dict:
+        """Convert to dictionary for API compatibility."""
+        return {
+            "session_id": self.session_id,
+            "created_at": self.created_at,
+            "last_accessed": self.last_accessed,
+            "stateless": self.stateless,
+            "request_count": self.request_count
+        }
+        
+    def __getitem__(self, key):
+        """Support dict-like access for backward compatibility."""
+        return getattr(self, key, None)
+        
+    def __setitem__(self, key, value):
+        """Support dict-like access for backward compatibility.""" 
+        setattr(self, key, value)
 from mcp.types import TextContent
 
 from .. import __version__
@@ -56,18 +88,73 @@ class FastD365FOMCPServer:
 
         # Store reference for dependency injection in tools
         self._setup_dependency_injection()
+        
+        # Initialize performance monitoring and session management
+        self._setup_production_features()
 
         # Register all tools, resources, and prompts
         self._register_tools()
         self._register_resources()
         self._register_prompts()
 
-        logger.info(f"FastD365FOMCPServer v{__version__} initialized")
+        logger.info(f"FastD365FOMCPServer v{__version__} initialized with production features")
 
     def _setup_dependency_injection(self):
         """Set up dependency injection for tools to access client manager."""
         # Store client manager reference for use in tool functions
         self.mcp._client_manager = self.client_manager
+        
+    def _setup_production_features(self):
+        """Set up production features including performance monitoring and session management."""
+        # Performance monitoring
+        self._request_stats = {
+            'total_requests': 0,
+            'total_errors': 0,
+            'avg_response_time': 0.0,
+            'last_reset': datetime.now()
+        }
+        self._request_times = []
+        self._max_request_history = 1000
+        
+        # Connection pool monitoring
+        self._connection_pool_stats = {
+            'active_connections': 0,
+            'peak_connections': 0,
+            'connection_errors': 0,
+            'pool_hits': 0,
+            'pool_misses': 0
+        }
+        
+        # Stateless session management (for HTTP transport)
+        transport_config = self.config.get("server", {}).get("transport", {})
+        self._stateless_mode = transport_config.get("http", {}).get("stateless", False)
+        self._json_response_mode = transport_config.get("http", {}).get("json_response", False)
+        
+        if self._stateless_mode:
+            logger.info("Stateless HTTP mode enabled - sessions will not be persisted")
+            # Use weak references for stateless sessions to allow garbage collection
+            self._stateless_sessions = WeakValueDictionary()
+        else:
+            # Standard session management for stateful mode
+            self._active_sessions = {}
+            
+        if self._json_response_mode:
+            logger.info("JSON response mode enabled - responses will be in JSON format")
+            
+        # Performance optimization settings
+        perf_config = self.config.get("performance", {})
+        self._max_concurrent_requests = perf_config.get("max_concurrent_requests", 10)
+        self._request_timeout = perf_config.get("request_timeout", 30)
+        self._batch_size = perf_config.get("batch_size", 100)
+        
+        # Connection pooling semaphore
+        self._request_semaphore = asyncio.Semaphore(self._max_concurrent_requests)
+        
+        logger.info(f"Production features configured:")
+        logger.info(f"  - Stateless mode: {self._stateless_mode}")
+        logger.info(f"  - JSON response mode: {self._json_response_mode}")
+        logger.info(f"  - Max concurrent requests: {self._max_concurrent_requests}")
+        logger.info(f"  - Request timeout: {self._request_timeout}s")
         
     def _register_tools(self):
         """Register all D365FO tools using FastMCP decorators."""
@@ -212,7 +299,7 @@ class FastD365FOMCPServer:
                 ) if select or expand else None
                 
                 # Get entity record
-                result = await client.get_entity_record(entityName, key, options)
+                result = await client.get_entity_by_key(entityName, key, options)
                 
                 return json.dumps({
                     "entityName": entityName,
@@ -1380,8 +1467,197 @@ class FastD365FOMCPServer:
                     "error": str(e),
                     "limit": limit
                 }, indent=2)
+                
+        # Performance and Health Monitoring Tools
+        @self.mcp.tool()
+        async def d365fo_get_server_performance() -> str:
+            """Get FastMCP server performance statistics and health metrics.
+            
+            Returns:
+                JSON string with server performance data
+            """
+            try:
+                performance_stats = self.get_performance_stats()
+                
+                # Add client manager health stats
+                client_health = await self.client_manager.health_check()
+                
+                return json.dumps({
+                    "server_performance": performance_stats,
+                    "client_health": client_health,
+                    "timestamp": datetime.now().isoformat()
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Get server performance failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+                
+        @self.mcp.tool()
+        async def d365fo_reset_performance_stats() -> str:
+            """Reset server performance statistics.
+            
+            Returns:
+                JSON string with reset confirmation
+            """
+            try:
+                # Reset performance stats
+                self._request_stats = {
+                    'total_requests': 0,
+                    'total_errors': 0,
+                    'avg_response_time': 0.0,
+                    'last_reset': datetime.now()
+                }
+                self._request_times = []
+                self._connection_pool_stats = {
+                    'active_connections': 0,
+                    'peak_connections': 0,
+                    'connection_errors': 0,
+                    'pool_hits': 0,
+                    'pool_misses': 0
+                }
+                
+                # Clean up expired sessions
+                self._cleanup_expired_sessions()
+                
+                return json.dumps({
+                    "performance_stats_reset": True,
+                    "reset_timestamp": datetime.now().isoformat()
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Reset performance stats failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "reset_successful": False
+                }, indent=2)
+                
+        @self.mcp.tool()
+        async def d365fo_get_server_config() -> str:
+            """Get current FastMCP server configuration and feature status.
+            
+            Returns:
+                JSON string with server configuration
+            """
+            try:
+                config_info = {
+                    "server_version": __version__,
+                    "stateless_mode": self._stateless_mode,
+                    "json_response_mode": self._json_response_mode,
+                    "max_concurrent_requests": self._max_concurrent_requests,
+                    "request_timeout": self._request_timeout,
+                    "batch_size": self._batch_size,
+                    "transport_config": self.config.get("server", {}).get("transport", {}),
+                    "performance_config": self.config.get("performance", {}),
+                    "cache_config": self.config.get("cache", {}),
+                    "security_config": self.config.get("security", {})
+                }
+                
+                return json.dumps({
+                    "server_config": config_info,
+                    "timestamp": datetime.now().isoformat()
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Get server config failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
 
-        logger.info("Registered all D365FO tools with FastMCP")
+        logger.info("Registered all D365FO tools with FastMCP (including performance monitoring)")
+        
+    def _performance_monitor(self, func):
+        """Decorator to monitor performance of tool executions."""
+        async def wrapper(*args, **kwargs):
+            start_time = time.time()
+            
+            # Increment request counter
+            self._request_stats['total_requests'] += 1
+            
+            # Apply request limiting
+            async with self._request_semaphore:
+                try:
+                    # Execute with timeout
+                    result = await asyncio.wait_for(
+                        func(*args, **kwargs),
+                        timeout=self._request_timeout
+                    )
+                    
+                    # Record successful execution time
+                    execution_time = time.time() - start_time
+                    self._record_request_time(execution_time)
+                    
+                    return result
+                    
+                except asyncio.TimeoutError:
+                    self._request_stats['total_errors'] += 1
+                    logger.error(f"Tool execution timeout after {self._request_timeout}s: {func.__name__}")
+                    return json.dumps({
+                        "error": f"Request timeout after {self._request_timeout} seconds",
+                        "tool": func.__name__,
+                        "timeout": self._request_timeout
+                    }, indent=2)
+                    
+                except Exception as e:
+                    self._request_stats['total_errors'] += 1
+                    execution_time = time.time() - start_time
+                    self._record_request_time(execution_time)
+                    logger.error(f"Tool execution error in {func.__name__}: {e}")
+                    raise
+                    
+        return wrapper
+        
+    def _record_request_time(self, execution_time: float):
+        """Record request execution time for performance monitoring."""
+        self._request_times.append(execution_time)
+        
+        # Keep only recent request times to prevent memory bloat
+        if len(self._request_times) > self._max_request_history:
+            self._request_times = self._request_times[-self._max_request_history:]
+            
+        # Update average response time
+        if self._request_times:
+            self._request_stats['avg_response_time'] = sum(self._request_times) / len(self._request_times)
+            
+    def get_performance_stats(self) -> dict:
+        """Get current performance statistics."""
+        uptime = datetime.now() - self._request_stats['last_reset']
+        
+        stats = {
+            "server_uptime_seconds": uptime.total_seconds(),
+            "total_requests": self._request_stats['total_requests'],
+            "total_errors": self._request_stats['total_errors'],
+            "error_rate": (self._request_stats['total_errors'] / max(1, self._request_stats['total_requests'])) * 100,
+            "avg_response_time_ms": self._request_stats['avg_response_time'] * 1000,
+            "current_active_requests": self._max_concurrent_requests - self._request_semaphore._value,
+            "max_concurrent_requests": self._max_concurrent_requests,
+            "connection_pool_stats": self._connection_pool_stats.copy(),
+            "stateless_mode": self._stateless_mode,
+            "json_response_mode": self._json_response_mode
+        }
+        
+        if self._request_times:
+            stats.update({
+                "min_response_time_ms": min(self._request_times) * 1000,
+                "max_response_time_ms": max(self._request_times) * 1000,
+                "p95_response_time_ms": self._calculate_percentile(self._request_times, 95) * 1000,
+                "recent_request_count": len(self._request_times)
+            })
+            
+        return stats
+        
+    def _calculate_percentile(self, values: list, percentile: float) -> float:
+        """Calculate percentile for a list of values."""
+        if not values:
+            return 0.0
+        sorted_values = sorted(values)
+        k = (len(sorted_values) - 1) * (percentile / 100)
+        f = int(k)
+        c = k - f
+        if f == len(sorted_values) - 1:
+            return sorted_values[f]
+        return sorted_values[f] * (1 - c) + sorted_values[f + 1] * c
 
     def _register_resources(self):
         """Register D365FO resources using FastMCP decorators."""
@@ -1941,6 +2217,52 @@ Please follow this systematic approach for reliable action execution.
             return template.strip()
 
         logger.info("Registered core D365FO prompts with FastMCP")
+        
+    def _get_session_context(self, session_id: str = None) -> dict:
+        """Get or create session context for stateless operations."""
+        if not self._stateless_mode:
+            # In stateful mode, return shared context
+            return {"shared": True, "created_at": datetime.now()}
+            
+        # In stateless mode, each request should be independent
+        if session_id and session_id in self._stateless_sessions:
+            session = self._stateless_sessions[session_id]
+            session.last_accessed = datetime.now()
+            return session.to_dict()
+        else:
+            # Create new session context
+            if not session_id:
+                session_id = f"stateless_{int(time.time())}_{os.getpid()}"
+                
+            session_context = SessionContext(session_id)
+            
+            if session_id:
+                self._stateless_sessions[session_id] = session_context
+                
+            return session_context.to_dict()
+            
+    def _cleanup_expired_sessions(self):
+        """Clean up expired stateless sessions."""
+        if not self._stateless_mode:
+            return
+            
+        current_time = datetime.now()
+        session_timeout = timedelta(minutes=30)  # 30 minute session timeout
+        
+        expired_sessions = []
+        for session_id, session in self._stateless_sessions.items():
+            if current_time - session.last_accessed > session_timeout:
+                expired_sessions.append(session_id)
+                
+        for session_id in expired_sessions:
+            try:
+                del self._stateless_sessions[session_id]
+                logger.debug(f"Cleaned up expired session: {session_id}")
+            except KeyError:
+                pass  # Session already removed
+                
+        if expired_sessions:
+            logger.info(f"Cleaned up {len(expired_sessions)} expired stateless sessions")
 
     def run(self, transport: Literal["stdio", "sse", "streamable-http"] = "stdio"):
         """Run the FastMCP server with specified transport.
@@ -2030,6 +2352,23 @@ Please follow this systematic approach for reliable action execution.
         except Exception as e:
             logger.error(f"Startup initialization failed: {e}")
             # Don't fail startup on initialization failures
+            
+        # Start background tasks for production features
+        if self._stateless_mode:
+            # Schedule periodic cleanup of expired sessions
+            asyncio.create_task(self._periodic_session_cleanup())
+            
+    async def _periodic_session_cleanup(self):
+        """Periodic cleanup task for stateless sessions."""
+        while True:
+            try:
+                await asyncio.sleep(300)  # Clean up every 5 minutes
+                self._cleanup_expired_sessions()
+            except asyncio.CancelledError:
+                logger.info("Session cleanup task cancelled")
+                break
+            except Exception as e:
+                logger.error(f"Error in session cleanup task: {e}")
 
     async def _startup_health_checks(self):
         """Perform startup health checks."""
@@ -2125,7 +2464,23 @@ Please follow this systematic approach for reliable action execution.
         """Clean up resources."""
         try:
             logger.info("Cleaning up FastD365FOMCPServer...")
+            
+            # Clean up client manager
             await self.client_manager.cleanup()
+            
+            # Clean up stateless sessions
+            if hasattr(self, '_stateless_sessions'):
+                self._stateless_sessions.clear()
+                
+            # Log final performance stats
+            if hasattr(self, '_request_stats'):
+                final_stats = self.get_performance_stats()
+                logger.info(f"Final server stats: {final_stats['total_requests']} requests, "
+                           f"{final_stats['total_errors']} errors, "
+                           f"{final_stats['avg_response_time_ms']:.2f}ms avg response time")
+                           
+            logger.info("FastD365FOMCPServer cleanup completed")
+            
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
 
@@ -2197,10 +2552,13 @@ Please follow this systematic approach for reliable action execution.
                 "cache_size_limit_mb": 100,
             },
             "performance": {
-                "max_concurrent_requests": 10,
-                "connection_pool_size": 5,
-                "request_timeout": 30,
-                "batch_size": 100,
+                "max_concurrent_requests": int(os.getenv("MCP_MAX_CONCURRENT_REQUESTS", "10")),
+                "connection_pool_size": int(os.getenv("MCP_CONNECTION_POOL_SIZE", "5")),
+                "request_timeout": int(os.getenv("MCP_REQUEST_TIMEOUT", "30")),
+                "batch_size": int(os.getenv("MCP_BATCH_SIZE", "100")),
+                "enable_performance_monitoring": os.getenv("MCP_PERFORMANCE_MONITORING", "true").lower() in ("true", "1", "yes"),
+                "session_cleanup_interval": int(os.getenv("MCP_SESSION_CLEANUP_INTERVAL", "300")),
+                "max_request_history": int(os.getenv("MCP_MAX_REQUEST_HISTORY", "1000")),
             },
             "security": {
                 "encrypt_cached_tokens": True,

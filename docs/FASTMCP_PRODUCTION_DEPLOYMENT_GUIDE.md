@@ -1,20 +1,33 @@
 # FastMCP D365FO Server - Production Deployment Guide
 
-This guide provides comprehensive instructions for deploying the FastMCP D365FO server in production environments with HTTP and SSE transports.
+This guide provides comprehensive instructions for deploying the FastMCP D365FO server in production environments with enhanced Phase 4 features including stateless HTTP mode, JSON response support, and performance optimizations.
+
+## Phase 4 Production Features ✅
+
+### New Production Capabilities
+- **✅ Stateless HTTP Mode**: Horizontal scaling with load balancer support
+- **✅ JSON Response Support**: API gateway compatible responses  
+- **✅ Performance Monitoring**: Built-in metrics and health checks
+- **✅ Enhanced Configuration**: Environment-based production settings
+- **✅ Connection Pooling**: Optimized D365FO client management
+- **✅ Request Limiting**: Configurable concurrent request controls
 
 ## Table of Contents
 
-1. [Production Architecture](#production-architecture)
-2. [Deployment Options](#deployment-options)
-3. [Configuration Management](#configuration-management)
-4. [Security Considerations](#security-considerations)
-5. [Monitoring and Logging](#monitoring-and-logging)
-6. [Load Balancing and Scaling](#load-balancing-and-scaling)
-7. [Troubleshooting](#troubleshooting)
+1. [Phase 4 Production Features](#phase-4-production-features)
+2. [Production Architecture](#production-architecture)
+3. [Deployment Strategies](#deployment-strategies)
+4. [Configuration Management](#configuration-management)
+5. [Performance Optimization](#performance-optimization)
+6. [Security Considerations](#security-considerations)
+7. [Monitoring and Health Checks](#monitoring-and-health-checks)
+8. [Load Balancing and Scaling](#load-balancing-and-scaling)
+9. [Container Deployments](#container-deployments)
+10. [Troubleshooting](#troubleshooting)
 
 ## Production Architecture
 
-### Recommended Production Setup
+### Enhanced Production Setup with Phase 4 Features
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -22,9 +35,11 @@ This guide provides comprehensive instructions for deploying the FastMCP D365FO 
 │   (Azure LB/    │    │   (nginx/       │    │    Servers      │
 │   AWS ALB)      │────│   Traefik)      │────│                 │
 └─────────────────┘    └─────────────────┘    │ FastMCP Server  │
-                                              │ (Multiple       │
-                                              │  Instances)     │
-                                              └─────────────────┘
+                                              │ (Stateless Mode)│
+┌─────────────────┐                           │ Multiple        │
+│  Health Checks  │                           │ Instances       │
+│  & Monitoring   │───────────────────────────│ w/ Perf Monitor │
+└─────────────────┘                           └─────────────────┘
                                                        │
                                               ┌─────────────────┐
                                               │   D365 F&O      │
@@ -34,13 +49,49 @@ This guide provides comprehensive instructions for deploying the FastMCP D365FO 
 
 ### Transport Selection by Use Case
 
-| Use Case | Transport | Port | Notes |
-|----------|-----------|------|-------|
-| API Integration | HTTP | 8000 | RESTful MCP-over-HTTP |
-| Real-time Dashboards | SSE | 8001 | Server-Sent Events |
-| Development/Testing | stdio | N/A | Direct MCP protocol |
+| Use Case | Transport | Mode | Features | Best For |
+|----------|-----------|------|----------|----------|
+| Production API | HTTP | Stateless + JSON | Load balancing, auto-scaling | Enterprise deployments |
+| Real-time Apps | SSE | Stateful | Server-sent events | Dashboards, monitoring |
+| High Availability | HTTP | Stateless | Session independence | Cloud-native apps |
+| Development | stdio | N/A | Direct MCP protocol | Local development |
 
-## Deployment Options
+## Deployment Strategies
+
+### 1. Stateless Production Deployment (Recommended)
+
+```bash
+# High-availability stateless deployment
+d365fo-fastmcp-server --transport http --host 0.0.0.0 --port 8000 --stateless --json-response
+```
+
+**Benefits:**
+- Horizontal scaling with load balancer
+- No server-side session state
+- Perfect for cloud deployments
+- Auto-scaling compatible
+
+### 2. Development Deployment
+
+```bash
+# Local development
+d365fo-fastmcp-server --transport stdio
+
+# Web testing
+d365fo-fastmcp-server --transport sse --port 8000 --debug
+```
+
+### 3. Stateful Production Deployment
+
+```bash
+# Traditional stateful deployment
+d365fo-fastmcp-server --transport http --host 0.0.0.0 --port 8000
+```
+
+**Use Cases:**
+- Small to medium scale deployments
+- Session persistence required
+- Single-region deployments
 
 ### 1. Docker Deployment (Recommended)
 
@@ -283,6 +334,80 @@ az container create \
     --command-line "d365fo-fastmcp-server --transport sse --port 8001 --host 0.0.0.0"
 ```
 
+## Performance Optimization
+
+### Built-in Performance Features
+
+The Phase 4 FastMCP server includes comprehensive performance optimizations:
+
+#### 1. Connection Pooling
+```bash
+# Configure connection pool size
+export MCP_CONNECTION_POOL_SIZE="10"  # Default: 5
+
+# Monitor pool utilization
+d365fo_get_server_performance
+```
+
+#### 2. Request Limiting
+```bash
+# Limit concurrent requests to prevent overload
+export MCP_MAX_CONCURRENT_REQUESTS="20"  # Default: 10
+
+# Set request timeout
+export MCP_REQUEST_TIMEOUT="45"  # Default: 30 seconds
+```
+
+#### 3. Performance Monitoring
+```bash
+# Enable detailed performance tracking
+export MCP_PERFORMANCE_MONITORING="true"
+
+# Get real-time performance stats
+curl -X POST http://localhost:8000/tools/d365fo_get_server_performance
+
+# Reset performance counters
+curl -X POST http://localhost:8000/tools/d365fo_reset_performance_stats
+```
+
+### Performance Metrics
+
+The server tracks the following metrics:
+
+- **Request Volume**: Total requests processed
+- **Error Rate**: Percentage of failed requests  
+- **Response Times**: Average, min, max, P95 response times
+- **Concurrent Requests**: Current active request count
+- **Connection Pool**: Pool hits/misses and utilization
+- **Memory Usage**: Cache size and memory consumption
+
+### Optimization Guidelines
+
+#### Small Scale (< 100 requests/min)
+```bash
+export MCP_MAX_CONCURRENT_REQUESTS="5"
+export MCP_CONNECTION_POOL_SIZE="3"
+export MCP_REQUEST_TIMEOUT="30"
+export MCP_CACHE_SIZE_LIMIT="50"
+```
+
+#### Medium Scale (100-1000 requests/min)
+```bash
+export MCP_MAX_CONCURRENT_REQUESTS="15"
+export MCP_CONNECTION_POOL_SIZE="8"
+export MCP_REQUEST_TIMEOUT="45"
+export MCP_CACHE_SIZE_LIMIT="150"
+```
+
+#### Large Scale (> 1000 requests/min)
+```bash
+export MCP_MAX_CONCURRENT_REQUESTS="30"
+export MCP_CONNECTION_POOL_SIZE="15"
+export MCP_REQUEST_TIMEOUT="60"
+export MCP_CACHE_SIZE_LIMIT="300"
+export MCP_HTTP_STATELESS="true"  # Enable for horizontal scaling
+```
+
 ## Configuration Management
 
 ### Environment Variables
@@ -449,7 +574,183 @@ az network nsg rule create \
     --access Allow
 ```
 
-## Monitoring and Logging
+## Monitoring and Health Checks
+
+### Built-in Health Monitoring
+
+The FastMCP server provides comprehensive health monitoring capabilities:
+
+#### 1. Performance Dashboard Tools
+
+```bash
+# Get comprehensive server performance statistics
+d365fo_get_server_performance
+
+# Example response:
+{
+  "server_performance": {
+    "server_uptime_seconds": 3600,
+    "total_requests": 1250,
+    "total_errors": 12,
+    "error_rate": 0.96,
+    "avg_response_time_ms": 245.3,
+    "current_active_requests": 3,
+    "max_concurrent_requests": 20,
+    "stateless_mode": true,
+    "json_response_mode": true
+  },
+  "client_health": {
+    "default": {
+      "healthy": true,
+      "last_checked": "2024-01-15T10:30:00Z"
+    }
+  }
+}
+```
+
+#### 2. Server Configuration Monitoring
+
+```bash
+# Get current server configuration
+d365fo_get_server_config
+
+# Monitor configuration changes
+{
+  "server_config": {
+    "server_version": "0.2.3",
+    "stateless_mode": true,
+    "json_response_mode": true,
+    "max_concurrent_requests": 20,
+    "request_timeout": 45
+  }
+}
+```
+
+#### 3. Health Check Endpoints
+
+```bash
+# Basic health check
+curl http://localhost:8000/health
+
+# Detailed health with D365FO connectivity
+curl -X POST http://localhost:8000/tools/d365fo_test_connection
+
+# Performance metrics endpoint
+curl http://localhost:8000/metrics
+```
+
+### External Monitoring Integration
+
+#### Prometheus Configuration
+
+```yaml
+# prometheus.yml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'd365fo-mcp'
+    static_configs:
+      - targets: ['d365fo-mcp-server:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+```
+
+#### Grafana Dashboard
+
+```json
+{
+  "dashboard": {
+    "title": "D365FO MCP Server Monitoring",
+    "panels": [
+      {
+        "title": "Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(mcp_requests_total[5m])",
+            "legendFormat": "Requests/sec"
+          }
+        ]
+      },
+      {
+        "title": "Error Rate",
+        "type": "graph", 
+        "targets": [
+          {
+            "expr": "rate(mcp_errors_total[5m]) / rate(mcp_requests_total[5m]) * 100",
+            "legendFormat": "Error %"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Alerting Rules
+
+#### Critical Alerts
+
+```yaml
+# alerting-rules.yml
+groups:
+- name: d365fo-mcp-critical
+  rules:
+  - alert: MCPServerDown
+    expr: up{job="d365fo-mcp"} == 0
+    for: 30s
+    labels:
+      severity: critical
+    annotations:
+      summary: "MCP Server is down"
+      
+  - alert: HighErrorRate
+    expr: rate(mcp_errors_total[5m]) / rate(mcp_requests_total[5m]) > 0.1
+    for: 2m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High error rate detected"
+
+  - alert: HighResponseTime  
+    expr: mcp_response_time_p95 > 5000
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High response time detected"
+```
+
+### Logging Configuration
+
+#### Structured Logging
+
+```bash
+# Enable structured JSON logging
+export D365FO_LOG_LEVEL="INFO"
+export MCP_LOG_FORMAT="json"
+
+# Log rotation settings
+export MCP_LOG_MAX_SIZE="100MB"
+export MCP_LOG_BACKUP_COUNT="10"
+```
+
+#### Log Analysis Examples
+
+```bash
+# Monitor error patterns
+grep "ERROR" ~/.d365fo-mcp/logs/fastmcp-server.log | tail -20
+
+# Performance analysis
+grep "execution_time" ~/.d365fo-mcp/logs/fastmcp-server.log | awk '{print $5}' | sort -n
+
+# Connection monitoring
+grep "connection" ~/.d365fo-mcp/logs/fastmcp-server.log | grep -v "successful"
+```
+
+## Load Balancing and Scaling
 
 ### 1. Application Monitoring
 
@@ -622,36 +923,86 @@ upstream d365fo_sse {
 
 ## Troubleshooting
 
-### Common Issues
+### Phase 4 Production Issues
+
+#### 1. Stateless Mode Issues
+
+```bash
+# Check stateless mode configuration
+d365fo_get_server_config
+
+# Verify session cleanup
+d365fo_get_server_performance
+
+# Common stateless issues:
+# - Load balancer not routing correctly
+# - Session affinity enabled (should be disabled)
+# - Client attempting to maintain sessions
+
+# Debug stateless mode
+export D365FO_LOG_LEVEL="DEBUG"
+grep "stateless" ~/.d365fo-mcp/logs/fastmcp-server.log
+```
+
+#### 2. Performance Degradation
+
+```bash
+# Monitor real-time performance
+watch -n 5 'curl -s -X POST http://localhost:8000/tools/d365fo_get_server_performance | jq .server_performance'
+
+# Check for bottlenecks
+# High response times
+if [ "$(curl -s http://localhost:8000/tools/d365fo_get_server_performance | jq '.server_performance.avg_response_time_ms')" -gt 1000 ]; then
+    echo "Response time degradation detected"
+    # Reduce concurrent requests
+    export MCP_MAX_CONCURRENT_REQUESTS="5"
+fi
+
+# Memory issues
+if [ "$(docker stats --no-stream --format 'table {{.MemPerc}}' d365fo-mcp | tail -1 | sed 's/%//')" -gt 80 ]; then
+    echo "High memory usage detected"
+    # Reset performance stats and cleanup
+    curl -X POST http://localhost:8000/tools/d365fo_reset_performance_stats
+fi
+```
+
+#### 3. Connection Pool Exhaustion
+
+```bash
+# Monitor connection pool
+d365fo_get_server_performance | jq '.server_performance.connection_pool_stats'
+
+# Signs of pool exhaustion:
+# - High pool misses
+# - Connection errors increasing
+# - Requests timing out
+
+# Remediation
+export MCP_CONNECTION_POOL_SIZE="15"  # Increase pool size
+export MCP_REQUEST_TIMEOUT="30"       # Reduce timeout
+export MCP_MAX_CONCURRENT_REQUESTS="10"  # Limit concurrent requests
+
+# Restart with new settings
+docker restart d365fo-mcp-server
+```
+
+### Common Production Issues
 
 #### 1. Connection Timeouts
 
 ```bash
-# Increase timeout settings
-export D365FO_TIMEOUT="120"
-export UVICORN_TIMEOUT_KEEP_ALIVE="120"
+# Increase timeout settings for production workloads
+export MCP_REQUEST_TIMEOUT="120"      # 2 minutes for complex operations
+export MCP_CONNECTION_POOL_SIZE="20"  # Larger pool for high throughput
 
-# Check network connectivity
-curl -v https://your-d365fo-environment.dynamics.com/data/$metadata
+# Test D365FO connectivity
+curl -v https://your-d365fo-environment.dynamics.com/data/\$metadata
+
+# Check network latency
+ping your-d365fo-environment.dynamics.com
 ```
 
-#### 2. Memory Issues
-
-```bash
-# Monitor memory usage
-docker stats d365fo-fastmcp
-
-# Increase container memory limits
-docker run --memory=1g d365fo-client:latest
-
-# Kubernetes resource limits
-resources:
-  limits:
-    memory: "1Gi"
-    cpu: "1000m"
-```
-
-#### 3. Authentication Failures
+#### 2. Authentication Issues
 
 ```bash
 # Test Azure AD authentication
@@ -660,64 +1011,257 @@ az login --service-principal \
     --password $D365FO_CLIENT_SECRET \
     --tenant $D365FO_TENANT_ID
 
-# Verify token acquisition
-python -c "
-from azure.identity import ClientSecretCredential
-cred = ClientSecretCredential('$D365FO_TENANT_ID', '$D365FO_CLIENT_ID', '$D365FO_CLIENT_SECRET')
-token = cred.get_token('https://your-environment.dynamics.com/.default')
-print('Token acquired successfully')
-"
+# Verify D365FO access
+curl -H "Authorization: Bearer $(az account get-access-token --resource https://your-environment.dynamics.com --query accessToken -o tsv)" \
+     https://your-environment.dynamics.com/data/\$metadata
+
+# Check token refresh issues
+grep "token" ~/.d365fo-mcp/logs/fastmcp-server.log | tail -10
 ```
 
-### Monitoring Commands
+#### 3. High Memory Usage
 
 ```bash
-# Check server health
-curl http://localhost:8000/health
+# Monitor memory patterns
+docker stats --no-stream d365fo-mcp-server
 
-# Test MCP protocol
-echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | \
-curl -X POST -H "Content-Type: application/json" \
-     -d @- http://localhost:8000/mcp
+# Kubernetes memory monitoring  
+kubectl top pods -l app=d365fo-mcp-server
 
-# Monitor logs
-docker logs -f d365fo-fastmcp
+# Optimize memory usage
+export MCP_CACHE_SIZE_LIMIT="100"     # Reduce cache size
+export MCP_MAX_REQUEST_HISTORY="500"  # Reduce request history
 
-# Check resource usage
-kubectl top pods -l app=d365fo-fastmcp
+# Enable memory-efficient mode
+export MCP_HTTP_STATELESS="true"      # Stateless mode uses less memory
 ```
 
-### Performance Tuning
+### Health Check Diagnostics
 
-#### 1. Connection Pool Optimization
+#### Built-in Health Checks
 
 ```bash
-# Optimize connection settings
-export D365FO_MAX_CONNECTIONS="50"
-export D365FO_CONNECTION_POOL_SIZE="20"
-export D365FO_CONNECTION_TIMEOUT="30"
+# Comprehensive health check
+curl -s http://localhost:8000/health | jq '.'
+
+# D365FO connectivity test
+curl -s -X POST http://localhost:8000/tools/d365fo_test_connection | jq '.'
+
+# Performance health check
+curl -s -X POST http://localhost:8000/tools/d365fo_get_server_performance | jq '.server_performance | {error_rate, avg_response_time_ms, current_active_requests}'
 ```
 
-#### 2. Cache Configuration
+#### Custom Health Monitoring Script
 
 ```bash
-# Enable and tune caching
-export D365FO_USE_LABEL_CACHE="true"
-export D365FO_LABEL_CACHE_EXPIRY_MINUTES="240"
-export D365FO_METADATA_CACHE_STRATEGY="smart_sync"
+#!/bin/bash
+# health-check.sh
+
+SERVER_URL="http://localhost:8000"
+ALERT_THRESHOLD_ERROR_RATE=5.0
+ALERT_THRESHOLD_RESPONSE_TIME=2000
+
+# Get performance stats
+STATS=$(curl -s -X POST $SERVER_URL/tools/d365fo_get_server_performance)
+ERROR_RATE=$(echo $STATS | jq -r '.server_performance.error_rate')
+RESPONSE_TIME=$(echo $STATS | jq -r '.server_performance.avg_response_time_ms')
+
+# Check error rate
+if (( $(echo "$ERROR_RATE > $ALERT_THRESHOLD_ERROR_RATE" | bc -l) )); then
+    echo "ALERT: High error rate detected: $ERROR_RATE%"
+    exit 1
+fi
+
+# Check response time
+if (( $(echo "$RESPONSE_TIME > $ALERT_THRESHOLD_RESPONSE_TIME" | bc -l) )); then
+    echo "ALERT: High response time detected: ${RESPONSE_TIME}ms"
+    exit 1
+fi
+
+echo "Health check passed - Error rate: $ERROR_RATE%, Response time: ${RESPONSE_TIME}ms"
+exit 0
 ```
 
-#### 3. Uvicorn Workers
+### Performance Optimization
+
+#### Production Tuning Guidelines
 
 ```bash
-# Multi-worker configuration
-d365fo-fastmcp-server \
-    --transport http \
-    --port 8000 \
-    --host 0.0.0.0 \
-    --workers 4 \
-    --worker-class uvicorn.workers.UvicornWorker
+# High-traffic production environment
+export MCP_MAX_CONCURRENT_REQUESTS="50"
+export MCP_CONNECTION_POOL_SIZE="25"
+export MCP_REQUEST_TIMEOUT="90"
+export MCP_BATCH_SIZE="200"
+export MCP_HTTP_STATELESS="true"
+export MCP_HTTP_JSON="true"
+export MCP_PERFORMANCE_MONITORING="true"
+
+# Memory optimization
+export MCP_CACHE_SIZE_LIMIT="200"
+export MCP_MAX_REQUEST_HISTORY="2000"
+export MCP_SESSION_CLEANUP_INTERVAL="180"  # 3 minutes
+
+# Security hardening
+export MCP_CORS_ORIGINS="https://yourdomain.com"
+export D365FO_VERIFY_SSL="true"
+export MCP_TOKEN_EXPIRY_BUFFER="10"
 ```
+
+#### Load Testing
+
+```bash
+# Simple load test with curl
+for i in {1..100}; do
+  curl -s -X POST http://localhost:8000/tools/d365fo_test_connection &
+done
+wait
+
+# Monitor performance during load test
+watch -n 2 'curl -s -X POST http://localhost:8000/tools/d365fo_get_server_performance | jq .server_performance.current_active_requests'
+
+# Apache Benchmark load test
+ab -n 1000 -c 10 -H "Content-Type: application/json" \
+   -p test-payload.json \
+   http://localhost:8000/tools/d365fo_test_connection
+```
+
+### Logging and Debugging
+
+#### Enhanced Logging Configuration
+
+```bash
+# Enable debug logging
+export D365FO_LOG_LEVEL="DEBUG"
+
+# Structured JSON logging for production
+export MCP_LOG_FORMAT="json"
+
+# Log aggregation friendly format
+export MCP_LOG_INCLUDE_TIMESTAMP="true"
+export MCP_LOG_INCLUDE_THREAD_ID="true"
+```
+
+#### Common Log Patterns
+
+```bash
+# Performance issues
+grep "timeout\|slow\|performance" ~/.d365fo-mcp/logs/fastmcp-server.log
+
+# Authentication problems
+grep "auth\|token\|credential" ~/.d365fo-mcp/logs/fastmcp-server.log
+
+# Connection issues
+grep "connection\|pool\|client" ~/.d365fo-mcp/logs/fastmcp-server.log
+
+# Memory and resource issues
+grep "memory\|resource\|limit" ~/.d365fo-mcp/logs/fastmcp-server.log
+```
+
+### Recovery Procedures
+
+#### Automatic Recovery
+
+```bash
+# Systemd service with automatic restart
+# /etc/systemd/system/d365fo-mcp.service
+[Unit]
+Description=D365FO FastMCP Server
+After=network.target
+
+[Service]
+Type=exec
+User=mcpuser
+Group=mcpuser
+WorkingDirectory=/app
+ExecStart=/app/.venv/bin/d365fo-fastmcp-server --transport http --host 0.0.0.0 --port 8000 --stateless
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+
+#### Manual Recovery Steps
+
+```bash
+# 1. Stop the server
+docker stop d365fo-mcp-server
+
+# 2. Clear cache if needed
+rm -rf ~/.d365fo-mcp/cache/*
+
+# 3. Check configuration
+d365fo-fastmcp-server --help
+
+# 4. Test D365FO connectivity
+curl https://your-environment.dynamics.com/data/\$metadata
+
+# 5. Restart with debug logging
+docker run -e D365FO_LOG_LEVEL=DEBUG d365fo-mcp-server
+
+# 6. Monitor startup
+docker logs -f d365fo-mcp-server
+```
+
+## Production Checklist
+
+### Pre-Deployment Validation
+
+- [ ] **Environment Configuration**
+  - [ ] D365FO_BASE_URL configured and accessible
+  - [ ] Authentication method validated (Azure AD/Managed Identity)
+  - [ ] Network connectivity to D365FO environment verified
+  
+- [ ] **Performance Configuration**
+  - [ ] MCP_MAX_CONCURRENT_REQUESTS set appropriately
+  - [ ] MCP_REQUEST_TIMEOUT configured for workload
+  - [ ] MCP_CONNECTION_POOL_SIZE optimized
+  - [ ] Memory limits configured
+  
+- [ ] **Security Configuration**
+  - [ ] CORS origins restricted in production
+  - [ ] SSL/TLS enabled for external access
+  - [ ] Secrets properly managed (Key Vault/Kubernetes secrets)
+  - [ ] Non-root container user configured
+
+### Deployment Validation
+
+- [ ] **Health Checks**
+  - [ ] Health endpoint responding correctly
+  - [ ] D365FO connectivity test passing
+  - [ ] Performance metrics collection working
+  
+- [ ] **Load Testing**
+  - [ ] Performance under expected load validated
+  - [ ] Memory usage stable under load
+  - [ ] Error rates within acceptable limits
+  
+- [ ] **Monitoring Setup**
+  - [ ] Log aggregation configured
+  - [ ] Performance monitoring enabled
+  - [ ] Alerting rules configured
+  - [ ] Dashboard created
+
+### Post-Deployment Monitoring
+
+- [ ] **Daily Checks**
+  - [ ] Performance metrics review
+  - [ ] Error rate monitoring
+  - [ ] Resource utilization check
+  
+- [ ] **Weekly Maintenance**
+  - [ ] Log rotation and cleanup
+  - [ ] Performance statistics reset
+  - [ ] Security updates review
+  
+- [ ] **Monthly Reviews**
+  - [ ] Capacity planning assessment
+  - [ ] Performance optimization opportunities
+  - [ ] Disaster recovery testing
+
+This comprehensive guide ensures successful Phase 4 FastMCP production deployments with enterprise-grade performance, monitoring, and reliability.
 
 ## Support and Maintenance
 

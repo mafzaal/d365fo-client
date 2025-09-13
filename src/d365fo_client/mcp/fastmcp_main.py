@@ -75,11 +75,37 @@ Transport Options:
   sse         Server-Sent Events (for web applications and browsers)  
   http        Streamable HTTP (for production deployments and microservices)
 
-Examples:
-  %(prog)s                                    # stdio transport (default)
-  %(prog)s --transport sse --port 8000       # SSE transport on port 8000
-  %(prog)s --transport http --host 0.0.0.0   # HTTP transport for production
-  %(prog)s --transport http --stateless      # Stateless HTTP for load balancing
+Production Examples:
+  # Development (default)
+  %(prog)s                                    
+  
+  # Web development
+  %(prog)s --transport sse --port 8000 --debug       
+  
+  # Production deployment
+  %(prog)s --transport http --host 0.0.0.0 --port 8000
+  
+  # High-availability stateless deployment
+  %(prog)s --transport http --host 0.0.0.0 --port 8000 --stateless
+  
+  # API gateway compatible
+  %(prog)s --transport http --host 0.0.0.0 --port 8000 --stateless --json-response
+  
+  # Cloud deployment with performance monitoring
+  %(prog)s --transport http --host 0.0.0.0 --port 8000 --stateless --log-level INFO
+  
+Environment Variables:
+  D365FO_BASE_URL           D365FO environment URL
+  D365FO_CLIENT_ID          Azure AD client ID (optional)
+  D365FO_CLIENT_SECRET      Azure AD client secret (optional)  
+  D365FO_TENANT_ID          Azure AD tenant ID (optional)
+  MCP_HTTP_HOST             Default HTTP host (default: 127.0.0.1)
+  MCP_HTTP_PORT             Default HTTP port (default: 8000)
+  MCP_HTTP_STATELESS        Enable stateless mode (true/false)
+  MCP_HTTP_JSON             Enable JSON response mode (true/false)
+  MCP_MAX_CONCURRENT_REQUESTS  Max concurrent requests (default: 10)
+  MCP_REQUEST_TIMEOUT       Request timeout in seconds (default: 30)
+  D365FO_LOG_LEVEL          Logging level (DEBUG, INFO, WARNING, ERROR)
         """
     )
     
@@ -114,19 +140,21 @@ Examples:
     parser.add_argument(
         "--stateless",
         action="store_true",
-        help="Enable stateless HTTP mode (for load balancing)"
+        help="Enable stateless HTTP mode for horizontal scaling and load balancing. " +
+             "In stateless mode, each request is independent and sessions are not persisted."
     )
     
     parser.add_argument(
         "--json-response",
         action="store_true",
-        help="Use JSON responses instead of SSE streams (HTTP transport only)"
+        help="Use JSON responses instead of SSE streams (HTTP transport only). " +
+             "Useful for API gateways and clients that prefer standard JSON responses."
     )
     
     parser.add_argument(
         "--debug",
         action="store_true",
-        help="Enable debug mode with verbose logging"
+        help="Enable debug mode with verbose logging and detailed error information"
     )
     
     parser.add_argument(
@@ -212,20 +240,22 @@ def load_config(args: argparse.Namespace) -> Dict[str, Any]:
         },
         "cache": {
             "metadata_cache_dir": os.path.expanduser("~/.d365fo-mcp/cache"),
-            "label_cache_expiry_minutes": 120,
+            "label_cache_expiry_minutes": int(os.getenv("MCP_LABEL_CACHE_EXPIRY", "120")),
             "use_label_cache": True,
-            "cache_size_limit_mb": 100,
+            "cache_size_limit_mb": int(os.getenv("MCP_CACHE_SIZE_LIMIT", "100")),
         },
         "performance": {
-            "max_concurrent_requests": 10,
-            "connection_pool_size": 5,
-            "request_timeout": 30,
-            "batch_size": 100,
+            "max_concurrent_requests": int(os.getenv("MCP_MAX_CONCURRENT_REQUESTS", "10")),
+            "connection_pool_size": int(os.getenv("MCP_CONNECTION_POOL_SIZE", "5")),
+            "request_timeout": int(os.getenv("MCP_REQUEST_TIMEOUT", "30")),
+            "batch_size": int(os.getenv("MCP_BATCH_SIZE", "100")),
+            "enable_performance_monitoring": os.getenv("MCP_PERFORMANCE_MONITORING", "true").lower() in ("true", "1", "yes"),
         },
         "security": {
             "encrypt_cached_tokens": True,
-            "token_expiry_buffer_minutes": 5,
-            "max_retry_attempts": 3,
+            "token_expiry_buffer_minutes": int(os.getenv("MCP_TOKEN_EXPIRY_BUFFER", "5")),
+            "max_retry_attempts": int(os.getenv("MCP_MAX_RETRY_ATTEMPTS", "3")),
+            "cors_enabled": os.getenv("MCP_CORS_ENABLED", "true").lower() in ("true", "1", "yes"),
         },
     }
 
@@ -250,15 +280,46 @@ async def async_main() -> None:
         if transport == "streamable-http":
             transport = "http"
         
+        # Print detailed startup information
         logger.info(f"Starting FastD365FOMCPServer v{__version__}")
         logger.info(f"Transport: {transport}")
         
         if transport in ["sse", "http"]:
             logger.info(f"Server will bind to {args.host}:{args.port}")
+            
+            # Validate host and port configuration
+            if args.host == "0.0.0.0":
+                logger.info("Server configured for external access (0.0.0.0)")
+                logger.warning("Ensure firewall and security settings are properly configured")
+            else:
+                logger.info(f"Server configured for local access ({args.host})")
+                
             if args.stateless and transport == "http":
-                logger.info("HTTP stateless mode enabled")
+                logger.info("HTTP stateless mode enabled - optimized for horizontal scaling")
+                logger.info("Sessions will not be persisted between requests")
+            elif transport == "http":
+                logger.info("HTTP stateful mode enabled - sessions will be maintained")
+                
             if args.json_response and transport == "http":
-                logger.info("JSON response mode enabled")
+                logger.info("JSON response mode enabled - API gateway compatible")
+            elif transport == "http":
+                logger.info("Stream response mode enabled - optimized for real-time data")
+                
+        # Performance configuration logging
+        max_concurrent = config.get("performance", {}).get("max_concurrent_requests", 10)
+        request_timeout = config.get("performance", {}).get("request_timeout", 30)
+        logger.info(f"Performance limits: {max_concurrent} concurrent requests, {request_timeout}s timeout")
+        
+        # Security and environment information
+        startup_mode = config.get("startup_mode", "profile_only")
+        logger.info(f"Authentication mode: {startup_mode}")
+        
+        if startup_mode == "profile_only":
+            logger.info("No D365FO environment configured - use profile management tools")
+        else:
+            base_url = config.get("default_environment", {}).get("base_url", "")
+            if base_url:
+                logger.info(f"Default D365FO environment: {base_url}")
         
         # Create and run server
         server = FastD365FOMCPServer(config)
