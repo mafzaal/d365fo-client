@@ -408,7 +408,7 @@ The server provides **34 comprehensive tools** organized into functional categor
 - **`d365fo_get_environment_info`** - Get comprehensive environment details including versions, configurations, and capabilities
 
 #### CRUD Operations Tools (6 tools)
-- **`d365fo_query_entities`** - Advanced OData querying with filters, selections, pagination, and performance optimization
+- **`d365fo_query_entities`** - Simplified OData querying with 'eq' filtering, wildcard patterns, field selection, and pagination
 - **`d365fo_get_entity_record`** - Retrieve specific records by key with expansion options and ETag support
 - **`d365fo_create_entity_record`** - Create new entity records with validation and business logic execution
 - **`d365fo_update_entity_record`** - Update existing records with partial updates and optimistic concurrency control
