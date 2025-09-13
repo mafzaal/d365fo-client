@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import os
+from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -278,7 +279,1109 @@ class FastD365FOMCPServer:
                     "searchPattern": pattern
                 }, indent=2)
 
-        logger.info("Registered core D365FO tools with FastMCP")
+        # Additional CRUD Tools
+        @self.mcp.tool()
+        async def d365fo_create_entity_record(
+            entityName: str,
+            data: dict,
+            returnRecord: bool = False,
+            profile: str = None
+        ) -> str:
+            """Create a new record in a D365 Finance & Operations data entity.
+            
+            Args:
+                entityName: Name of the D365FO data entity
+                data: Record data containing field names and values
+                returnRecord: Whether to return the complete created record
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with creation result
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Create entity record
+                result = await client.create_entity_record(
+                    entityName, data, returnRecord
+                )
+                
+                return json.dumps({
+                    "entityName": entityName,
+                    "created": True,
+                    "data": result if returnRecord else data
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Create entity record failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "entityName": entityName,
+                    "created": False
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_update_entity_record(
+            entityName: str,
+            key: str,
+            data: dict,
+            returnRecord: bool = False,
+            ifMatch: str = None,
+            profile: str = None
+        ) -> str:
+            """Update an existing record in a D365 Finance & Operations data entity.
+            
+            Args:
+                entityName: Name of the D365FO data entity
+                key: Primary key value or composite key object
+                data: Record data containing fields to update
+                returnRecord: Whether to return the complete updated record
+                ifMatch: ETag value for optimistic concurrency control
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with update result
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Update entity record
+                result = await client.update_entity_record(
+                    entityName, key, data, returnRecord, ifMatch
+                )
+                
+                return json.dumps({
+                    "entityName": entityName,
+                    "key": key,
+                    "updated": True,
+                    "data": result if returnRecord else data
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Update entity record failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "entityName": entityName,
+                    "key": key,
+                    "updated": False
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_delete_entity_record(
+            entityName: str,
+            key: str,
+            ifMatch: str = None,
+            profile: str = None
+        ) -> str:
+            """Delete a record from a D365 Finance & Operations data entity.
+            
+            Args:
+                entityName: Name of the D365FO data entity
+                key: Primary key value or composite key object
+                ifMatch: ETag value for optimistic concurrency control
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with deletion result
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Delete entity record
+                await client.delete_entity_record(entityName, key, ifMatch)
+                
+                return json.dumps({
+                    "entityName": entityName,
+                    "key": key,
+                    "deleted": True
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Delete entity record failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "entityName": entityName,
+                    "key": key,
+                    "deleted": False
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_call_action(
+            actionName: str,
+            parameters: dict = None,
+            entityName: str = None,
+            entityKey: str = None,
+            bindingKind: str = None,
+            timeout: int = 30,
+            profile: str = None
+        ) -> str:
+            """Execute an OData action method in D365 Finance & Operations.
+            
+            Args:
+                actionName: Full name of the OData action to invoke
+                parameters: Action parameters as key-value pairs
+                entityName: Entity name for bound actions
+                entityKey: Primary key for entity-bound actions
+                bindingKind: Action binding type (Unbound, BoundToEntitySet, BoundToEntity)
+                timeout: Request timeout in seconds
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with action result
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Call action
+                result = await client.call_action(
+                    actionName=actionName,
+                    parameters=parameters or {},
+                    entity_name=entityName,
+                    entity_key=entityKey,
+                    binding_kind=bindingKind,
+                    timeout=timeout
+                )
+                
+                return json.dumps({
+                    "actionName": actionName,
+                    "success": True,
+                    "result": result
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Call action failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "actionName": actionName,
+                    "success": False
+                }, indent=2)
+
+        # Additional Metadata Tools
+        @self.mcp.tool()
+        async def d365fo_get_entity_schema(
+            entityName: str,
+            include_properties: bool = True,
+            resolve_labels: bool = True,
+            language: str = "en-US",
+            profile: str = None
+        ) -> str:
+            """Get detailed schema for a specific D365 F&O data entity.
+            
+            Args:
+                entityName: Public name of the entity
+                include_properties: Include detailed property information
+                resolve_labels: Resolve and include human-readable labels
+                language: Language for label resolution
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with entity schema
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Get entity schema
+                schema = await client.get_entity_schema(
+                    entity_name=entityName,
+                    include_properties=include_properties,
+                    resolve_labels=resolve_labels,
+                    language=language
+                )
+                
+                return json.dumps({
+                    "entityName": entityName,
+                    "schema": schema
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Get entity schema failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "entityName": entityName
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_search_actions(
+            pattern: str,
+            limit: int = 100,
+            bindingKind: str = None,
+            entityName: str = None,
+            isFunction: bool = None,
+            profile: str = None
+        ) -> str:
+            """Search for available OData actions in D365 F&O.
+            
+            Args:
+                pattern: Simple keyword to search for in action names
+                limit: Maximum number of actions to return
+                bindingKind: Filter by binding type
+                entityName: Filter actions bound to specific entity
+                isFunction: Filter by function vs action type
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with matching actions
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Search actions
+                actions = await client.search_actions(
+                    pattern=pattern,
+                    limit=limit,
+                    binding_kind=bindingKind,
+                    entity_name=entityName,
+                    is_function=isFunction
+                )
+                
+                return json.dumps({
+                    "searchPattern": pattern,
+                    "totalFound": len(actions),
+                    "actions": actions
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Search actions failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "searchPattern": pattern
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_search_enumerations(
+            pattern: str,
+            limit: int = 100,
+            profile: str = None
+        ) -> str:
+            """Search for enumerations in D365 F&O.
+            
+            Args:
+                pattern: Simple keyword to search for in enumeration names
+                limit: Maximum number of enumerations to return
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with matching enumerations
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Search enumerations
+                enums = await client.search_enumerations(
+                    pattern=pattern,
+                    limit=limit
+                )
+                
+                return json.dumps({
+                    "searchPattern": pattern,
+                    "totalFound": len(enums),
+                    "enumerations": enums
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Search enumerations failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "searchPattern": pattern
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_get_enumeration_fields(
+            enumeration_name: str,
+            resolve_labels: bool = True,
+            language: str = "en-US",
+            profile: str = None
+        ) -> str:
+            """Get detailed members for a specific D365 F&O enumeration.
+            
+            Args:
+                enumeration_name: Exact name of the enumeration
+                resolve_labels: Resolve and include human-readable labels
+                language: Language for label resolution
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with enumeration details
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Get enumeration fields
+                enum_info = await client.get_enumeration_fields(
+                    enumeration_name=enumeration_name,
+                    resolve_labels=resolve_labels,
+                    language=language
+                )
+                
+                return json.dumps({
+                    "enumerationName": enumeration_name,
+                    "enumeration": enum_info
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Get enumeration fields failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "enumerationName": enumeration_name
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_get_installed_modules(
+            profile: str = None
+        ) -> str:
+            """Get list of installed modules in D365 F&O environment.
+            
+            Args:
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with installed modules
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Get installed modules
+                modules = await client.get_installed_modules()
+                
+                return json.dumps({
+                    "totalModules": len(modules),
+                    "modules": modules
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Get installed modules failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+
+        # Label Tools
+        @self.mcp.tool()
+        async def d365fo_get_label(
+            labelId: str,
+            language: str = "en-US",
+            fallbackToEnglish: bool = True,
+            profile: str = None
+        ) -> str:
+            """Get label text by label ID.
+            
+            Args:
+                labelId: Label ID (e.g., @SYS1234)
+                language: Language code for label text
+                fallbackToEnglish: Fallback to English if translation not found
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with label text
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Get label
+                label_text = await client.get_label(
+                    label_id=labelId,
+                    language=language,
+                    fallback_to_english=fallbackToEnglish
+                )
+                
+                return json.dumps({
+                    "labelId": labelId,
+                    "language": language,
+                    "labelText": label_text
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Get label failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "labelId": labelId
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_get_labels_batch(
+            labelIds: List[str],
+            language: str = "en-US",
+            fallbackToEnglish: bool = True,
+            profile: str = None
+        ) -> str:
+            """Get multiple labels in a single request.
+            
+            Args:
+                labelIds: List of label IDs to retrieve
+                language: Language code for label texts
+                fallbackToEnglish: Fallback to English if translation not found
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with label texts
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Get labels batch
+                labels = await client.get_labels_batch(
+                    label_ids=labelIds,
+                    language=language,
+                    fallback_to_english=fallbackToEnglish
+                )
+                
+                return json.dumps({
+                    "language": language,
+                    "totalRequested": len(labelIds),
+                    "labels": labels
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Get labels batch failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "labelIds": labelIds
+                }, indent=2)
+
+        # Profile Management Tools
+        @self.mcp.tool()
+        async def d365fo_list_profiles() -> str:
+            """Get list of all available D365FO environment profiles.
+            
+            Returns:
+                JSON string with list of profiles
+            """
+            try:
+                profiles = self.profile_manager.list_profiles()
+                
+                return json.dumps({
+                    "totalProfiles": len(profiles),
+                    "profiles": [profile.to_dict() for profile in profiles]
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"List profiles failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_get_profile(
+            profileName: str
+        ) -> str:
+            """Get details of a specific D365FO environment profile.
+            
+            Args:
+                profileName: Name of the profile to retrieve
+                
+            Returns:
+                JSON string with profile details
+            """
+            try:
+                profile = self.profile_manager.get_profile(profileName)
+                
+                if profile:
+                    return json.dumps({
+                        "profileName": profileName,
+                        "profile": profile.to_dict()
+                    }, indent=2)
+                else:
+                    return json.dumps({
+                        "error": f"Profile '{profileName}' not found",
+                        "profileName": profileName
+                    }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Get profile failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "profileName": profileName
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_create_profile(
+            name: str,
+            baseUrl: str,
+            description: str = None,
+            authMode: str = "default",
+            clientId: str = None,
+            clientSecret: str = None,
+            tenantId: str = None,
+            timeout: int = 60,
+            setAsDefault: bool = False,
+            credentialSource: dict = None,
+            **kwargs
+        ) -> str:
+            """Create a new D365FO environment profile.
+            
+            Args:
+                name: Profile name
+                baseUrl: D365FO base URL
+                description: Profile description
+                authMode: Authentication mode
+                clientId: Azure client ID
+                clientSecret: Azure client secret
+                tenantId: Azure tenant ID
+                timeout: Request timeout in seconds
+                setAsDefault: Set as default profile
+                credentialSource: Credential source configuration
+                **kwargs: Additional profile parameters
+                
+            Returns:
+                JSON string with creation result
+            """
+            try:
+                success = self.profile_manager.create_profile(
+                    name=name,
+                    base_url=baseUrl,
+                    description=description,
+                    auth_mode=authMode,
+                    client_id=clientId,
+                    client_secret=clientSecret,
+                    tenant_id=tenantId,
+                    timeout=timeout,
+                    set_as_default=setAsDefault,
+                    credential_source=credentialSource,
+                    **kwargs
+                )
+                
+                return json.dumps({
+                    "profileName": name,
+                    "created": success,
+                    "setAsDefault": setAsDefault
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Create profile failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "profileName": name,
+                    "created": False
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_update_profile(
+            name: str,
+            baseUrl: str = None,
+            description: str = None,
+            authMode: str = None,
+            clientId: str = None,
+            clientSecret: str = None,
+            tenantId: str = None,
+            timeout: int = None,
+            credentialSource: dict = None,
+            **kwargs
+        ) -> str:
+            """Update an existing D365FO environment profile.
+            
+            Args:
+                name: Profile name
+                baseUrl: D365FO base URL
+                description: Profile description
+                authMode: Authentication mode
+                clientId: Azure client ID
+                clientSecret: Azure client secret
+                tenantId: Azure tenant ID
+                timeout: Request timeout in seconds
+                credentialSource: Credential source configuration
+                **kwargs: Additional profile parameters
+                
+            Returns:
+                JSON string with update result
+            """
+            try:
+                success = self.profile_manager.update_profile(
+                    name=name,
+                    base_url=baseUrl,
+                    description=description,
+                    auth_mode=authMode,
+                    client_id=clientId,
+                    client_secret=clientSecret,
+                    tenant_id=tenantId,
+                    timeout=timeout,
+                    credential_source=credentialSource,
+                    **kwargs
+                )
+                
+                return json.dumps({
+                    "profileName": name,
+                    "updated": success
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Update profile failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "profileName": name,
+                    "updated": False
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_delete_profile(
+            profileName: str
+        ) -> str:
+            """Delete a D365FO environment profile.
+            
+            Args:
+                profileName: Name of the profile to delete
+                
+            Returns:
+                JSON string with deletion result
+            """
+            try:
+                success = self.profile_manager.delete_profile(profileName)
+                
+                return json.dumps({
+                    "profileName": profileName,
+                    "deleted": success
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Delete profile failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "profileName": profileName,
+                    "deleted": False
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_set_default_profile(
+            profileName: str
+        ) -> str:
+            """Set the default D365FO environment profile.
+            
+            Args:
+                profileName: Name of the profile to set as default
+                
+            Returns:
+                JSON string with result
+            """
+            try:
+                success = self.profile_manager.set_default_profile(profileName)
+                
+                return json.dumps({
+                    "profileName": profileName,
+                    "setAsDefault": success
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Set default profile failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "profileName": profileName,
+                    "setAsDefault": False
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_get_default_profile() -> str:
+            """Get the current default D365FO environment profile.
+            
+            Returns:
+                JSON string with default profile
+            """
+            try:
+                profile = self.profile_manager.get_default_profile()
+                
+                if profile:
+                    return json.dumps({
+                        "defaultProfile": profile.to_dict()
+                    }, indent=2)
+                else:
+                    return json.dumps({
+                        "error": "No default profile set"
+                    }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Get default profile failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_validate_profile(
+            profileName: str
+        ) -> str:
+            """Validate a D365FO environment profile configuration.
+            
+            Args:
+                profileName: Name of the profile to validate
+                
+            Returns:
+                JSON string with validation result
+            """
+            try:
+                is_valid, errors = self.profile_manager.validate_profile(profileName)
+                
+                return json.dumps({
+                    "profileName": profileName,
+                    "isValid": is_valid,
+                    "errors": errors
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Validate profile failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "profileName": profileName,
+                    "isValid": False
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_test_profile_connection(
+            profileName: str
+        ) -> str:
+            """Test connection for a specific D365FO environment profile.
+            
+            Args:
+                profileName: Name of the profile to test
+                
+            Returns:
+                JSON string with connection test result
+            """
+            try:
+                client = await self.client_manager.get_client(profileName)
+                result = await client.test_connection()
+                
+                return json.dumps({
+                    "profileName": profileName,
+                    "connectionTest": result
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Test profile connection failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "profileName": profileName,
+                    "connectionSuccessful": False
+                }, indent=2)
+
+        # Database Tools
+        @self.mcp.tool()
+        async def d365fo_execute_sql_query(
+            query: str,
+            format: str = "table",
+            limit: int = 100,
+            profile: str = None
+        ) -> str:
+            """Execute a SELECT query against the D365FO metadata database.
+            
+            Args:
+                query: SQL SELECT query to execute
+                format: Output format (table, json, csv)
+                limit: Maximum number of rows to return
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with query results
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Execute SQL query
+                result = await client.execute_sql_query(
+                    query=query,
+                    format=format,
+                    limit=limit
+                )
+                
+                return json.dumps({
+                    "query": query,
+                    "format": format,
+                    "limit": limit,
+                    "result": result
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Execute SQL query failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "query": query
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_get_database_schema(
+            table_name: str = None,
+            include_indexes: bool = True,
+            include_relationships: bool = True,
+            include_statistics: bool = True,
+            profile: str = None
+        ) -> str:
+            """Get comprehensive schema information for D365FO metadata database.
+            
+            Args:
+                table_name: Optional specific table name
+                include_indexes: Include index information
+                include_relationships: Include foreign key relationships
+                include_statistics: Include table statistics
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with database schema
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Get database schema
+                schema = await client.get_database_schema(
+                    table_name=table_name,
+                    include_indexes=include_indexes,
+                    include_relationships=include_relationships,
+                    include_statistics=include_statistics
+                )
+                
+                return json.dumps({
+                    "tableName": table_name,
+                    "schema": schema
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Get database schema failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "tableName": table_name
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_get_table_info(
+            table_name: str,
+            include_relationships: bool = True,
+            include_sample_data: bool = False,
+            profile: str = None
+        ) -> str:
+            """Get detailed information about a specific database table.
+            
+            Args:
+                table_name: Name of the table to get information about
+                include_relationships: Include relationships to other tables
+                include_sample_data: Include sample data from the table
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with table information
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Get table info
+                table_info = await client.get_table_info(
+                    table_name=table_name,
+                    include_relationships=include_relationships,
+                    include_sample_data=include_sample_data
+                )
+                
+                return json.dumps({
+                    "tableName": table_name,
+                    "tableInfo": table_info
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Get table info failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "tableName": table_name
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_get_database_statistics(
+            include_table_stats: bool = True,
+            include_version_stats: bool = True,
+            include_performance_stats: bool = True,
+            profile: str = None
+        ) -> str:
+            """Get comprehensive database statistics and analytics.
+            
+            Args:
+                include_table_stats: Include per-table statistics
+                include_version_stats: Include version statistics
+                include_performance_stats: Include performance metrics
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with database statistics
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Get database statistics
+                stats = await client.get_database_statistics(
+                    include_table_stats=include_table_stats,
+                    include_version_stats=include_version_stats,
+                    include_performance_stats=include_performance_stats
+                )
+                
+                return json.dumps({
+                    "databaseStatistics": stats
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Get database statistics failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+
+        # Sync Tools
+        @self.mcp.tool()
+        async def d365fo_start_sync(
+            strategy: str = "full_without_labels",
+            global_version_id: int = None,
+            profile: str = None
+        ) -> str:
+            """Start a metadata synchronization session.
+            
+            Args:
+                strategy: Sync strategy to use
+                global_version_id: Specific global version ID to sync
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with sync session details
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Start sync
+                session_id = await client.start_sync(
+                    strategy=strategy,
+                    global_version_id=global_version_id
+                )
+                
+                return json.dumps({
+                    "sessionId": session_id,
+                    "strategy": strategy,
+                    "started": True
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Start sync failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "strategy": strategy,
+                    "started": False
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_get_sync_progress(
+            session_id: str,
+            profile: str = None
+        ) -> str:
+            """Get detailed progress information for a sync session.
+            
+            Args:
+                session_id: Session ID of the sync operation
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with sync progress
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Get sync progress
+                progress = await client.get_sync_progress(session_id)
+                
+                return json.dumps({
+                    "sessionId": session_id,
+                    "progress": progress
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Get sync progress failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "sessionId": session_id
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_cancel_sync(
+            session_id: str,
+            profile: str = None
+        ) -> str:
+            """Cancel a running sync session.
+            
+            Args:
+                session_id: Session ID of the sync operation to cancel
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with cancellation result
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Cancel sync
+                result = await client.cancel_sync(session_id)
+                
+                return json.dumps({
+                    "sessionId": session_id,
+                    "cancelled": result.get("cancelled", False),
+                    "message": result.get("message", "")
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Cancel sync failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "sessionId": session_id,
+                    "cancelled": False
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_list_sync_sessions(
+            profile: str = None
+        ) -> str:
+            """Get list of all currently active sync sessions.
+            
+            Args:
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with active sync sessions
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # List sync sessions
+                sessions = await client.list_sync_sessions()
+                
+                return json.dumps({
+                    "totalSessions": len(sessions),
+                    "sessions": sessions
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"List sync sessions failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+
+        @self.mcp.tool()
+        async def d365fo_get_sync_history(
+            limit: int = 20,
+            profile: str = None
+        ) -> str:
+            """Get history of completed sync sessions.
+            
+            Args:
+                limit: Maximum number of sessions to return
+                profile: Optional profile name
+                
+            Returns:
+                JSON string with sync history
+            """
+            try:
+                client = await self.client_manager.get_client(profile)
+                
+                # Get sync history
+                history = await client.get_sync_history(limit=limit)
+                
+                return json.dumps({
+                    "limit": limit,
+                    "totalReturned": len(history),
+                    "history": history
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Get sync history failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "limit": limit
+                }, indent=2)
+
+        logger.info("Registered all D365FO tools with FastMCP")
 
     def _register_resources(self):
         """Register D365FO resources using FastMCP decorators."""
@@ -347,7 +1450,335 @@ class FastD365FOMCPServer:
                     "server_version": __version__
                 }, indent=2)
 
-        logger.info("Registered core D365FO resources with FastMCP")
+        @self.mcp.resource("d365fo://environment/version")
+        async def environment_version_resource() -> str:
+            """Get D365FO environment version information.
+            
+            Returns:
+                JSON containing environment version details
+            """
+            try:
+                client = await self.client_manager.get_client()
+                
+                # Get version information
+                version_info = await client.get_application_version()
+                
+                return json.dumps({
+                    "environment_version": version_info,
+                    "server_version": __version__
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Environment version resource failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "server_version": __version__
+                }, indent=2)
+
+        @self.mcp.resource("d365fo://environment/cache")
+        async def environment_cache_resource() -> str:
+            """Get D365FO environment cache information.
+            
+            Returns:
+                JSON containing cache statistics and health
+            """
+            try:
+                # Get cache information from client manager
+                cache_info = {
+                    "cache_enabled": True,
+                    "cache_directory": self.config.get("cache", {}).get("metadata_cache_dir", ""),
+                    "label_cache_enabled": self.config.get("cache", {}).get("use_label_cache", True),
+                    "label_cache_expiry": self.config.get("cache", {}).get("label_cache_expiry_minutes", 120)
+                }
+                
+                return json.dumps({
+                    "cache_info": cache_info,
+                    "server_version": __version__
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Environment cache resource failed: {e}")
+                return json.dumps({
+                    "error": str(e),
+                    "server_version": __version__
+                }, indent=2)
+
+        # Metadata Resources
+        @self.mcp.resource("d365fo://metadata/entities")
+        async def metadata_entities_resource() -> str:
+            """Get comprehensive list of D365FO data entities.
+            
+            Returns:
+                JSON containing all available data entities
+            """
+            try:
+                client = await self.client_manager.get_client()
+                
+                # Get all entities (limit to prevent huge responses)
+                entities = await client.search_data_entities(
+                    pattern="",
+                    limit=1000
+                )
+                
+                return json.dumps({
+                    "total_entities": len(entities),
+                    "entities": entities,
+                    "timestamp": datetime.now().isoformat()
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Metadata entities resource failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+
+        @self.mcp.resource("d365fo://metadata/actions")
+        async def metadata_actions_resource() -> str:
+            """Get comprehensive list of D365FO OData actions.
+            
+            Returns:
+                JSON containing all available OData actions
+            """
+            try:
+                client = await self.client_manager.get_client()
+                
+                # Get all actions (limit to prevent huge responses)
+                actions = await client.search_actions(
+                    pattern="",
+                    limit=1000
+                )
+                
+                return json.dumps({
+                    "total_actions": len(actions),
+                    "actions": actions,
+                    "timestamp": datetime.now().isoformat()
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Metadata actions resource failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+
+        @self.mcp.resource("d365fo://metadata/enumerations")
+        async def metadata_enumerations_resource() -> str:
+            """Get comprehensive list of D365FO enumerations.
+            
+            Returns:
+                JSON containing all available enumerations
+            """
+            try:
+                client = await self.client_manager.get_client()
+                
+                # Get all enumerations (limit to prevent huge responses)
+                enums = await client.search_enumerations(
+                    pattern="",
+                    limit=1000
+                )
+                
+                return json.dumps({
+                    "total_enumerations": len(enums),
+                    "enumerations": enums,
+                    "timestamp": datetime.now().isoformat()
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Metadata enumerations resource failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+
+        @self.mcp.resource("d365fo://metadata/labels")
+        async def metadata_labels_resource() -> str:
+            """Get D365FO label system information.
+            
+            Returns:
+                JSON containing label system status and statistics
+            """
+            try:
+                client = await self.client_manager.get_client()
+                
+                # Get label system information (example labels)
+                sample_labels = ["@SYS1", "@SYS23776", "@DMF123"]
+                label_info = []
+                
+                for label_id in sample_labels:
+                    try:
+                        label_text = await client.get_label(label_id, language="en-US")
+                        label_info.append({
+                            "label_id": label_id,
+                            "label_text": label_text,
+                            "resolved": True
+                        })
+                    except:
+                        label_info.append({
+                            "label_id": label_id,
+                            "label_text": None,
+                            "resolved": False
+                        })
+                
+                return json.dumps({
+                    "label_system_active": True,
+                    "sample_labels": label_info,
+                    "timestamp": datetime.now().isoformat()
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Metadata labels resource failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+
+        # Database Resources
+        @self.mcp.resource("d365fo://database/schema")
+        async def database_schema_resource() -> str:
+            """Get D365FO metadata database schema information.
+            
+            Returns:
+                JSON containing database schema details
+            """
+            try:
+                client = await self.client_manager.get_client()
+                
+                # Get database schema
+                schema = await client.get_database_schema(
+                    include_indexes=True,
+                    include_relationships=True,
+                    include_statistics=True
+                )
+                
+                return json.dumps({
+                    "database_schema": schema,
+                    "timestamp": datetime.now().isoformat()
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Database schema resource failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+
+        @self.mcp.resource("d365fo://database/statistics")
+        async def database_statistics_resource() -> str:
+            """Get D365FO metadata database statistics.
+            
+            Returns:
+                JSON containing database statistics and analytics
+            """
+            try:
+                client = await self.client_manager.get_client()
+                
+                # Get database statistics
+                stats = await client.get_database_statistics(
+                    include_table_stats=True,
+                    include_version_stats=True,
+                    include_performance_stats=True
+                )
+                
+                return json.dumps({
+                    "database_statistics": stats,
+                    "timestamp": datetime.now().isoformat()
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Database statistics resource failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+
+        @self.mcp.resource("d365fo://database/tables")
+        async def database_tables_resource() -> str:
+            """Get D365FO metadata database table information.
+            
+            Returns:
+                JSON containing list of database tables and their properties
+            """
+            try:
+                client = await self.client_manager.get_client()
+                
+                # Get table list via SQL query
+                result = await client.execute_sql_query(
+                    query="SELECT name, type FROM sqlite_master WHERE type='table' ORDER BY name",
+                    format="json",
+                    limit=100
+                )
+                
+                return json.dumps({
+                    "database_tables": result,
+                    "timestamp": datetime.now().isoformat()
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Database tables resource failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+
+        @self.mcp.resource("d365fo://database/indexes")
+        async def database_indexes_resource() -> str:
+            """Get D365FO metadata database index information.
+            
+            Returns:
+                JSON containing database index details
+            """
+            try:
+                client = await self.client_manager.get_client()
+                
+                # Get index information via SQL query
+                result = await client.execute_sql_query(
+                    query="SELECT name, tbl_name, sql FROM sqlite_master WHERE type='index' ORDER BY name",
+                    format="json",
+                    limit=100
+                )
+                
+                return json.dumps({
+                    "database_indexes": result,
+                    "timestamp": datetime.now().isoformat()
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Database indexes resource failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+
+        @self.mcp.resource("d365fo://database/relationships")
+        async def database_relationships_resource() -> str:
+            """Get D365FO metadata database relationship information.
+            
+            Returns:
+                JSON containing foreign key relationships between tables
+            """
+            try:
+                client = await self.client_manager.get_client()
+                
+                # Get foreign key information 
+                result = await client.execute_sql_query(
+                    query="""
+                    SELECT 
+                        m1.name as table_name,
+                        m2.name as referenced_table
+                    FROM sqlite_master m1
+                    JOIN sqlite_master m2 
+                    WHERE m1.type='table' AND m2.type='table'
+                    ORDER BY m1.name
+                    """,
+                    format="json",
+                    limit=100
+                )
+                
+                return json.dumps({
+                    "database_relationships": result,
+                    "timestamp": datetime.now().isoformat()
+                }, indent=2)
+                
+            except Exception as e:
+                logger.error(f"Database relationships resource failed: {e}")
+                return json.dumps({
+                    "error": str(e)
+                }, indent=2)
+
+        logger.info("Registered all D365FO resources with FastMCP")
 
     def _register_prompts(self):
         """Register D365FO prompts using FastMCP decorators."""
