@@ -74,6 +74,7 @@ Transport Options:
   stdio       Standard input/output (default, for development and CLI tools)
   sse         Server-Sent Events (for web applications and browsers)  
   http        Streamable HTTP (for production deployments and microservices)
+  uvicorn     Production ASGI server with advanced features (recommended for production)
 
 Production Examples:
   # Development (default)
@@ -82,17 +83,26 @@ Production Examples:
   # Web development
   %(prog)s --transport sse --port 8000 --debug       
   
-  # Production deployment
+  # Basic production HTTP
   %(prog)s --transport http --host 0.0.0.0 --port 8000
   
-  # High-availability stateless deployment
-  %(prog)s --transport http --host 0.0.0.0 --port 8000 --stateless
+  # Production uvicorn deployment (recommended)
+  %(prog)s --transport uvicorn --host 0.0.0.0 --port 8000 --workers 4
   
-  # API gateway compatible
-  %(prog)s --transport http --host 0.0.0.0 --port 8000 --stateless --json-response
+  # High-availability uvicorn with SSL
+  %(prog)s --transport uvicorn --host 0.0.0.0 --port 443 --workers 8 \\
+           --ssl-keyfile /path/to/key.pem --ssl-certfile /path/to/cert.pem --stateless
   
-  # Cloud deployment with performance monitoring
-  %(prog)s --transport http --host 0.0.0.0 --port 8000 --stateless --log-level INFO
+  # Development with uvicorn auto-reload
+  %(prog)s --transport uvicorn --port 8000 --reload --debug
+  
+  # Load balancer friendly deployment
+  %(prog)s --transport uvicorn --host 0.0.0.0 --port 8000 --workers 4 \\
+           --stateless --json-response --no-access-log
+  
+  # Container/Kubernetes deployment
+  %(prog)s --transport uvicorn --host 0.0.0.0 --port 8000 --workers 1 \\
+           --stateless --max-connections 500 --keepalive 10
   
 Environment Variables:
   D365FO_BASE_URL           D365FO environment URL
@@ -106,6 +116,20 @@ Environment Variables:
   MCP_MAX_CONCURRENT_REQUESTS  Max concurrent requests (default: 10)
   MCP_REQUEST_TIMEOUT       Request timeout in seconds (default: 30)
   D365FO_LOG_LEVEL          Logging level (DEBUG, INFO, WARNING, ERROR)
+  
+  # Uvicorn-specific environment variables
+  UVICORN_WORKERS           Number of worker processes (default: 1)
+  UVICORN_ACCESS_LOG        Enable access logging (true/false, default: true)
+  UVICORN_KEEPALIVE         Keep-alive timeout in seconds (default: 5)
+  UVICORN_MAX_CONNECTIONS   Maximum concurrent connections (default: 1000)
+  
+Production Deployment Tips:
+  - Use uvicorn transport for production deployments
+  - Set workers to 2x CPU cores for CPU-bound workloads
+  - Enable stateless mode for horizontal scaling
+  - Use SSL certificates for HTTPS in production
+  - Monitor with --access-log or external tools
+  - Set appropriate max-connections based on load
         """
     )
     
@@ -118,7 +142,7 @@ Environment Variables:
     parser.add_argument(
         "--transport",
         type=str,
-        choices=["stdio", "sse", "http", "streamable-http"],
+        choices=["stdio", "sse", "http", "streamable-http", "uvicorn"],
         default="stdio",
         help="Transport protocol to use (default: stdio)"
     )
@@ -164,6 +188,61 @@ Environment Variables:
         default="INFO",
         help="Set logging level (default: INFO)"
     )
+    
+    # Uvicorn-specific production deployment options
+    uvicorn_group = parser.add_argument_group('uvicorn production options')
+    
+    uvicorn_group.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Number of worker processes for uvicorn (default: 1, production: 4-8)"
+    )
+    
+    uvicorn_group.add_argument(
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload for development (uvicorn only, not for production)"
+    )
+    
+    uvicorn_group.add_argument(
+        "--ssl-keyfile",
+        type=str,
+        help="Path to SSL private key file for HTTPS (uvicorn only)"
+    )
+    
+    uvicorn_group.add_argument(
+        "--ssl-certfile", 
+        type=str,
+        help="Path to SSL certificate file for HTTPS (uvicorn only)"
+    )
+    
+    uvicorn_group.add_argument(
+        "--access-log",
+        action="store_true",
+        default=True,
+        help="Enable HTTP access logging (uvicorn only, default: enabled)"
+    )
+    
+    uvicorn_group.add_argument(
+        "--no-access-log",
+        action="store_true",
+        help="Disable HTTP access logging (uvicorn only)"
+    )
+    
+    uvicorn_group.add_argument(
+        "--keepalive",
+        type=int,
+        default=5,
+        help="HTTP keep-alive timeout in seconds (uvicorn only, default: 5)"
+    )
+    
+    uvicorn_group.add_argument(
+        "--max-connections",
+        type=int,
+        default=1000,
+        help="Maximum number of concurrent connections (uvicorn only, default: 1000)"
+    )
 
     return parser.parse_args()
 
@@ -184,6 +263,12 @@ def load_config(args: argparse.Namespace) -> Dict[str, Any]:
 
     # Get environment variables
     base_url = os.getenv("D365FO_BASE_URL", "https://usnconeboxax1aos.cloud.onebox.dynamics.com")
+    
+    # Environment variable overrides for production deployment
+    uvicorn_workers = int(os.getenv("UVICORN_WORKERS", getattr(args, 'workers', 1)))
+    uvicorn_access_log = os.getenv("UVICORN_ACCESS_LOG", "true").lower() in ("true", "1", "yes")
+    uvicorn_keepalive = int(os.getenv("UVICORN_KEEPALIVE", getattr(args, 'keepalive', 5)))
+    uvicorn_max_connections = int(os.getenv("UVICORN_MAX_CONNECTIONS", getattr(args, 'max_connections', 1000)))
     
     # Determine startup mode based on environment variables
     startup_mode = "profile_only"
@@ -227,6 +312,20 @@ def load_config(args: argparse.Namespace) -> Dict[str, Any]:
                         "methods": ["GET", "POST", "DELETE"],
                         "headers": ["*"]
                     }
+                },
+                "uvicorn": {
+                    "enabled": True,
+                    "host": args.host,
+                    "port": args.port,
+                    "workers": uvicorn_workers,
+                    "reload": getattr(args, 'reload', False),
+                    "ssl_keyfile": getattr(args, 'ssl_keyfile', None),
+                    "ssl_certfile": getattr(args, 'ssl_certfile', None),
+                    "access_log": uvicorn_access_log and not getattr(args, 'no_access_log', False),
+                    "keepalive_timeout": uvicorn_keepalive,
+                    "limit_concurrency": uvicorn_max_connections,
+                    "stateless": args.stateless,
+                    "json_response": args.json_response,
                 }
             }
         },
@@ -284,7 +383,15 @@ async def async_main() -> None:
         logger.info(f"Starting FastD365FOMCPServer v{__version__}")
         logger.info(f"Transport: {transport}")
         
-        if transport in ["sse", "http"]:
+        # Prepare transport-specific arguments
+        transport_kwargs = {}
+        
+        if transport in ["sse", "http", "uvicorn"]:
+            transport_kwargs.update({
+                "host": args.host,
+                "port": args.port
+            })
+            
             logger.info(f"Server will bind to {args.host}:{args.port}")
             
             # Validate host and port configuration
@@ -293,17 +400,70 @@ async def async_main() -> None:
                 logger.warning("Ensure firewall and security settings are properly configured")
             else:
                 logger.info(f"Server configured for local access ({args.host})")
-                
-            if args.stateless and transport == "http":
+        
+        # HTTP-specific configuration
+        if transport == "http":
+            if args.stateless:
                 logger.info("HTTP stateless mode enabled - optimized for horizontal scaling")
                 logger.info("Sessions will not be persisted between requests")
-            elif transport == "http":
+            else:
                 logger.info("HTTP stateful mode enabled - sessions will be maintained")
                 
-            if args.json_response and transport == "http":
+            if args.json_response:
                 logger.info("JSON response mode enabled - API gateway compatible")
-            elif transport == "http":
+            else:
                 logger.info("Stream response mode enabled - optimized for real-time data")
+        
+        # Uvicorn-specific configuration
+        if transport == "uvicorn":
+            # Handle access log setting
+            access_log = args.access_log and not args.no_access_log
+            
+            transport_kwargs.update({
+                "workers": args.workers,
+                "reload": args.reload,
+                "ssl_keyfile": args.ssl_keyfile,
+                "ssl_certfile": args.ssl_certfile,
+                "access_log": access_log,
+                "timeout_keep_alive": args.keepalive,  # Use correct uvicorn parameter name
+                "limit_concurrency": args.max_connections,
+                "log_level": args.log_level.lower(),
+            })
+            
+            logger.info(f"Uvicorn configuration:")
+            logger.info(f"  Workers: {args.workers}")
+            logger.info(f"  Reload: {args.reload}")
+            logger.info(f"  SSL: {args.ssl_keyfile is not None}")
+            logger.info(f"  Access log: {access_log}")
+            logger.info(f"  Keep-alive: {args.keepalive}s")
+            logger.info(f"  Max connections: {args.max_connections}")
+            
+            if args.reload:
+                logger.warning("Auto-reload enabled - suitable for development only")
+            
+            if args.workers > 1:
+                logger.info(f"Multi-worker mode with {args.workers} workers")
+                if not args.stateless:
+                    logger.warning("Session state will not be shared between workers in stateful mode")
+                    logger.info("Consider using --stateless for multi-worker deployments")
+            
+            if args.ssl_keyfile and args.ssl_certfile:
+                logger.info("HTTPS enabled with SSL certificates")
+            elif args.port == 443:
+                logger.warning("Port 443 (HTTPS) specified but no SSL certificates provided")
+            
+            # Production deployment validation
+            if args.workers > 1 and args.reload:
+                logger.error("Cannot use --reload with multiple workers")
+                sys.exit(1)
+            
+            if args.ssl_keyfile and not args.ssl_certfile:
+                logger.error("SSL key file provided but certificate file missing")
+                sys.exit(1)
+            
+            if args.ssl_certfile and not args.ssl_keyfile:
+                logger.error("SSL certificate file provided but key file missing")  
+                sys.exit(1)
                 
         # Performance configuration logging
         max_concurrent = config.get("performance", {}).get("max_concurrent_requests", 10)
@@ -321,9 +481,19 @@ async def async_main() -> None:
             if base_url:
                 logger.info(f"Default D365FO environment: {base_url}")
         
-        # Create and run server
+        # Create server
         server = FastD365FOMCPServer(config)
-        await server.run_async(transport=transport)
+        
+        # Handle uvicorn transport specially since it manages its own event loop
+        if transport == "uvicorn":
+            # For uvicorn, we need to return the server and kwargs to handle in main()
+            return {"server": server, "transport": transport, "kwargs": transport_kwargs}
+        elif transport == "stdio":
+            # For stdio, return server and use sync run method
+            return {"server": server, "transport": transport, "kwargs": transport_kwargs}
+        else:
+            # For other transports, run normally
+            await server.run_async(transport=transport, **transport_kwargs)
         
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
@@ -339,7 +509,37 @@ def main() -> None:
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     
     try:
-        asyncio.run(async_main())
+        # Parse arguments first to check transport
+        args = parse_arguments()
+        transport = args.transport
+        
+        # Handle stdio transport differently to avoid event loop conflicts
+        if transport == "stdio":
+            # For stdio, let FastMCP manage the event loop
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            # Set up logging and load configuration
+            setup_logging(args.log_level)
+            config = load_config(args)
+            server = FastD365FOMCPServer(config)
+            
+            # Use FastMCP's run method directly (it manages the event loop)
+            server.mcp.run()
+        else:
+            # For non-stdio transports, use the async pattern
+            result = asyncio.run(async_main())
+            
+            # If result is a dict, it means we need to handle special transports
+            if isinstance(result, dict):
+                server = result["server"]
+                kwargs = result["kwargs"]
+                transport_type = result["transport"]
+                
+                if transport_type == "uvicorn":
+                    # Handle uvicorn in sync context to avoid event loop conflicts
+                    server.run_uvicorn_sync(**kwargs)
+        
     except KeyboardInterrupt:
         pass
     except Exception as e:
