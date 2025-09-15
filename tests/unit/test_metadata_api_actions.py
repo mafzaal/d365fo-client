@@ -137,7 +137,7 @@ class TestMetadataAPIActionOperations:
         )
 
         # Search for actions containing "Get"
-        result = await metadata_api_ops.search_actions(pattern=".*Get.*")
+        result = await metadata_api_ops.search_actions(pattern="Get")
 
         # Should only return actions matching the pattern
         assert len(result) == 1

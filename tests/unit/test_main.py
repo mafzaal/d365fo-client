@@ -1,5 +1,6 @@
 """Tests for the main module and core functionality."""
 
+import warnings
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -8,6 +9,13 @@ import pytest_asyncio
 
 from d365fo_client import FOClient, FOClientConfig, create_client
 from d365fo_client.models import LabelInfo, PublicEntityInfo, QueryOptions
+
+# Filter out known coroutine warnings from background tasks and module imports
+warnings.filterwarnings(
+    "ignore",
+    message="coroutine.*was never awaited",
+    category=RuntimeWarning
+)
 
 
 def test_create_client():
@@ -19,7 +27,10 @@ def test_create_client():
 
 def test_config_from_string():
     """Test creating FOClient with string URL."""
-    with patch("d365fo_client.auth.DefaultAzureCredential"):
+    with (
+        patch("d365fo_client.auth.DefaultAzureCredential"),
+        patch.object(FOClient, "_trigger_background_sync_if_needed", new_callable=AsyncMock),
+    ):
         client = FOClient("https://test.dynamics.com")
         assert isinstance(client.config, FOClientConfig)
         assert client.config.base_url == "https://test.dynamics.com"
@@ -32,7 +43,10 @@ def test_config_from_dict():
         "timeout": 60,
         "verify_ssl": True,
     }
-    with patch("d365fo_client.auth.DefaultAzureCredential"):
+    with (
+        patch("d365fo_client.auth.DefaultAzureCredential"),
+        patch.object(FOClient, "_trigger_background_sync_if_needed", new_callable=AsyncMock),
+    ):
         client = FOClient(config_dict)
         assert client.config.base_url == "https://test.dynamics.com"
         assert client.config.timeout == 60
@@ -281,7 +295,10 @@ class TestEnhancedFOClient:
         """Test that get_metadata_info includes new cache information."""
         config = FOClientConfig(base_url="https://test.dynamics.com")
 
-        with patch("d365fo_client.auth.DefaultAzureCredential"):
+        with (
+            patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch.object(FOClient, "_trigger_background_sync_if_needed", new_callable=AsyncMock),
+        ):
             client = FOClient(config)
 
             info = await client.get_metadata_info()
