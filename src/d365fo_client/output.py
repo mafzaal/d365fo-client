@@ -163,12 +163,12 @@ class OutputFormatter:
 
 def format_success_message(message: str) -> str:
     """Format a success message with checkmark."""
-    return f"[OK] {message}"
+    return f"✅ {message}"
 
 
 def format_error_message(message: str) -> str:
     """Format an error message with X mark."""
-    return f"[ERROR] {message}"
+    return f"❌ {message}"
 
 
 def format_info_message(message: str) -> str:

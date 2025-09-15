@@ -54,7 +54,7 @@ class TestPackageMetadata:
         """Test that pyproject.toml exists in project root."""
         # This is important for the fallback mechanism
         current_file = Path(__file__)
-        project_root = current_file.parent.parent  # tests -> project root
+        project_root = current_file.parent.parent.parent  # tests/unit -> tests -> project root
         pyproject_path = project_root / "pyproject.toml"
 
         assert pyproject_path.exists(), "pyproject.toml should exist in project root"

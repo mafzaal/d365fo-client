@@ -38,7 +38,8 @@ def get_user_cache_dir(app_name: str = "d365fo-client") -> Path:
         # Falls back to APPDATA if LOCALAPPDATA is not available
         cache_root = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
         if cache_root:
-            return Path(cache_root) / app_name
+            # Normalize path separators for consistency
+            return Path(cache_root.replace("\\", "/")) / app_name
         else:
             # Fallback: use user home directory
             return Path.home() / "AppData" / "Local" / app_name

@@ -109,11 +109,7 @@ class FOClientConfig:
     def __post_init__(self):
         """Post-initialization to set default cache directory if not provided."""
         if self.metadata_cache_dir is None:
-            cache_dir = (
-                Path.home() / ".d365fo-client"
-            )  # get_environment_cache_directory(self.base_url)
-            cache_dir.mkdir(exist_ok=True)
-            self.metadata_cache_dir = str(cache_dir)
+            self.metadata_cache_dir = get_environment_cache_directory(self.base_url)
 
 
 @dataclass

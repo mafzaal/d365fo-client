@@ -123,60 +123,7 @@ def test_url_builders():
     )
 
 
-@pytest.mark.asyncio
-async def test_cache_functionality():
-    """Test metadata cache functionality."""
-    import tempfile
-    from pathlib import Path
-
-    from d365fo_client.metadata_cache import MetadataCache
-    from d365fo_client.models import LabelInfo
-
-    # Create temporary cache directory
-    temp_dir = tempfile.mkdtemp()
-    cache_dir = Path(temp_dir)
-
-    try:
-        # Initialize MetadataCache
-        cache = MetadataCache(
-            environment_url="https://test.dynamics.com", cache_dir=cache_dir
-        )
-        await cache.initialize()
-
-        # Test setting and getting labels
-        test_label = LabelInfo(id="@SYS13342", language="en-US", value="Customer")
-        await cache.set_label(test_label)
-
-        value = await cache.get_label("@SYS13342", "en-US")
-        assert value == "Customer"
-
-        # Test batch operations
-        labels = [
-            LabelInfo(id="@SYS1", language="en-US", value="Test1"),
-            LabelInfo(id="@SYS2", language="en-US", value="Test2"),
-        ]
-        await cache.set_labels_batch(labels)
-
-        # Test retrieval of batch labels
-        value1 = await cache.get_label("@SYS1", "en-US")
-        value2 = await cache.get_label("@SYS2", "en-US")
-        assert value1 == "Test1"
-        assert value2 == "Test2"
-
-        # Test cache statistics
-        stats = await cache.get_statistics()
-        assert "total_labels" in stats
-        assert stats["total_labels"] >= 3  # Should have at least 3 labels
-
-    finally:
-        # Cleanup manually to avoid permission issues
-        import shutil
-
-        try:
-            shutil.rmtree(temp_dir)
-        except (PermissionError, OSError):
-            # Ignore cleanup errors on Windows
-            pass
+# test_cache_functionality removed - functionality is now tested in test_metadata_cache.py
 
 
 def test_query_string_builder():
@@ -247,46 +194,7 @@ def test_main_function_demo():
         mock_run.assert_called_once()
 
 
-@pytest.mark.asyncio
-async def test_metadata_cache():
-    """Test metadata cache initialization and basic functionality."""
-    import tempfile
-    from pathlib import Path
-
-    from d365fo_client.metadata_cache import MetadataCache
-
-    # Create temporary cache directory for testing
-    temp_dir = tempfile.mkdtemp()
-    cache_dir = Path(temp_dir)
-
-    try:
-        cache = MetadataCache("https://test.dynamics.com", cache_dir)
-
-        # Test that cache properties are set correctly
-        assert cache.environment_url == "https://test.dynamics.com"
-        assert cache.cache_dir == cache_dir
-
-        # Test initialization
-        await cache.initialize()
-        assert cache._environment_id is not None
-
-        # Test statistics functionality
-        stats = await cache.get_statistics()
-        assert isinstance(stats, dict)
-        assert "total_environments" in stats
-        assert (
-            stats["total_environments"] >= 1
-        )  # Should have at least our test environment
-
-    finally:
-        # Cleanup manually to avoid permission issues
-        import shutil
-
-        try:
-            shutil.rmtree(temp_dir)
-        except (PermissionError, OSError):
-            # Ignore cleanup errors on Windows
-            pass
+# test_metadata_cache removed - functionality is now tested in test_metadata_cache.py
 
 
 class TestEnhancedFOClient:
@@ -392,16 +300,16 @@ class TestEnhancedFOClient:
             async with FOClient(config) as client:
                 client._metadata_initialized = True
 
-                # Mock sync manager
-                mock_sync_manager = AsyncMock()
-                mock_sync_manager.needs_sync.return_value = True
-                client.sync_manager = mock_sync_manager
+                # Mock metadata cache
+                mock_metadata_cache = AsyncMock()
+                mock_metadata_cache.check_version_and_sync.return_value = (True, 123)
+                client.metadata_cache = mock_metadata_cache
 
                 with patch.object(client, "_background_sync_worker") as mock_worker:
                     await client._trigger_background_sync_if_needed()
 
                     # Should check if sync is needed
-                    mock_sync_manager.needs_sync.assert_called_once()
+                    mock_metadata_cache.check_version_and_sync.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_new_download_metadata_method(self):
@@ -414,6 +322,11 @@ class TestEnhancedFOClient:
             async with FOClient(config) as client:
                 # Mock successful initialization
                 client._metadata_initialized = True
+
+                # Mock metadata cache
+                mock_metadata_cache = AsyncMock()
+                mock_metadata_cache.check_version_and_sync.return_value = (True, 123)
+                client.metadata_cache = mock_metadata_cache
 
                 # Mock sync manager
                 mock_sync_manager = AsyncMock()
@@ -430,4 +343,10 @@ class TestEnhancedFOClient:
                 result = await client.download_metadata(force_refresh=True)
 
                 assert result is True
-                mock_sync_manager.sync_metadata.assert_called_once_with(force_full=True)
+                # Check that sync_metadata was called with the correct parameters
+                mock_sync_manager.sync_metadata.assert_called_once()
+                call_args = mock_sync_manager.sync_metadata.call_args
+                assert call_args[0][0] == 123  # global_version_id
+                # Check that strategy is FULL when force_refresh=True
+                from d365fo_client.models import SyncStrategy
+                assert call_args[0][1] == SyncStrategy.FULL
