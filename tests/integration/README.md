@@ -1,100 +1,105 @@
-# Integration Testing for D365 F&O Client
+# Integration Tests - Sandbox Strategy
 
-This directory contains comprehensive integration tests for the D365 F&O Client package. Integration tests validate the client's behavior against real or simulated D365 F&O environments.
+This directory contains integration tests that validate the D365 F&O client against real sandbox environments.
 
-## Overview
+## Strategy Overview
 
-The integration testing framework is designed with multiple tiers to provide flexibility in testing environments:
+The integration test strategy has been refactored to focus on **sandbox-only testing**, eliminating the need for mock servers while providing comprehensive real-world API validation.
 
-1. **Mock Server Tests** - Fast, reliable tests against a local mock server
-2. **Sandbox Tests** - Tests against D365 F&O test/sandbox environments  
-3. **Live Tests** - Optional tests against production D365 F&O environments
+## Test Structure
 
-## Quick Start
+### Active Test Files
 
-### Prerequisites
+- **`test_sandbox.py`** - Core connection, version, and basic operations
+- **`test_sandbox_crud.py`** - Comprehensive CRUD operations and data validation
+- **`test_sandbox_metadata.py`** - Metadata API operations and entity discovery
+- **`test_sandbox_performance.py`** - Performance benchmarking and load testing
+- **`test_sandbox_error_handling.py`** - Error scenarios and resilience testing
 
-```bash
-# Install integration test dependencies
-uv add --group integration
+### Deprecated Files
 
-# Or manually install required packages
-uv add --dev aiohttp pytest-asyncio pytest-cov httpx responses
-```
+- `test_mock_server.py.deprecated` - Previously tested against mock server
+- `test_crud_comprehensive.py.deprecated` - Mock-based CRUD tests
+- `test_cli_integration.py.deprecated` - Mock-based CLI tests
+
+## Configuration
+
+### Environment Variables
+
+Required for sandbox testing:
+- `D365FO_SANDBOX_BASE_URL` - Sandbox environment URL
+- `INTEGRATION_TEST_LEVEL=sandbox` - Enable sandbox tests
+
+Optional authentication (if not using default credentials):
+- `D365FO_CLIENT_ID` - OAuth client ID
+- `D365FO_CLIENT_SECRET` - OAuth client secret
+- `D365FO_TENANT_ID` - Azure tenant ID
 
 ### Running Tests
 
 ```bash
-# Run only mock server tests (fastest, no external dependencies)
-python tests/integration/test_runner.py mock
+# Run all sandbox tests
+INTEGRATION_TEST_LEVEL=sandbox pytest tests/integration/
 
-# Run mock + sandbox tests (requires test environment)
-python tests/integration/test_runner.py sandbox
+# Run specific test categories
+pytest tests/integration/test_sandbox_crud.py
+pytest tests/integration/test_sandbox_metadata.py
+pytest tests/integration/test_sandbox_performance.py
+pytest tests/integration/test_sandbox_error_handling.py
 
-# Run with verbose output and coverage
-python tests/integration/test_runner.py mock --verbose --coverage
-
-# Run specific test file
-python tests/integration/test_runner.py mock --test test_mock_server.py
+# Skip slow performance tests
+pytest tests/integration/ -m "not slow"
 ```
 
-## Test Levels
+## Test Categories
 
-### 1. Mock Server Tests (`mock`)
+### 1. CRUD Operations (`test_sandbox_crud.py`)
+- Entity retrieval and validation
+- Query options (top, skip, filter, select)
+- Data integrity and consistency
+- Pagination and large datasets
+- Real entity relationships
 
-- **Purpose**: Fast, reliable testing without external dependencies
-- **Technology**: Local aiohttp server that simulates D365 F&O API
-- **Speed**: Very fast (< 30 seconds for full suite)
-- **Dependencies**: None (fully self-contained)
-- **Use Cases**: 
-  - CI/CD pipelines
-  - Local development testing
-  - API contract validation
-  - Error handling verification
+**Benefits vs Mock:**
+- Tests actual D365 entity schemas
+- Validates real OData response formats
+- Tests actual data relationships and constraints
 
-**Features of Mock Server:**
-- Complete OData API simulation
-- Realistic D365 F&O response structures
-- CRUD operations support
-- Metadata API endpoints
-- Version method responses
-- Label service simulation
-- Error scenario testing
+### 2. Metadata Operations (`test_sandbox_metadata.py`)
+- Metadata download and caching
+- Entity discovery and search
+- Data entities and public entities
+- Label operations and enumerations
+- Schema validation
 
-### 2. Sandbox Tests (`sandbox`)
+**Benefits vs Mock:**
+- Tests real metadata structure
+- Validates actual entity properties and types
+- Tests real label system integration
 
-- **Purpose**: Validate against real D365 F&O test environments
-- **Requirements**: Access to D365 F&O sandbox/test environment
-- **Speed**: Moderate (2-5 minutes depending on environment)
-- **Use Cases**:
-  - Pre-deployment validation
-  - Authentication testing
-  - Environment-specific testing
-  - Performance baseline establishment
+### 3. Performance Testing (`test_sandbox_performance.py`)
+- Connection establishment timing
+- Query performance benchmarks
+- Concurrent operation handling
+- Large dataset performance
+- Metadata operation timing
 
-**Required Environment Variables:**
-```bash
-D365FO_SANDBOX_BASE_URL=https://your-test-environment.dynamics.com
-D365FO_CLIENT_ID=your-client-id
-D365FO_CLIENT_SECRET=your-client-secret  
-D365FO_TENANT_ID=your-tenant-id
-```
+**Benefits vs Mock:**
+- Real network latency and throttling
+- Actual D365 performance characteristics
+- Real-world load behavior
 
-### 3. Live Tests (`live`)
+### 4. Error Handling (`test_sandbox_error_handling.py`)
+- Invalid entity/action errors
+- Authentication failures
+- Malformed request handling
+- Error recovery scenarios
+- Timeout and connectivity issues
 
-- **Purpose**: Optional validation against production environments
-- **Requirements**: Access to live D365 F&O environment
-- **Speed**: Slower (may include rate limiting)
-- **Use Cases**:
-  - Production readiness verification
-  - Real-world performance testing
-  - Final validation before major releases
-
-**Required Environment Variables:**
-```bash
-D365FO_LIVE_BASE_URL=https://your-prod-environment.dynamics.com
-# Same Azure credentials as sandbox
-```
+**Benefits vs Mock:**
+- Real D365 error messages and codes
+- Actual authentication flow errors
+- Real timeout and rate limiting behavior
 
 ## Test Organization
 

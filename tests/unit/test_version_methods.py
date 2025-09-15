@@ -1,6 +1,10 @@
-"""Tests for GetPlatformBuildVersion and GetApplicationBuildVersion action methods."""
+"""Unit tests for GetPlatformBuildVersion and GetApplicationBuildVersion action methods.
 
-from unittest.mock import AsyncMock, patch
+These tests validate the platform and application build version methods using mocks,
+ensuring proper response handling and error management without external dependencies.
+"""
+
+from unittest.mock import patch
 
 import pytest
 
@@ -212,31 +216,3 @@ class TestVersionMethodsIntegration:
                 assert calls[2][0][0] == "GetApplicationBuildVersion"
 
 
-@pytest.mark.asyncio
-async def test_version_methods_integration():
-    """Integration test for version methods (requires live connection)"""
-    # This test would require actual F&O credentials and connection
-    # Uncomment and configure if you want to test against a real environment
-
-    # config = FOClientConfig(
-    #     base_url="https://your-d365.dynamics.com",
-    #     use_default_credentials=True,
-    #     verify_ssl=False
-    # )
-    #
-    # async with FOClient(config) as client:
-    #     app_version = await client.get_application_version()
-    #     platform_version = await client.get_platform_build_version()
-    #     app_build_version = await client.get_application_build_version()
-    #
-    #     # Verify the results are non-empty strings
-    #     assert isinstance(app_version, str) and len(app_version) > 0
-    #     assert isinstance(platform_version, str) and len(platform_version) > 0
-    #     assert isinstance(app_build_version, str) and len(app_build_version) > 0
-    #
-    #     print(f"Application version: {app_version}")
-    #     print(f"Platform build version: {platform_version}")
-    #     print(f"Application build version: {app_build_version}")
-
-    # Skip this test unless explicitly enabled
-    pytest.skip("Integration test requires live F&O connection")

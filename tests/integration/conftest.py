@@ -9,36 +9,6 @@ import pytest_asyncio
 from d365fo_client import FOClient, FOClientConfig
 
 from . import INTEGRATION_TEST_LEVEL, TEST_ENVIRONMENTS
-from .mock_server import D365MockServer
-
-
-@pytest_asyncio.fixture(scope="function")
-async def mock_server() -> AsyncGenerator[D365MockServer, None]:
-    """Start mock D365 F&O server for testing."""
-    server = D365MockServer(port=8000)
-    await server.start()
-
-    # Wait a bit for server to be ready
-    await asyncio.sleep(0.1)
-
-    try:
-        yield server
-    finally:
-        await server.stop()
-
-
-@pytest_asyncio.fixture
-async def mock_client(mock_server: D365MockServer) -> AsyncGenerator[FOClient, None]:
-    """Create FOClient configured for mock server."""
-    config = FOClientConfig(
-        base_url="http://localhost:8000",
-        use_default_credentials=True,  # Use default credentials for mock server
-        verify_ssl=False,
-        timeout=30,
-    )
-
-    async with FOClient(config) as client:
-        yield client
 
 
 @pytest_asyncio.fixture
@@ -97,23 +67,19 @@ async def live_client() -> AsyncGenerator[FOClient, None]:
         yield client
 
 
-@pytest.fixture(params=["mock", "sandbox", "live"])
-def adaptive_client(request, mock_client, sandbox_client, live_client):
+@pytest.fixture(params=["sandbox", "live"])
+def adaptive_client(request, sandbox_client, live_client):
     """Fixture that provides appropriate client based on test level."""
     client_type = request.param
 
-    if INTEGRATION_TEST_LEVEL == "mock" and client_type != "mock":
-        pytest.skip(f"Skipping {client_type} test, only mock level enabled")
-    elif INTEGRATION_TEST_LEVEL == "sandbox" and client_type not in ["mock", "sandbox"]:
+    if INTEGRATION_TEST_LEVEL == "sandbox" and client_type not in ["sandbox"]:
         pytest.skip(
-            f"Skipping {client_type} test, only mock and sandbox levels enabled"
+            f"Skipping {client_type} test, only sandbox level enabled"
         )
-    elif INTEGRATION_TEST_LEVEL == "live" and client_type not in ["mock", "live"]:
-        pytest.skip(f"Skipping {client_type} test, only mock and live levels enabled")
+    elif INTEGRATION_TEST_LEVEL == "live" and client_type not in ["live"]:
+        pytest.skip(f"Skipping {client_type} test, only live level enabled")
 
-    if client_type == "mock":
-        return mock_client
-    elif client_type == "sandbox":
+    if client_type == "sandbox":
         return sandbox_client
     elif client_type == "live":
         return live_client
@@ -157,6 +123,97 @@ def performance_metrics():
     return metrics
 
 
+# Sandbox-specific fixtures
+
+
+@pytest_asyncio.fixture
+async def sandbox_test_entities(sandbox_client: FOClient):
+    """Fixture to provide test entities for sandbox testing."""
+    test_entities = {
+        "companies": [],
+        "legal_entities": [],
+    }
+
+    # Get available companies for testing
+    try:
+        companies_result = await sandbox_client.get_entities("Companies", QueryOptions(top=5))
+        if companies_result.get("value"):
+            test_entities["companies"] = companies_result["value"]
+    except Exception:
+        pass  # Companies might not be available
+
+    # Get available legal entities for testing
+    try:
+        legal_entities_result = await sandbox_client.get_entities("LegalEntities", QueryOptions(top=3))
+        if legal_entities_result.get("value"):
+            test_entities["legal_entities"] = legal_entities_result["value"]
+    except Exception:
+        pass  # Legal entities might not be available
+
+    return test_entities
+
+
+@pytest_asyncio.fixture
+async def sandbox_metadata_cache(sandbox_client: FOClient):
+    """Fixture to ensure metadata is downloaded and cached for tests."""
+    try:
+        await sandbox_client.download_metadata(force_refresh=False)
+        return True
+    except Exception:
+        return False
+
+
+@pytest.fixture
+def sandbox_environment_info():
+    """Fixture to provide sandbox environment information."""
+    import os
+
+    return {
+        "base_url": os.getenv("D365FO_SANDBOX_BASE_URL"),
+        "has_auth": bool(os.getenv("D365FO_CLIENT_ID") or os.getenv("D365FO_TENANT_ID")),
+        "test_level": os.getenv("INTEGRATION_TEST_LEVEL", "sandbox"),
+    }
+
+
+@pytest_asyncio.fixture
+async def sandbox_connectivity_check(sandbox_client: FOClient):
+    """Fixture to verify sandbox connectivity before running tests."""
+    try:
+        connection_ok = await sandbox_client.test_connection()
+        metadata_ok = await sandbox_client.test_metadata_connection()
+
+        return {
+            "connection": connection_ok,
+            "metadata": metadata_ok,
+            "overall": connection_ok and metadata_ok,
+        }
+    except Exception as e:
+        return {
+            "connection": False,
+            "metadata": False,
+            "overall": False,
+            "error": str(e),
+        }
+
+
+# Test data cleanup fixtures
+
+
+@pytest_asyncio.fixture
+async def sandbox_cleanup():
+    """Fixture to handle cleanup of test data in sandbox."""
+    created_entities = []
+
+    def register_for_cleanup(entity_set: str, entity_key: str):
+        """Register an entity for cleanup after test."""
+        created_entities.append((entity_set, entity_key))
+
+    yield register_for_cleanup
+
+    # Cleanup logic would go here, but for sandbox testing
+    # we typically don't create/modify data, so this is placeholder
+
+
 # Data validation fixtures
 
 
@@ -180,8 +237,21 @@ def entity_validator():
             return isinstance(response["value"], list)
         return "@odata.context" in response
 
+    def validate_company(company_data: dict) -> bool:
+        """Validate company entity data."""
+        required_fields = ["DataAreaId"]
+        return all(field in company_data for field in required_fields)
+
+    def validate_legal_entity(legal_entity_data: dict) -> bool:
+        """Validate legal entity data."""
+        # Legal entities might have different field names in different environments
+        possible_id_fields = ["DataAreaId", "CompanyCode", "LegalEntityId"]
+        return any(field in legal_entity_data for field in possible_id_fields)
+
     return {
         "customer": validate_customer,
         "vendor": validate_vendor,
+        "company": validate_company,
+        "legal_entity": validate_legal_entity,
         "odata_response": validate_odata_response,
     }

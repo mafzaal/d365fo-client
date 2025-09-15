@@ -1,6 +1,10 @@
-"""Tests for GetApplicationVersion action method."""
+"""Unit tests for GetApplicationVersion action method.
 
-from unittest.mock import AsyncMock, patch
+These tests validate the get_application_version() method logic using mocks,
+ensuring proper response handling and error management without external dependencies.
+"""
+
+from unittest.mock import patch
 
 import pytest
 
@@ -96,25 +100,3 @@ async def test_get_application_version_error():
                 await client.get_application_version()
 
 
-@pytest.mark.asyncio
-async def test_get_application_version_integration():
-    """Integration test for GetApplicationVersion action (requires live connection)"""
-    # This test would require actual F&O credentials and connection
-    # Uncomment and configure if you want to test against a real environment
-
-    # config = FOClientConfig(
-    #     base_url="https://your-d365.dynamics.com",
-    #     use_default_credentials=True,
-    #     verify_ssl=False
-    # )
-    #
-    # async with FOClient(config) as client:
-    #     version = await client.get_application_version()
-    #
-    #     # Verify the result is a non-empty string
-    #     assert isinstance(version, str)
-    #     assert len(version) > 0
-    #     print(f"Application version: {version}")
-
-    # Skip this test unless explicitly enabled
-    pytest.skip("Integration test requires live F&O connection")
