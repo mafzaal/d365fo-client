@@ -13,7 +13,10 @@ async def test_get_application_version_success():
     """Test successful GetApplicationVersion action call"""
     config = FOClientConfig(base_url="https://test.dynamics.com")
 
-    with patch.object(FOClient, "call_action") as mock_call:
+    with (
+        patch("d365fo_client.auth.DefaultAzureCredential"),
+        patch.object(FOClient, "call_action") as mock_call,
+    ):
         mock_call.return_value = "10.0.1985.137"
 
         async with FOClient(config) as client:
@@ -33,7 +36,10 @@ async def test_get_application_version_dict_response():
     """Test GetApplicationVersion action call with dict response containing value"""
     config = FOClientConfig(base_url="https://test.dynamics.com")
 
-    with patch.object(FOClient, "call_action") as mock_call:
+    with (
+        patch("d365fo_client.auth.DefaultAzureCredential"),
+        patch.object(FOClient, "call_action") as mock_call,
+    ):
         mock_call.return_value = {"value": "10.0.1985.137"}
 
         async with FOClient(config) as client:
@@ -48,7 +54,10 @@ async def test_get_application_version_other_response():
     config = FOClientConfig(base_url="https://test.dynamics.com")
 
     # Test with number response
-    with patch.object(FOClient, "call_action") as mock_call:
+    with (
+        patch("d365fo_client.auth.DefaultAzureCredential"),
+        patch.object(FOClient, "call_action") as mock_call,
+    ):
         mock_call.return_value = 123
 
         async with FOClient(config) as client:
@@ -57,7 +66,10 @@ async def test_get_application_version_other_response():
             assert result == "123"
 
     # Test with None response
-    with patch.object(FOClient, "call_action") as mock_call:
+    with (
+        patch("d365fo_client.auth.DefaultAzureCredential"),
+        patch.object(FOClient, "call_action") as mock_call,
+    ):
         mock_call.return_value = None
 
         async with FOClient(config) as client:
@@ -71,7 +83,10 @@ async def test_get_application_version_error():
     """Test GetApplicationVersion action call error handling"""
     config = FOClientConfig(base_url="https://test.dynamics.com")
 
-    with patch.object(FOClient, "call_action") as mock_call:
+    with (
+        patch("d365fo_client.auth.DefaultAzureCredential"),
+        patch.object(FOClient, "call_action") as mock_call,
+    ):
         mock_call.side_effect = Exception("Action failed")
 
         async with FOClient(config) as client:

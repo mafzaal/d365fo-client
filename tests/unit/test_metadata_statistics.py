@@ -78,11 +78,6 @@ class TestMetadataStatistics(unittest.IsolatedAsyncioTestCase):
             env_stats = stats["environment_statistics"]
             self.assertIsInstance(env_stats, dict)
 
-    async def test_environment_specific_statistics(self):
-        """Test environment-specific statistics"""
-        # Skip this test for now as MetadataVersionInfo is not available in the current implementation
-        self.skipTest("MetadataVersionInfo model not available in current implementation")
-
     async def test_database_file_size_statistics(self):
         """Test database file size is included in statistics"""
         stats = await self.db.get_statistics()

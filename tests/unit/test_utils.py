@@ -381,22 +381,3 @@ def test_cache_directory_structure():
     assert parts[-1] == "test.dynamics.com"
 
 
-def test_integration_with_metadata_cache():
-    """Test integration with new MetadataCache."""
-    from pathlib import Path
-
-    try:
-        from d365fo_client.metadata_cache import MetadataCache
-    except ImportError:
-        # Skip test if MetadataCache is not available
-        pytest.skip("MetadataCache module not available")
-
-    # Test just the basic properties without creating temp files
-    cache_dir = Path("test_cache")
-
-    # Create MetadataCache instance
-    cache = MetadataCache("https://test.dynamics.com", cache_dir)
-
-    # Verify cache properties are properly set up
-    assert cache.cache_dir == cache_dir
-    assert cache.environment_url == "https://test.dynamics.com"
