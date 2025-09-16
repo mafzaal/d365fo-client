@@ -141,7 +141,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
 
         @self.mcp.tool()
         async def d365fo_get_database_schema(
-            table_name: str = None,
+            table_name: Optional[str] = None,
             include_statistics: bool = True,
             include_indexes: bool = True,
             include_relationships: bool = True,
@@ -263,7 +263,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
                 # Get database statistics using existing method
                 client = await self.client_manager.get_client(profile)
                 if hasattr(client, 'metadata_cache') and hasattr(client.metadata_cache, 'database'):
-                    stats = await client.metadata_cache.database.get_database_statistics()
+                    stats = await client.metadata_cache.database.get_database_statistics() # type: ignore
                 else:
                     raise ValueError("Database statistics not available for this profile")
                 
@@ -467,7 +467,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
                 if include_statistics:
                     # Get row count
                     cursor = await db.execute(f"SELECT COUNT(*) FROM {name}")
-                    table_info["row_count"] = (await cursor.fetchone())[0]
+                    table_info["row_count"] = (await cursor.fetchone())[0] # type: ignore
                 
                 if include_indexes:
                     # Get indexes
@@ -538,7 +538,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
             
             # Get table statistics
             cursor = await db.execute(f"SELECT COUNT(*) FROM {table_name}")
-            table_info["row_count"] = (await cursor.fetchone())[0]
+            table_info["row_count"] = (await cursor.fetchone())[0] # type: ignore
             
             # Get indexes
             cursor = await db.execute(f"PRAGMA index_list({table_name})")
@@ -628,7 +628,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
                 table_stats = {}
                 for table_name in table_names:
                     cursor = await db.execute(f"SELECT COUNT(*) FROM {table_name}")
-                    row_count = (await cursor.fetchone())[0]
+                    row_count = (await cursor.fetchone())[0] # type: ignore
                     table_stats[table_name] = {"row_count": row_count}
                 
                 stats["detailed_table_statistics"] = table_stats
@@ -646,22 +646,22 @@ class DatabaseToolsMixin(BaseToolsMixin):
                 )
                 version_stats = await cursor.fetchone()
                 stats["enhanced_version_statistics"] = {
-                    "unique_versions": version_stats[0],
-                    "environments_with_versions": version_stats[1],
-                    "average_reference_count": round(version_stats[2] or 0, 2),
-                    "most_recent_use": version_stats[3]
+                    "unique_versions": version_stats[0], # type: ignore
+                    "environments_with_versions": version_stats[1],# type: ignore
+                    "average_reference_count": round(version_stats[2] or 0, 2),# type: ignore
+                    "most_recent_use": version_stats[3]# type: ignore
                 }
             
             if include_performance_stats:
                 # Database performance statistics
                 cursor = await db.execute("PRAGMA page_count")
-                page_count = (await cursor.fetchone())[0]
+                page_count = (await cursor.fetchone())[0]# type: ignore
                 
                 cursor = await db.execute("PRAGMA page_size")
-                page_size = (await cursor.fetchone())[0]
+                page_size = (await cursor.fetchone())[0]# type: ignore
                 
                 cursor = await db.execute("PRAGMA freelist_count")
-                freelist_count = (await cursor.fetchone())[0]
+                freelist_count = (await cursor.fetchone())[0]# type: ignore
                 
                 stats["performance_statistics"] = {
                     "total_pages": page_count,

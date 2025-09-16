@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import List
+from typing import List, Optional
 
 from .base_tools_mixin import BaseToolsMixin
 
@@ -18,13 +18,13 @@ class CrudToolsMixin(BaseToolsMixin):
         @self.mcp.tool()
         async def d365fo_query_entities(
             entityName: str,
-            select: List[str] = None,
-            filter: str = None,
-            orderBy: List[str] = None,
+            select: Optional[List[str]] = None,
+            filter: Optional[str] = None,
+            orderBy: Optional[List[str]] = None,
             top: int = 100,
-            skip: int = None,
+            skip: Optional[int] = None,
             count: bool = False,
-            expand: List[str] = None,
+            expand: Optional[List[str]] = None,
             profile: str = "default",
         ) -> str:
             """Query D365FO data entities with simplified filtering capabilities.
@@ -96,16 +96,18 @@ class CrudToolsMixin(BaseToolsMixin):
         @self.mcp.tool()
         async def d365fo_get_entity_record(
             entityName: str,
-            key: str,
-            select: List[str] = None,
-            expand: List[str] = None,
+            key_fields: List[str],
+            key_values: List[str],
+            select: Optional[List[str]] = None,
+            expand: Optional[List[str]] = None,
             profile: str = "default",
         ) -> str:
             """Get a specific record from a D365FO data entity.
 
             Args:
-                entityName: Name of the D365FO data entity
-                key: Primary key value or composite key object
+                entityName: The entity's public collection name or entity set name (e.g., "CustomersV3", "SalesOrders", "DataManagementEntities")
+                key_fields: List of key field names for composite keys
+                key_values: List of key values corresponding to key fields
                 select: List of fields to include in response
                 expand: List of navigation properties to expand
                 profile: Optional profile name
@@ -125,8 +127,13 @@ class CrudToolsMixin(BaseToolsMixin):
                     else None
                 )
 
+                # Construct key field=value mapping
+                if len(key_fields) != len(key_values):
+                    raise ValueError("Key fields and values length mismatch")
+                key = {k: v for k, v in zip(key_fields, key_values)} if len(key_fields) > 1 else key_values[0]
+
                 # Get entity record
-                result = await client.get_entity_by_key(entityName, key, options)
+                result = await client.get_entity_by_key(entityName, key, options)# type: ignore
 
                 return json.dumps(
                     {"entityName": entityName, "key": key, "data": result}, indent=2
@@ -148,7 +155,7 @@ class CrudToolsMixin(BaseToolsMixin):
             """Create a new record in a D365 Finance & Operations data entity.
 
             Args:
-                entityName: Name of the D365FO data entity
+                entityName: The entity's public collection name or entity set name (e.g., "CustomersV3", "SalesOrders", "DataManagementEntities")
                 data: Record data containing field names and values
                 returnRecord: Whether to return the complete created record
                 profile: Optional profile name
@@ -160,8 +167,8 @@ class CrudToolsMixin(BaseToolsMixin):
                 client = await self._get_client(profile)
 
                 # Create entity record
-                result = await client.create_entity_record(
-                    entityName, data, returnRecord
+                result = await client.create_entity(
+                    entityName, data
                 )
 
                 return json.dumps(
@@ -183,17 +190,19 @@ class CrudToolsMixin(BaseToolsMixin):
         @self.mcp.tool()
         async def d365fo_update_entity_record(
             entityName: str,
-            key: str,
+            key_fields: List[str],
+            key_values: List[str],
             data: dict,
             returnRecord: bool = False,
-            ifMatch: str = None,
+            ifMatch: Optional[str] = None,
             profile: str = "default",
         ) -> str:
             """Update an existing record in a D365 Finance & Operations data entity.
 
             Args:
-                entityName: Name of the D365FO data entity
-                key: Primary key value or composite key object
+                entityName: The entity's public collection name or entity set name (e.g., "CustomersV3", "SalesOrders", "DataManagementEntities")
+                key_fields: List of key field names for composite keys
+                key_values: List of key values corresponding to key fields
                 data: Record data containing fields to update
                 returnRecord: Whether to return the complete updated record
                 ifMatch: ETag value for optimistic concurrency control
@@ -205,9 +214,14 @@ class CrudToolsMixin(BaseToolsMixin):
             try:
                 client = await self._get_client(profile)
 
+                # Construct key field=value mapping
+                if len(key_fields) != len(key_values):
+                    raise ValueError("Key fields and values length mismatch")
+                key = {k: v for k, v in zip(key_fields, key_values)} if len(key_fields) > 1 else key_values[0]
+
                 # Update entity record
-                result = await client.update_entity_record(
-                    entityName, key, data, returnRecord, ifMatch
+                result = await client.update_entity(
+                    entityName, key, data
                 )
 
                 return json.dumps(
@@ -226,7 +240,7 @@ class CrudToolsMixin(BaseToolsMixin):
                     {
                         "error": str(e),
                         "entityName": entityName,
-                        "key": key,
+                        "key": key, # type: ignore
                         "updated": False,
                     },
                     indent=2,
@@ -234,13 +248,18 @@ class CrudToolsMixin(BaseToolsMixin):
 
         @self.mcp.tool()
         async def d365fo_delete_entity_record(
-            entityName: str, key: str, ifMatch: str = None, profile: str = "default"
+            entityName: str, 
+            key_fields: List[str],
+            key_values: List[str],
+            ifMatch: Optional[str] = None, 
+            profile: str = "default"
         ) -> str:
             """Delete a record from a D365 Finance & Operations data entity.
 
             Args:
-                entityName: Name of the D365FO data entity
-                key: Primary key value or composite key object
+                entityName: The entity's public collection name or entity set name (e.g., "CustomersV3", "SalesOrders", "DataManagementEntities")
+                key_fields: List of key field names for composite keys
+                key_values: List of key values corresponding to key fields
                 ifMatch: ETag value for optimistic concurrency control
                 profile: Optional profile name
 
@@ -250,8 +269,13 @@ class CrudToolsMixin(BaseToolsMixin):
             try:
                 client = await self._get_client(profile)
 
+                # Construct key field=value mapping
+                if len(key_fields) != len(key_values):
+                    raise ValueError("Key fields and values length mismatch")
+                key = {k: v for k, v in zip(key_fields, key_values)} if len(key_fields) > 1 else key_values[0]
+
                 # Delete entity record
-                await client.delete_entity_record(entityName, key, ifMatch)
+                await client.delete_entity(entityName, key)
 
                 return json.dumps(
                     {"entityName": entityName, "key": key, "deleted": True}, indent=2
@@ -263,7 +287,7 @@ class CrudToolsMixin(BaseToolsMixin):
                     {
                         "error": str(e),
                         "entityName": entityName,
-                        "key": key,
+                        "key": key, # type: ignore
                         "deleted": False,
                     },
                     indent=2,
@@ -272,10 +296,10 @@ class CrudToolsMixin(BaseToolsMixin):
         @self.mcp.tool()
         async def d365fo_call_action(
             actionName: str,
-            parameters: dict = None,
-            entityName: str = None,
-            entityKey: str = None,
-            bindingKind: str = None,
+            parameters: dict = None,# type: ignore
+            entityName: str = None,# type: ignore
+            entityKey: str = None,# type: ignore
+            bindingKind: str = None,# type: ignore
             timeout: int = 30,
             profile: str = "default",
         ) -> str:
@@ -284,7 +308,7 @@ class CrudToolsMixin(BaseToolsMixin):
             Args:
                 actionName: Full name of the OData action to invoke
                 parameters: Action parameters as key-value pairs
-                entityName: Entity name for bound actions
+                entityName: The entity's public collection name or entity set name (e.g., "CustomersV3", "SalesOrders", "DataManagementEntities")
                 entityKey: Primary key for entity-bound actions
                 bindingKind: Action binding type (Unbound, BoundToEntitySet, BoundToEntity)
                 timeout: Request timeout in seconds
@@ -297,13 +321,14 @@ class CrudToolsMixin(BaseToolsMixin):
                 client = await self._get_client(profile)
 
                 # Call action
-                result = await client.call_action(
-                    actionName=actionName,
+                
+                result = await client.call_action(# type: ignore
+                    actionName=actionName,# type: ignore
                     parameters=parameters or {},
                     entity_name=entityName,
                     entity_key=entityKey,
-                    binding_kind=bindingKind,
-                    timeout=timeout,
+                    binding_kind=bindingKind,# type: ignore
+                    timeout=timeout,# type: ignore
                 )
 
                 return json.dumps(

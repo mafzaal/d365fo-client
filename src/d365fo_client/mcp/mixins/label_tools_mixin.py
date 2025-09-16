@@ -19,7 +19,6 @@ class LabelToolsMixin(BaseToolsMixin):
         async def d365fo_get_label(
             labelId: str,
             language: str = "en-US",
-            fallbackToEnglish: bool = True,
             profile: str = "default",
         ) -> str:
             """Get label text by label ID.
@@ -37,10 +36,9 @@ class LabelToolsMixin(BaseToolsMixin):
                 client = await self._get_client(profile)
 
                 # Get label
-                label_text = await client.get_label(
+                label_text = await client.get_label_text(
                     label_id=labelId,
                     language=language,
-                    fallback_to_english=fallbackToEnglish,
                 )
 
                 return json.dumps(
@@ -56,7 +54,6 @@ class LabelToolsMixin(BaseToolsMixin):
         async def d365fo_get_labels_batch(
             labelIds: List[str],
             language: str = "en-US",
-            fallbackToEnglish: bool = True,
             profile: str = "default",
         ) -> str:
             """Get multiple labels in a single request.
@@ -77,7 +74,6 @@ class LabelToolsMixin(BaseToolsMixin):
                 labels = await client.get_labels_batch(
                     label_ids=labelIds,
                     language=language,
-                    fallback_to_english=fallbackToEnglish,
                 )
 
                 return json.dumps(

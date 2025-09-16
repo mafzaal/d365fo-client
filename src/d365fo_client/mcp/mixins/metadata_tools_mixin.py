@@ -3,7 +3,7 @@
 import json
 import logging
 import time
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 from .base_tools_mixin import BaseToolsMixin
@@ -20,10 +20,10 @@ class MetadataToolsMixin(BaseToolsMixin):
         @self.mcp.tool()
         async def d365fo_search_entities(
             pattern: str,
-            entity_category: str = None,
-            data_service_enabled: bool = None,
-            data_management_enabled: bool = None,
-            is_read_only: bool = None,
+            entity_category: Optional[str] = None,
+            data_service_enabled: Optional[bool] = None,
+            data_management_enabled: Optional[bool] = None,
+            is_read_only: Optional[bool] = None,
             limit: int = 100,
             profile: str = "default",
         ) -> str:
@@ -156,7 +156,7 @@ class MetadataToolsMixin(BaseToolsMixin):
             """Get the detailed schema for a specific D365 F&O data entity, including properties, keys, and available actions.
 
             Args:
-                entityName: The public name of the entity (e.g., 'CustomersV3').
+                entityName: The public name of the entity (e.g., 'CustomerV3').
                 include_properties: Set to true to include detailed information about each property (field) in the entity.
                 resolve_labels: Set to true to resolve and include human-readable labels for the entity and its properties.
                 language: The language to use for resolving labels (e.g., 'en-US', 'fr-FR').
@@ -191,9 +191,9 @@ class MetadataToolsMixin(BaseToolsMixin):
         @self.mcp.tool()
         async def d365fo_search_actions(
             pattern: str,
-            entityName: str = None,
-            bindingKind: str = None,
-            isFunction: bool = None,
+            entityName: Optional[str] = None,
+            bindingKind: Optional[str] = None,
+            isFunction: Optional[bool] = None,
             limit: int = 100,
             profile: str = "default",
         ) -> str:
