@@ -2,8 +2,10 @@
 
 import json
 import logging
+from typing import Optional
 
 from .base_tools_mixin import BaseToolsMixin
+from ...sync_models import SyncStrategy, SyncStatus
 
 logger = logging.getLogger(__name__)
 
@@ -17,15 +19,19 @@ class SyncToolsMixin(BaseToolsMixin):
         @self.mcp.tool()
         async def d365fo_start_sync(
             strategy: str = "full_without_labels",
-            global_version_id: int = None,
+            global_version_id: Optional[int] = None,
             profile: str = "default",
         ) -> str:
-            """Start a metadata synchronization session.
+            """Start a metadata synchronization session and return a session ID for tracking progress.
+
+            This downloads and caches metadata from D365 F&O including entities, schemas, enumerations, and labels.
 
             Args:
-                strategy: Sync strategy to use
-                global_version_id: Specific global version ID to sync
-                profile: Optional profile name
+                strategy: Sync strategy to use. 'full' downloads all metadata, 'entities_only' downloads just entities for quick refresh,
+                         'labels_only' downloads only labels, 'full_without_labels' downloads all metadata except labels,
+                         'sharing_mode' copies from compatible versions, 'incremental' updates only changes (fallback to full).
+                global_version_id: Specific global version ID to sync. If not provided, will detect current version automatically.
+                profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
                 JSON string with sync session details
@@ -33,31 +39,78 @@ class SyncToolsMixin(BaseToolsMixin):
             try:
                 client = await self._get_client(profile)
 
-                # Start sync
-                session_id = await client.start_sync(
-                    strategy=strategy, global_version_id=global_version_id
-                )
+                # Initialize metadata first to ensure all components are available
+                await client.initialize_metadata()
 
-                return json.dumps(
-                    {"sessionId": session_id, "strategy": strategy, "started": True},
-                    indent=2,
-                )
+                if not hasattr(client, 'sync_session_manager'):
+                    error_response = {
+                        "success": False,
+                        "error": "Sync session management not available in this client version",
+                        "message": "Upgrade to session-based sync manager to access sync functionality"
+                    }
+                    return json.dumps(error_response, indent=2)
+
+                strategy_enum = SyncStrategy(strategy)
+                sync_needed = True
+                session_id = None
+
+                # Auto-detect version if not provided
+                if global_version_id is None:
+                    if not hasattr(client, 'metadata_cache') or client.metadata_cache is None:
+                        error_response = {
+                            "success": False,
+                            "error": "Metadata cache not available in this client version",
+                            "message": "Cannot auto-detect version without metadata cache"
+                        }
+                        return json.dumps(error_response, indent=2)
+
+                    sync_needed, detected_version_id = await client.metadata_cache.check_version_and_sync()
+                    if detected_version_id is None:
+                        raise ValueError("Could not detect global version ID")
+                    global_version_id = detected_version_id
+
+                if sync_needed or strategy_enum == SyncStrategy.LABELS_ONLY:
+                    # Start sync session
+                    session_id = await client.sync_session_manager.start_sync_session(
+                        global_version_id=global_version_id,
+                        strategy=strategy_enum,
+                        initiated_by="mcp"
+                    )
+
+                response = {
+                    "success": True,
+                    "session_id": session_id if sync_needed or strategy_enum == SyncStrategy.LABELS_ONLY else None,
+                    "global_version_id": global_version_id,
+                    "strategy": strategy,
+                    "message": f"Sync session {session_id} started successfully" if sync_needed or strategy_enum == SyncStrategy.LABELS_ONLY else f"Metadata already up to date at version {global_version_id}, no sync needed",
+                    "instructions": f"Use d365fo_get_sync_progress with session_id '{session_id}' to monitor progress" if sync_needed or strategy_enum == SyncStrategy.LABELS_ONLY else None
+                }
+
+                return json.dumps(response, indent=2)
 
             except Exception as e:
                 logger.error(f"Start sync failed: {e}")
-                return json.dumps(
-                    {"error": str(e), "strategy": strategy, "started": False}, indent=2
-                )
+                error_response = {
+                    "success": False,
+                    "error": str(e),
+                    "tool": "d365fo_start_sync",
+                    "arguments": {
+                        "strategy": strategy,
+                        "global_version_id": global_version_id,
+                        "profile": profile
+                    }
+                }
+                return json.dumps(error_response, indent=2)
 
         @self.mcp.tool()
         async def d365fo_get_sync_progress(
             session_id: str, profile: str = "default"
         ) -> str:
-            """Get detailed progress information for a sync session.
+            """Get detailed progress information for a specific sync session including current phase, completion percentage, items processed, and estimated time remaining.
 
             Args:
-                session_id: Session ID of the sync operation
-                profile: Optional profile name
+                session_id: Session ID of the sync operation to check progress for
+                profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
                 JSON string with sync progress
@@ -65,24 +118,62 @@ class SyncToolsMixin(BaseToolsMixin):
             try:
                 client = await self._get_client(profile)
 
-                # Get sync progress
-                progress = await client.get_sync_progress(session_id)
+                # Initialize metadata to ensure sync session manager is available
+                await client.initialize_metadata()
 
-                return json.dumps(
-                    {"sessionId": session_id, "progress": progress}, indent=2
-                )
+                if not hasattr(client, 'sync_session_manager'):
+                    error_response = {
+                        "success": False,
+                        "error": "Sync session management not available in this client version",
+                        "session_id": session_id
+                    }
+                    return json.dumps(error_response, indent=2)
+
+                # Get session details
+                session = client.sync_session_manager.get_sync_session(session_id)
+
+                if not session:
+                    error_response = {
+                        "success": False,
+                        "error": f"Session {session_id} not found",
+                        "session_id": session_id
+                    }
+                    return json.dumps(error_response, indent=2)
+
+                # Convert session to detailed progress response
+                response = {
+                    "success": True,
+                    "session": session.to_dict(),
+                    "summary": {
+                        "status": session.status,
+                        "progress_percent": round(session.progress_percent, 1),
+                        "current_phase": session.current_phase,
+                        "current_activity": session.current_activity,
+                        "estimated_remaining_seconds": session.estimate_remaining_time(),
+                        "is_running": session.status == SyncStatus.RUNNING,
+                        "can_cancel": session.can_cancel
+                    }
+                }
+
+                return json.dumps(response, indent=2)
 
             except Exception as e:
                 logger.error(f"Get sync progress failed: {e}")
-                return json.dumps({"error": str(e), "sessionId": session_id}, indent=2)
+                error_response = {
+                    "success": False,
+                    "error": str(e),
+                    "tool": "d365fo_get_sync_progress",
+                    "arguments": {"session_id": session_id, "profile": profile}
+                }
+                return json.dumps(error_response, indent=2)
 
         @self.mcp.tool()
         async def d365fo_cancel_sync(session_id: str, profile: str = "default") -> str:
-            """Cancel a running sync session.
+            """Cancel a running sync session. Only sessions that are currently running and marked as cancellable can be cancelled.
 
             Args:
                 session_id: Session ID of the sync operation to cancel
-                profile: Optional profile name
+                profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
                 JSON string with cancellation result
@@ -90,31 +181,45 @@ class SyncToolsMixin(BaseToolsMixin):
             try:
                 client = await self._get_client(profile)
 
-                # Cancel sync
-                result = await client.cancel_sync(session_id)
+                # Initialize metadata to ensure sync session manager is available
+                await client.initialize_metadata()
 
-                return json.dumps(
-                    {
-                        "sessionId": session_id,
-                        "cancelled": result.get("cancelled", False),
-                        "message": result.get("message", ""),
-                    },
-                    indent=2,
-                )
+                if not hasattr(client, 'sync_session_manager'):
+                    error_response = {
+                        "success": False,
+                        "error": "Sync session management not available in this client version",
+                        "session_id": session_id
+                    }
+                    return json.dumps(error_response, indent=2)
+
+                # Cancel session
+                cancelled = await client.sync_session_manager.cancel_sync_session(session_id)
+
+                response = {
+                    "success": cancelled,
+                    "session_id": session_id,
+                    "message": f"Session {session_id} {'cancelled' if cancelled else 'could not be cancelled'}",
+                    "details": "Session may not be cancellable if already completed or failed"
+                }
+
+                return json.dumps(response, indent=2)
 
             except Exception as e:
                 logger.error(f"Cancel sync failed: {e}")
-                return json.dumps(
-                    {"error": str(e), "sessionId": session_id, "cancelled": False},
-                    indent=2,
-                )
+                error_response = {
+                    "success": False,
+                    "error": str(e),
+                    "tool": "d365fo_cancel_sync",
+                    "arguments": {"session_id": session_id, "profile": profile}
+                }
+                return json.dumps(error_response, indent=2)
 
         @self.mcp.tool()
         async def d365fo_list_sync_sessions(profile: str = "default") -> str:
-            """Get list of all currently active sync sessions.
+            """Get a list of all currently active sync sessions with their status, progress, and details.
 
             Args:
-                profile: Optional profile name
+                profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
                 JSON string with active sync sessions
@@ -122,41 +227,96 @@ class SyncToolsMixin(BaseToolsMixin):
             try:
                 client = await self._get_client(profile)
 
-                # List sync sessions
-                sessions = await client.list_sync_sessions()
+                # Initialize metadata to ensure sync session manager is available
+                await client.initialize_metadata()
 
-                return json.dumps(
-                    {"totalSessions": len(sessions), "sessions": sessions}, indent=2
-                )
+                if not hasattr(client, 'sync_session_manager'):
+                    error_response = {
+                        "success": False,
+                        "error": "Sync session management not available in this client version",
+                        "message": "Upgrade to session-based sync manager to access session listing"
+                    }
+                    return json.dumps(error_response, indent=2)
+
+                # Get active sessions
+                active_sessions = client.sync_session_manager.get_active_sessions()
+
+                response = {
+                    "success": True,
+                    "active_sessions": [session.to_dict() for session in active_sessions],
+                    "total_count": len(active_sessions),
+                    "running_count": len([s for s in active_sessions if s.status == SyncStatus.RUNNING]),
+                    "summary": {
+                        "has_running_sessions": any(s.status == SyncStatus.RUNNING for s in active_sessions),
+                        "latest_session": active_sessions[-1].to_dict() if active_sessions else None
+                    }
+                }
+
+                return json.dumps(response, indent=2)
 
             except Exception as e:
                 logger.error(f"List sync sessions failed: {e}")
-                return json.dumps({"error": str(e)}, indent=2)
+                error_response = {
+                    "success": False,
+                    "error": str(e),
+                    "tool": "d365fo_list_sync_sessions",
+                    "arguments": {"profile": profile}
+                }
+                return json.dumps(error_response, indent=2)
 
         @self.mcp.tool()
         async def d365fo_get_sync_history(
             limit: int = 20, profile: str = "default"
         ) -> str:
-            """Get history of completed sync sessions.
+            """Get the history of completed sync sessions including success/failure status, duration, and statistics.
 
             Args:
-                limit: Maximum number of sessions to return
-                profile: Optional profile name
+                limit: Maximum number of historical sessions to return (default: 20, max: 100)
+                profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
                 JSON string with sync history
             """
             try:
+                # Validate limit parameter
+                limit = max(1, min(limit, 100))  # Clamp between 1 and 100
+
                 client = await self._get_client(profile)
 
-                # Get sync history
-                history = await client.get_sync_history(limit=limit)
+                # Initialize metadata to ensure sync session manager is available
+                await client.initialize_metadata()
 
-                return json.dumps(
-                    {"limit": limit, "totalReturned": len(history), "history": history},
-                    indent=2,
-                )
+                if not hasattr(client, 'sync_session_manager'):
+                    error_response = {
+                        "success": False,
+                        "error": "Sync session management not available in this client version",
+                        "message": "Upgrade to session-based sync manager to access history"
+                    }
+                    return json.dumps(error_response, indent=2)
+
+                # Get session history
+                history = client.sync_session_manager.get_session_history(limit)
+
+                response = {
+                    "success": True,
+                    "history": [session.to_dict() for session in history],
+                    "total_count": len(history),
+                    "summary": {
+                        "successful_syncs": len([s for s in history if s.status == SyncStatus.COMPLETED]),
+                        "failed_syncs": len([s for s in history if s.status == SyncStatus.FAILED]),
+                        "cancelled_syncs": len([s for s in history if s.status == SyncStatus.CANCELLED]),
+                        "average_duration": sum(s.duration_seconds for s in history if s.duration_seconds) / len([s for s in history if s.duration_seconds]) if history else 0
+                    }
+                }
+
+                return json.dumps(response, indent=2)
 
             except Exception as e:
                 logger.error(f"Get sync history failed: {e}")
-                return json.dumps({"error": str(e), "limit": limit}, indent=2)
+                error_response = {
+                    "success": False,
+                    "error": str(e),
+                    "tool": "d365fo_get_sync_history",
+                    "arguments": {"limit": limit, "profile": profile}
+                }
+                return json.dumps(error_response, indent=2)

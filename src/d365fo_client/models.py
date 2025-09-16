@@ -60,18 +60,6 @@ class ODataBindingKind(StrEnum):
     UNBOUND = "Unbound"
 
 
-class SyncStrategy(StrEnum):
-    """Metadata synchronization strategies"""
-
-    FULL = "full"
-    INCREMENTAL = "incremental"
-    ENTITIES_ONLY = "entities_only"
-    LABELS_ONLY = "labels_only"
-    SHARING_MODE = "sharing_mode"
-    FULL_WITHOUT_LABELS = "full_without_labels"
-
-
-
 class Cardinality(StrEnum):
     """Navigation Property Cardinality"""
 
@@ -704,21 +692,6 @@ class SearchResults:
         }
 
 
-@dataclass
-class SyncResult:
-    """Metadata synchronization result"""
-
-    sync_type: str  # full|incremental|skipped
-    entities_synced: int = 0
-    actions_synced: int = 0
-    enumerations_synced: int = 0
-    labels_synced: int = 0
-    duration_ms: float = 0.0
-    success: bool = True
-    errors: List[str] = field(default_factory=list)
-    reason: Optional[str] = None
-
-
 # ============================================================================
 # Enhanced V2 Models for Advanced Metadata Caching
 # ============================================================================
@@ -914,79 +887,3 @@ class VersionDetectionResult:
         }
 
 
-@dataclass
-class SyncResultV2:
-    """Enhanced synchronization result for v2 with sharing metrics"""
-
-    sync_type: str  # full|incremental|linked|skipped|failed
-    entities_synced: int = 0
-    actions_synced: int = 0
-    enumerations_synced: int = 0
-    labels_synced: int = 0
-    duration_ms: float = 0.0
-    success: bool = True
-    errors: List[str] = field(default_factory=list)
-    reason: Optional[str] = None
-    # V2 specific fields
-    global_version_id: Optional[int] = None
-    was_shared: bool = False
-    reference_count: int = 1
-    storage_saved_bytes: int = 0
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON serialization"""
-        return {
-            "sync_type": self.sync_type,
-            "entities_synced": self.entities_synced,
-            "actions_synced": self.actions_synced,
-            "enumerations_synced": self.enumerations_synced,
-            "labels_synced": self.labels_synced,
-            "duration_ms": self.duration_ms,
-            "success": self.success,
-            "errors": self.errors,
-            "reason": self.reason,
-            "global_version_id": self.global_version_id,
-            "was_shared": self.was_shared,
-            "reference_count": self.reference_count,
-            "storage_saved_bytes": self.storage_saved_bytes,
-        }
-
-
-@dataclass
-class SyncProgress:
-    """Sync progress tracking"""
-
-    global_version_id: int
-    strategy: SyncStrategy
-    phase: str
-    total_steps: int
-    completed_steps: int
-    current_operation: str
-    start_time: datetime
-    estimated_completion: Optional[datetime] = None
-    error: Optional[str] = None
-
-
-@dataclass
-class SyncResult:
-    """Sync operation result"""
-
-    success: bool
-    error: Optional[str]
-    duration_ms: int
-    entity_count: int
-    action_count: int
-    enumeration_count: int
-    label_count: int
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization"""
-        return {
-            "success": self.success,
-            "error": self.error,
-            "duration_ms": self.duration_ms,
-            "entity_count": self.entity_count,
-            "action_count": self.action_count,
-            "enumeration_count": self.enumeration_count,
-            "label_count": self.label_count
-        }

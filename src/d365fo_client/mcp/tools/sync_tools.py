@@ -8,7 +8,7 @@ from mcp import Tool
 from mcp.types import TextContent
 
 from ..client_manager import D365FOClientManager
-from ...models import SyncStrategy
+from ...sync_models import SyncStrategy
 from ...sync_models import SyncStatus
 
 logger = logging.getLogger(__name__)

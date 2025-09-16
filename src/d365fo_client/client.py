@@ -349,7 +349,7 @@ class FOClient:
                 return False
 
             # Perform sync using the new sync manager
-            from .models import SyncStrategy
+            from .sync_models import SyncStrategy
 
             strategy = SyncStrategy.FULL if force_refresh else SyncStrategy.INCREMENTAL
 

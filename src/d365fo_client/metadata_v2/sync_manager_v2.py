@@ -17,6 +17,8 @@ from ..models import (
     LabelInfo,
     MetadataVersionInfo,
     PublicEntityInfo,
+)
+from ..sync_models import (
     SyncProgress,
     SyncResult,
     SyncStrategy,

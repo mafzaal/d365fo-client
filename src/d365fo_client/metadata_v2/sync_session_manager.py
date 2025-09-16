@@ -14,15 +14,15 @@ from ..models import (
     EnumerationInfo,
     LabelInfo,
     PublicEntityInfo,
-    SyncResult,
-    SyncStrategy,
 )
 from ..sync_models import (
     SyncActivity,
     SyncPhase,
+    SyncResult,
     SyncSession,
     SyncSessionSummary,
     SyncStatus,
+    SyncStrategy,
 )
 from .cache_v2 import MetadataCacheV2
 

@@ -365,5 +365,5 @@ class TestEnhancedFOClient:
                 call_args = mock_sync_manager.sync_metadata.call_args
                 assert call_args[0][0] == 123  # global_version_id
                 # Check that strategy is FULL when force_refresh=True
-                from d365fo_client.models import SyncStrategy
+                from d365fo_client.sync_models import SyncStrategy
                 assert call_args[0][1] == SyncStrategy.FULL
