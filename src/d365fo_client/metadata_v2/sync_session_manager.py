@@ -282,13 +282,13 @@ class SyncSessionManager:
         await self._complete_phase(session, SyncPhase.FINALIZING)
 
         return SyncResult(
+            sync_type="full",
             success=True,
-            error=None,
             duration_ms=duration_ms,
-            entity_count=entity_count,
-            action_count=action_count,
-            enumeration_count=enumeration_count,
-            label_count=label_count
+            entities_synced=entity_count,
+            actions_synced=action_count,
+            enumerations_synced=enumeration_count,
+            labels_synced=label_count
         )
 
     async def _sync_entities_with_progress(self, session: SyncSession):
