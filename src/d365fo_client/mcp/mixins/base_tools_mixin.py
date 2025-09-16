@@ -2,7 +2,11 @@
 
 import logging
 from typing import Optional
+
+from d365fo_client.client import FOClient
+from d365fo_client.profile_manager import ProfileManager
 from ..client_manager import D365FOClientManager
+from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +20,10 @@ class BaseToolsMixin:
     
     # These will be injected by the main server class
     client_manager: D365FOClientManager
-    mcp: 'FastMCP'  # Forward reference
+    mcp: FastMCP  
+    profile_manager:  ProfileManager
     
-    async def _get_client(self, profile: str = "default"):
+    async def _get_client(self, profile: str = "default") -> FOClient:
         """Get D365FO client for specified profile.
         
         Args:

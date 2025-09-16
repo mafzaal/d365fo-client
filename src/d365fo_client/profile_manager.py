@@ -66,10 +66,6 @@ class ProfileManager:
         self,
         name: str,
         base_url: str,
-        auth_mode: str = "default",
-        client_id: Optional[str] = None,
-        client_secret: Optional[str] = None,
-        tenant_id: Optional[str] = None,
         verify_ssl: bool = True,
         timeout: int = 60,
         use_label_cache: bool = True,
@@ -78,26 +74,31 @@ class ProfileManager:
         language: str = "en-US",
         cache_dir: Optional[str] = None,
         description: Optional[str] = None,
-        credential_source: Optional["CredentialSource"] = None
-
+        credential_source: Optional["CredentialSource"] = None,
+        # Legacy parameters for backward compatibility - will be converted to credential_source
+        auth_mode: Optional[str] = None,
+        client_id: Optional[str] = None,
+        client_secret: Optional[str] = None,
+        tenant_id: Optional[str] = None,
     ) -> bool:
         """Create a new profile.
 
         Args:
             name: Profile name
             base_url: D365FO base URL
-            auth_mode: Authentication mode
-            client_id: Azure client ID (optional)
-            client_secret: Azure client secret (optional)
-            tenant_id: Azure tenant ID (optional)
             verify_ssl: Whether to verify SSL certificates
             timeout: Request timeout in seconds
             use_label_cache: Whether to enable label caching
             label_cache_expiry_minutes: Label cache expiry in minutes
+            use_cache_first: Whether to use cache-first behavior
             language: Default language code
             cache_dir: Cache directory path
-            description: Profile description (stored separately from CLI profile)
-            credential_source: Credential source configuration
+            description: Profile description
+            credential_source: Credential source configuration (preferred method)
+            auth_mode: [DEPRECATED] Authentication mode - will be converted to credential_source
+            client_id: [DEPRECATED] Azure client ID - will be converted to credential_source
+            client_secret: [DEPRECATED] Azure client secret - will be converted to credential_source
+            tenant_id: [DEPRECATED] Azure tenant ID - will be converted to credential_source
 
         Returns:
             True if created successfully
@@ -108,14 +109,17 @@ class ProfileManager:
                 logger.error(f"Profile already exists: {name}")
                 return False
 
+            # Handle legacy credential parameters by creating credential_source
+            effective_credential_source = credential_source
+            if effective_credential_source is None and any([auth_mode, client_id, client_secret, tenant_id]):
+                effective_credential_source = self._create_credential_source_from_legacy(
+                    auth_mode, client_id, client_secret, tenant_id
+                )
+
             # Create unified profile
             profile = Profile(
                 name=name,
                 base_url=base_url,
-                auth_mode=auth_mode,
-                client_id=client_id,
-                client_secret=client_secret,
-                tenant_id=tenant_id,
                 verify_ssl=verify_ssl,
                 timeout=timeout,
                 use_label_cache=use_label_cache,
@@ -125,7 +129,7 @@ class ProfileManager:
                 cache_dir=cache_dir,
                 description=description,
                 output_format="table",  # Default for CLI compatibility
-                credential_source=credential_source
+                credential_source=effective_credential_source
             )
 
             self.config_manager.save_profile(profile)
@@ -358,3 +362,35 @@ class ProfileManager:
         except Exception as e:
             logger.error(f"Error importing profiles from {file_path}: {e}")
             return results
+
+    def _create_credential_source_from_legacy(
+        self,
+        auth_mode: Optional[str],
+        client_id: Optional[str],
+        client_secret: Optional[str],
+        tenant_id: Optional[str]
+    ) -> Optional["CredentialSource"]:
+        """Create credential source from legacy credential parameters.
+
+        Args:
+            auth_mode: Legacy authentication mode
+            client_id: Legacy client ID
+            client_secret: Legacy client secret
+            tenant_id: Legacy tenant ID
+
+        Returns:
+            CredentialSource instance or None for default credentials
+        """
+        # If auth_mode is explicitly "default" or no credentials provided, use default credentials
+        if auth_mode == "default" or not any([client_id, client_secret, tenant_id]):
+            return None
+
+        # If we have explicit credentials, create environment credential source
+        if all([client_id, client_secret, tenant_id]):
+            from .credential_sources import EnvironmentCredentialSource
+            logger.info("Converting legacy credentials to environment credential source")
+            return EnvironmentCredentialSource()
+
+        # If we have partial credentials, log warning and use default
+        logger.warning("Incomplete legacy credentials provided, using default credentials")
+        return None

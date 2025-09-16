@@ -190,15 +190,19 @@ class ConfigManager:
         # Start with defaults
         config_params = {
             "base_url": None,
-            "use_default_credentials": True,
-            "client_id": None,
-            "client_secret": None,
-            "tenant_id": None,
             "verify_ssl": True,
             "use_label_cache": True,
             "label_cache_expiry_minutes": 60,
             "use_cache_first": True,
             "timeout": 60,
+            "credential_source": None,
+        }
+
+        # Temporary variables for legacy credential handling
+        legacy_credentials = {
+            "client_id": None,
+            "client_secret": None,
+            "tenant_id": None,
         }
 
         # Apply profile settings if specified
@@ -211,31 +215,35 @@ class ConfigManager:
             profile = self.get_default_profile()
 
         if profile:
+            # Convert profile to client config and extract relevant parameters
+            client_config = profile.to_client_config()
             config_params.update(
                 {
-                    "base_url": profile.base_url,
-                    "client_id": profile.client_id,
-                    "client_secret": profile.client_secret,
-                    "tenant_id": profile.tenant_id,
-                    "verify_ssl": profile.verify_ssl,
-                    "use_label_cache": profile.use_label_cache,
-                    "label_cache_expiry_minutes": profile.label_cache_expiry_minutes,
-                    "use_cache_first": profile.use_cache_first,
-                    "timeout": profile.timeout,
+                    "base_url": client_config.base_url,
+                    "verify_ssl": client_config.verify_ssl,
+                    "use_label_cache": client_config.use_label_cache,
+                    "label_cache_expiry_minutes": client_config.label_cache_expiry_minutes,
+                    "use_cache_first": client_config.use_cache_first,
+                    "timeout": client_config.timeout,
+                    "credential_source": client_config.credential_source,
                 }
             )
 
         # Apply environment variables
         env_mappings = {
             "D365FO_BASE_URL": "base_url",
-            "D365FO_CLIENT_ID": "client_id",
-            "D365FO_CLIENT_SECRET": "client_secret",
-            "D365FO_TENANT_ID": "tenant_id",
             "D365FO_VERIFY_SSL": "verify_ssl",
             "D365FO_LABEL_CACHE": "use_label_cache",
             "D365FO_LABEL_EXPIRY": "label_cache_expiry_minutes",
             "D365FO_USE_CACHE_FIRST": "use_cache_first",
             "D365FO_TIMEOUT": "timeout",
+        }
+
+        # Environment variables for legacy credentials
+        legacy_env_mappings = {
+            "D365FO_CLIENT_ID": "client_id",
+            "D365FO_CLIENT_SECRET": "client_secret",
+            "D365FO_TENANT_ID": "tenant_id",
         }
 
         for env_var, param_name in env_mappings.items():
@@ -258,12 +266,15 @@ class ConfigManager:
                 else:
                     config_params[param_name] = env_value
 
+        # Handle legacy credential environment variables
+        for env_var, param_name in legacy_env_mappings.items():
+            env_value = os.getenv(env_var)
+            if env_value:
+                legacy_credentials[param_name] = env_value
+
         # Apply command line arguments (highest precedence)
         arg_mappings = {
             "base_url": "base_url",
-            "client_id": "client_id",
-            "client_secret": "client_secret",
-            "tenant_id": "tenant_id",
             "verify_ssl": "verify_ssl",
             "label_cache": "use_label_cache",
             "label_expiry": "label_cache_expiry_minutes",
@@ -271,20 +282,30 @@ class ConfigManager:
             "timeout": "timeout",
         }
 
+        # Legacy credential CLI args
+        legacy_arg_mappings = {
+            "client_id": "client_id",
+            "client_secret": "client_secret",
+            "tenant_id": "tenant_id",
+        }
+
         for arg_name, param_name in arg_mappings.items():
             arg_value = getattr(args, arg_name, None)
             if arg_value is not None:
                 config_params[param_name] = arg_value
 
-        # Determine authentication mode
-        if any(
-            [
-                config_params["client_id"],
-                config_params["client_secret"],
-                config_params["tenant_id"],
-            ]
-        ):
-            config_params["use_default_credentials"] = False
+        # Handle legacy credential CLI arguments
+        for arg_name, param_name in legacy_arg_mappings.items():
+            arg_value = getattr(args, arg_name, None)
+            if arg_value is not None:
+                legacy_credentials[param_name] = arg_value
+
+        # Create credential source from legacy credentials if provided
+        if any(legacy_credentials.values()) and config_params["credential_source"] is None:
+            # Check if we have all required credentials
+            if all(legacy_credentials.values()):
+                from .credential_sources import EnvironmentCredentialSource
+                config_params["credential_source"] = EnvironmentCredentialSource()
 
         return FOClientConfig(**config_params)
 

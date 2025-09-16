@@ -106,7 +106,7 @@ class TestConfigManager:
     def test_save_and_load_profile(self):
         """Test saving and loading profiles."""
         profile = CLIProfile(
-            name="test", base_url="https://test.dynamics.com", auth_mode="default"
+            name="test", base_url="https://test.dynamics.com"
         )
 
         self.config_manager.save_profile(profile)
@@ -165,7 +165,7 @@ class TestConfigManager:
 
         assert isinstance(config, FOClientConfig)
         assert config.base_url == "https://test.dynamics.com"
-        assert config.use_default_credentials is True
+        assert config.uses_default_credentials() is True
         assert config.verify_ssl is True
 
 
@@ -222,7 +222,9 @@ class TestCLIManager:
         )
 
         # Mock the config manager to return a config with no base URL
-        mock_config = FOClientConfig(base_url=None, use_default_credentials=True)
+        # Create mock config without validation to test missing base_url handling
+        with patch.object(FOClientConfig, '_validate_config'):
+            mock_config = FOClientConfig(base_url="")
 
         with patch.object(
             cli_manager.config_manager, "get_effective_config", return_value=mock_config
