@@ -79,33 +79,23 @@ class FastD365FOMCPServer(
 ):
     """FastMCP-based D365FO MCP Server with multi-transport support."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, mcp: FastMCP, config: Optional[Dict[str, Any]] = None):
         """Initialize the FastMCP D365FO server.
 
         Args:
             config: Configuration dictionary with server and transport settings
         """
-        self.config = config or self._load_default_config()
+        if config is not None:
+            self.config = config
+        else:
+            from .fastmcp_utils import load_default_config
+            self.config = load_default_config()
+        
         self.profile_manager = ProfileManager()
         self.client_manager = D365FOClientManager(self.config, self.profile_manager)
 
-        # Extract server configuration
-        server_config = self.config.get("server", {})
-        transport_config = server_config.get("transport", {})
-
-        # Initialize FastMCP server with configuration
-        self.mcp = FastMCP(
-            name=server_config.get("name", "d365fo-mcp-server"),
-            instructions=server_config.get(
-                "instructions",
-                "Microsoft Dynamics 365 Finance & Operations MCP Server providing comprehensive access to D365FO data, metadata, and operations",
-            ),
-            host=transport_config.get("http", {}).get("host", "127.0.0.1"),
-            port=transport_config.get("http", {}).get("port", 8000),
-            debug=server_config.get("debug", False),
-            json_response=transport_config.get("http", {}).get("json_response", False),
-            stateless_http=transport_config.get("http", {}).get("stateless", False),
-        )
+ 
+        self.mcp = mcp
 
         # Setup dependency injection and features
         self._setup_dependency_injection()
@@ -576,108 +566,6 @@ class FastD365FOMCPServer(
 
         logger.info("Registered D365FO prompts")
 
-    def _load_default_config(self) -> Dict[str, Any]:
-        """Load default configuration for FastMCP server.
-
-        Returns:
-            Default configuration dictionary
-        """
-        base_url = os.getenv(
-            "D365FO_BASE_URL", "https://usnconeboxax1aos.cloud.onebox.dynamics.com"
-        )
-
-        # Determine startup mode based on environment variables
-        startup_mode = "profile_only"
-        if (
-            base_url
-            and base_url != "https://usnconeboxax1aos.cloud.onebox.dynamics.com"
-        ):
-            if all(
-                [
-                    os.getenv("D365FO_CLIENT_ID"),
-                    os.getenv("D365FO_CLIENT_SECRET"),
-                    os.getenv("D365FO_TENANT_ID"),
-                ]
-            ):
-                startup_mode = "client_credentials"
-            else:
-                startup_mode = "default_auth"
-
-        return {
-            "startup_mode": startup_mode,
-            "server": {
-                "name": "d365fo-mcp-server",
-                "version": __version__,
-                "debug": os.getenv("DEBUG", "").lower() in ("true", "1", "yes"),
-                "transport": {
-                    "default": "stdio",
-                    "stdio": {"enabled": True},
-                    "sse": {
-                        "enabled": True,
-                        "host": "127.0.0.1",
-                        "port": int(os.getenv("MCP_SSE_PORT", "8000")),
-                        "cors": {
-                            "enabled": True,
-                            "origins": ["*"],
-                            "methods": ["GET", "POST"],
-                            "headers": ["*"],
-                        },
-                    },
-                    "http": {
-                        "enabled": True,
-                        "host": os.getenv("MCP_HTTP_HOST", "127.0.0.1"),
-                        "port": int(os.getenv("MCP_HTTP_PORT", "8000")),
-                        "stateless": os.getenv("MCP_HTTP_STATELESS", "").lower()
-                        in ("true", "1", "yes"),
-                        "json_response": os.getenv("MCP_HTTP_JSON", "").lower()
-                        in ("true", "1", "yes"),
-                        "cors": {
-                            "enabled": True,
-                            "origins": ["*"],
-                            "methods": ["GET", "POST", "DELETE"],
-                            "headers": ["*"],
-                        },
-                    },
-                },
-            },
-            "default_environment": {
-                "base_url": base_url,
-                "use_default_credentials": True,
-                "use_cache_first": True,
-                "timeout": 60,
-                "verify_ssl": True,
-                "use_label_cache": True,
-            },
-            "cache": {
-                "metadata_cache_dir": os.path.expanduser("~/.d365fo-mcp/cache"),
-                "label_cache_expiry_minutes": 120,
-                "use_label_cache": True,
-                "cache_size_limit_mb": 100,
-            },
-            "performance": {
-                "max_concurrent_requests": int(
-                    os.getenv("MCP_MAX_CONCURRENT_REQUESTS", "10")
-                ),
-                "connection_pool_size": int(os.getenv("MCP_CONNECTION_POOL_SIZE", "5")),
-                "request_timeout": int(os.getenv("MCP_REQUEST_TIMEOUT", "30")),
-                "batch_size": int(os.getenv("MCP_BATCH_SIZE", "100")),
-                "enable_performance_monitoring": os.getenv(
-                    "MCP_PERFORMANCE_MONITORING", "true"
-                ).lower()
-                in ("true", "1", "yes"),
-                "session_cleanup_interval": int(
-                    os.getenv("MCP_SESSION_CLEANUP_INTERVAL", "300")
-                ),
-                "max_request_history": int(
-                    os.getenv("MCP_MAX_REQUEST_HISTORY", "1000")
-                ),
-            },
-            "security": {
-                "encrypt_cached_tokens": True,
-                "token_expiry_buffer_minutes": 5,
-                "max_retry_attempts": 3,
-            },
-        }
 
     # Server lifecycle methods (preserved from original)
     async def shutdown(self):

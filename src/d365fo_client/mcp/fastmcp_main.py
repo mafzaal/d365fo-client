@@ -9,9 +9,11 @@ import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, Literal
+from mcp.server.fastmcp import FastMCP
 
 from d365fo_client import __version__
 from d365fo_client.mcp import FastD365FOMCPServer
+from d365fo_client.mcp.fastmcp_utils import load_default_config
 
 
 
@@ -259,8 +261,7 @@ def load_config(args: argparse.Namespace) -> Dict[str, Any]:
     """
     # Normalize transport argument
     transport = args.transport
-    if transport == "streamable-http":
-        transport = "http"
+        
 
     # Get environment variables
     base_url = os.getenv("D365FO_BASE_URL", "https://usnconeboxax1aos.cloud.onebox.dynamics.com")
@@ -382,13 +383,32 @@ def main() -> None:
         logger = logging.getLogger(__name__)
         logger.info(f"Starting FastD365FOMCPServer v{__version__} with transport: {transport}")
 
-        config = load_config(args)
-        
-        server = FastD365FOMCPServer(config)
-        
-        server.mcp.run(transport=transport)
+        # Use load_config if present, else fallback to load_default_config
+        try:
+            config = load_config(args)
+        except Exception:
+            config = load_default_config()
 
-        
+               # Extract server configuration
+        server_config = config.get("server", {})
+        transport_config = server_config.get("transport", {})
+        # Initialize FastMCP server with configuration
+        mcp = FastMCP(
+            name=server_config.get("name", "d365fo-mcp-server"),
+            instructions=server_config.get(
+                "instructions",
+                "Microsoft Dynamics 365 Finance & Operations MCP Server providing comprehensive access to D365FO data, metadata, and operations",
+            ),
+            host=transport_config.get("http", {}).get("host", "127.0.0.1"),
+            port=transport_config.get("http", {}).get("port", 8000),
+            debug=server_config.get("debug", False),
+            json_response=transport_config.get("http", {}).get("json_response", False),
+            stateless_http=transport_config.get("http", {}).get("stateless", False),
+        )
+
+        server = FastD365FOMCPServer(mcp,config)
+        mcp.run(transport=transport)
+
     except KeyboardInterrupt:
         pass
     except Exception as e:
