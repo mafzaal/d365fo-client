@@ -172,7 +172,7 @@ class D365FOClientManager:
         # Clear all cached clients
         await self.cleanup()
 
-    def _build_client_config(self, profile: str) -> FOClientConfig:
+    def _build_client_config(self, profile: str) -> Optional[FOClientConfig]:
         """Build FOClientConfig from profile configuration.
 
         Args:
@@ -203,71 +203,15 @@ class D365FOClientManager:
                 )
             
             # Check if legacy config should override certain settings
-            default_config = self.config.get("default_environment", {})
-            if default_config and profile == "default":
-                # Override use_default_credentials if specified in legacy config
-                if "use_default_credentials" in default_config:
-                    config.use_default_credentials = default_config["use_default_credentials"]
+
             
             return config
+        
+        raise ValueError(
+                    f"Profile '{profile}' not found in profile manager"
+                )
 
-        # Fallback to legacy config-based profiles
-        profile_config = self.config.get("profiles", {}).get(profile, {})
-        default_config = self.config.get("default_environment", {})
-
-        # If requesting a specific profile name that doesn't exist in profiles, don't fall back
-        if (
-            profile != "default"
-            and profile not in self.config.get("profiles", {})
-            and not profile_config
-        ):
-            available_profiles = list(self.profile_manager.list_profiles().keys())
-            legacy_profiles = list(self.config.get("profiles", {}).keys())
-            all_profiles = sorted(set(available_profiles + legacy_profiles))
-
-            default_profile = self.profile_manager.get_default_profile()
-
-            error_msg = f"Profile '{profile}' not found"
-            if all_profiles:
-                error_msg += f". Available profiles: {', '.join(all_profiles)}"
-            if default_profile:
-                error_msg += f". Default profile is '{default_profile.name}'"
-            else:
-                error_msg += ". No default profile is set"
-
-            raise ValueError(error_msg)
-
-        # Merge configs (profile overrides default)
-        config = {**default_config, **profile_config}
-
-        # Validate base_url
-        base_url = config.get("base_url")
-        if not base_url:
-            available_profiles = list(self.profile_manager.list_profiles().keys())
-            default_profile = self.profile_manager.get_default_profile()
-
-            error_msg = f"No configuration found for profile '{profile}'"
-            if available_profiles:
-                error_msg += f". Available profiles: {', '.join(available_profiles)}"
-            if default_profile:
-                error_msg += f". Default profile is '{default_profile.name}'"
-            else:
-                error_msg += ". No default profile is set"
-
-            raise ValueError(error_msg)
-
-        return FOClientConfig(
-            base_url=base_url,
-            client_id=config.get("client_id"),
-            client_secret=config.get("client_secret"),
-            tenant_id=config.get("tenant_id"),
-            use_default_credentials=config.get("use_default_credentials", True),
-            timeout=config.get("timeout", 60),
-            verify_ssl=config.get("verify_ssl", True),
-            use_label_cache=config.get("use_label_cache", True),
-            metadata_cache_dir=config.get("metadata_cache_dir"),
-            use_cache_first=config.get("use_cache_first", True),
-        )
+        
 
     async def _test_client_connection(self, client: FOClient) -> bool:
         """Test a client connection.

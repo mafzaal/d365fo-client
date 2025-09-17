@@ -922,7 +922,7 @@ class FOClient:
             use_cache_first=use_cache_first,
         )
 
-        return await resolve_labels_generic(entity, self.label_ops)
+        return await resolve_labels_generic(entity, self.label_ops) #type: ignore
 
     async def get_all_public_entities_with_details(
         self, resolve_labels: bool = False, language: str = "en-US"

@@ -487,18 +487,18 @@ async def async_main() -> None:
         # Handle uvicorn transport specially since it manages its own event loop
         if transport == "uvicorn":
             # For uvicorn, we need to return the server and kwargs to handle in main()
-            return {"server": server, "transport": transport, "kwargs": transport_kwargs}
+            return {"server": server, "transport": transport, "kwargs": transport_kwargs} #type: ignore
         elif transport == "stdio":
             # For stdio, return server and use sync run method
-            return {"server": server, "transport": transport, "kwargs": transport_kwargs}
+            return {"server": server, "transport": transport, "kwargs": transport_kwargs} #type: ignore
         else:
             # For other transports, run normally
             await server.run_async(transport=transport, **transport_kwargs)
         
     except KeyboardInterrupt:
-        logger.info("Server stopped by user")
+        logger.info("Server stopped by user") #type: ignore
     except Exception as e:
-        logger.error(f"Server error: {e}")
+        logger.error(f"Server error: {e}") #type: ignore
         sys.exit(1)
 
 

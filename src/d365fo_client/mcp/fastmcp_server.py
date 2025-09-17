@@ -123,7 +123,7 @@ class FastD365FOMCPServer(
     def _setup_dependency_injection(self):
         """Set up dependency injection for tools to access client manager."""
         # Store client manager reference for use in tool functions
-        self.mcp._client_manager = self.client_manager
+        pass
 
     def _setup_production_features(self):
         """Set up production features including performance monitoring and session management."""
@@ -317,7 +317,7 @@ class FastD365FOMCPServer(
             if expired_sessions:
                 logger.info(f"Cleaned up {len(expired_sessions)} expired sessions")
 
-    def _get_session_context(self, session_id: str = None) -> SessionContext:
+    def _get_session_context(self, session_id: Optional[str] = None) -> SessionContext:
         """Get or create session context for request tracking."""
         if not session_id:
             import uuid
@@ -385,14 +385,13 @@ class FastD365FOMCPServer(
                 
                 # Get sample data if entity has data service enabled
                 sample_data = []
-                if hasattr(entity_info, 'data_service_enabled') and entity_info.data_service_enabled:
-                    try:
-                        from ..models import QueryOptions
-                        options = QueryOptions(top=5)  # Get 5 sample records
-                        result = await client.get_entities(entity_name, options=options)
-                        sample_data = result.get("value", [])
-                    except Exception:
-                        pass  # Ignore errors getting sample data
+                try:
+                    from ..models import QueryOptions
+                    options = QueryOptions(top=5)  # Get 5 sample records
+                    result = await client.get_entities(entity_name, options=options)
+                    sample_data = result.get("value", [])
+                except Exception:
+                    pass  # Ignore errors getting sample data
                 
                 return json.dumps({
                     "entity_name": entity_name,
@@ -431,7 +430,7 @@ class FastD365FOMCPServer(
             try:
                 profiles = self.profile_manager.list_profiles()
                 return json.dumps({
-                    "profiles": [profile.to_dict() for profile in profiles],
+                    "profiles": profiles,
                     "total_count": len(profiles),
                 })
                 
@@ -690,15 +689,16 @@ class FastD365FOMCPServer(
             await self.mcp.run_stdio_async()
         else:
             # Fallback to run() method
-            await self.mcp.run()
+            await self.mcp.run() # type: ignore
 
     async def serve_sse(self, host: str = "127.0.0.1", port: int = 8000):
         """Serve using SSE transport."""
-        await self.mcp.run_sse(host=host, port=port)
+        await self.mcp.run_sse(host=host, port=port) # type: ignore
 
     async def serve_http(self, host: str = "127.0.0.1", port: int = 8000):
         """Serve using HTTP transport.""" 
-        await self.mcp.run_http(host=host, port=port)
+        await self.mcp.run_http(host=host, port=port) # type: ignore
+
 
     def run_uvicorn_sync(
         self, 
@@ -893,6 +893,6 @@ class FastD365FOMCPServer(
         
         # Shutdown client manager
         if hasattr(self.client_manager, 'shutdown'):
-            await self.client_manager.shutdown()
+            await self.client_manager.shutdown() # type: ignore
             
         logger.info("FastD365FOMCPServer shutdown completed")
