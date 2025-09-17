@@ -49,6 +49,9 @@ class D365FOClientManager:
         async with self._session_lock:
             if profile not in self._client_pool:
                 client_config = self._build_client_config(profile)
+                if not client_config:
+                    raise ValueError(f"Profile '{profile}' configuration is invalid")
+                
                 client = FOClient(client_config)
 
                 # Test connection
@@ -185,7 +188,7 @@ class D365FOClientManager:
         env_profile = None
 
         # If requesting "default", resolve to the actual default profile
-        if profile == "default":
+        if profile == "default" or not profile:
             env_profile = self.profile_manager.get_default_profile()
             if not env_profile:
                 # No default profile set, try to get a profile named "default"
@@ -211,8 +214,10 @@ class D365FOClientManager:
                     f"Profile '{profile}' not found in profile manager"
                 )
 
+    async def shutdown(self):
+        """Shutdown the client manager and close all connections."""
+        await self.cleanup()
         
-
     async def _test_client_connection(self, client: FOClient) -> bool:
         """Test a client connection.
 

@@ -14,6 +14,7 @@ from d365fo_client import __version__
 from d365fo_client.mcp import FastD365FOMCPServer
 
 
+
 def setup_logging(level: str = "INFO") -> None:
     """Set up logging configuration with 24-hour log rotation.
 
@@ -361,149 +362,10 @@ def load_config(args: argparse.Namespace) -> Dict[str, Any]:
     return config
 
 
-async def async_main() -> None:
-    """Async main entry point for the FastMCP server."""
-    try:
-        # Parse arguments
-        args = parse_arguments()
-        
-        # Set up logging
-        setup_logging(args.log_level)
-        logger = logging.getLogger(__name__)
-        
-        # Load configuration
-        config = load_config(args)
-        
-        # Normalize transport
-        transport = args.transport
-        if transport == "streamable-http":
-            transport = "http"
-        
-        # Print detailed startup information
-        logger.info(f"Starting FastD365FOMCPServer v{__version__}")
-        logger.info(f"Transport: {transport}")
-        
-        # Prepare transport-specific arguments
-        transport_kwargs = {}
-        
-        if transport in ["sse", "http", "uvicorn"]:
-            transport_kwargs.update({
-                "host": args.host,
-                "port": args.port
-            })
-            
-            logger.info(f"Server will bind to {args.host}:{args.port}")
-            
-            # Validate host and port configuration
-            if args.host == "0.0.0.0":
-                logger.info("Server configured for external access (0.0.0.0)")
-                logger.warning("Ensure firewall and security settings are properly configured")
-            else:
-                logger.info(f"Server configured for local access ({args.host})")
-        
-        # HTTP-specific configuration
-        if transport == "http":
-            if args.stateless:
-                logger.info("HTTP stateless mode enabled - optimized for horizontal scaling")
-                logger.info("Sessions will not be persisted between requests")
-            else:
-                logger.info("HTTP stateful mode enabled - sessions will be maintained")
-                
-            if args.json_response:
-                logger.info("JSON response mode enabled - API gateway compatible")
-            else:
-                logger.info("Stream response mode enabled - optimized for real-time data")
-        
-        # Uvicorn-specific configuration
-        if transport == "uvicorn":
-            # Handle access log setting
-            access_log = args.access_log and not args.no_access_log
-            
-            transport_kwargs.update({
-                "workers": args.workers,
-                "reload": args.reload,
-                "ssl_keyfile": args.ssl_keyfile,
-                "ssl_certfile": args.ssl_certfile,
-                "access_log": access_log,
-                "timeout_keep_alive": args.keepalive,  # Use correct uvicorn parameter name
-                "limit_concurrency": args.max_connections,
-                "log_level": args.log_level.lower(),
-            })
-            
-            logger.info(f"Uvicorn configuration:")
-            logger.info(f"  Workers: {args.workers}")
-            logger.info(f"  Reload: {args.reload}")
-            logger.info(f"  SSL: {args.ssl_keyfile is not None}")
-            logger.info(f"  Access log: {access_log}")
-            logger.info(f"  Keep-alive: {args.keepalive}s")
-            logger.info(f"  Max connections: {args.max_connections}")
-            
-            if args.reload:
-                logger.warning("Auto-reload enabled - suitable for development only")
-            
-            if args.workers > 1:
-                logger.info(f"Multi-worker mode with {args.workers} workers")
-                if not args.stateless:
-                    logger.warning("Session state will not be shared between workers in stateful mode")
-                    logger.info("Consider using --stateless for multi-worker deployments")
-            
-            if args.ssl_keyfile and args.ssl_certfile:
-                logger.info("HTTPS enabled with SSL certificates")
-            elif args.port == 443:
-                logger.warning("Port 443 (HTTPS) specified but no SSL certificates provided")
-            
-            # Production deployment validation
-            if args.workers > 1 and args.reload:
-                logger.error("Cannot use --reload with multiple workers")
-                sys.exit(1)
-            
-            if args.ssl_keyfile and not args.ssl_certfile:
-                logger.error("SSL key file provided but certificate file missing")
-                sys.exit(1)
-            
-            if args.ssl_certfile and not args.ssl_keyfile:
-                logger.error("SSL certificate file provided but key file missing")  
-                sys.exit(1)
-                
-        # Performance configuration logging
-        max_concurrent = config.get("performance", {}).get("max_concurrent_requests", 10)
-        request_timeout = config.get("performance", {}).get("request_timeout", 30)
-        logger.info(f"Performance limits: {max_concurrent} concurrent requests, {request_timeout}s timeout")
-        
-        # Security and environment information
-        startup_mode = config.get("startup_mode", "profile_only")
-        logger.info(f"Authentication mode: {startup_mode}")
-        
-        if startup_mode == "profile_only":
-            logger.info("No D365FO environment configured - use profile management tools")
-        else:
-            base_url = config.get("default_environment", {}).get("base_url", "")
-            if base_url:
-                logger.info(f"Default D365FO environment: {base_url}")
-        
-        # Create server
-        server = FastD365FOMCPServer(config)
-        
-        # Handle uvicorn transport specially since it manages its own event loop
-        if transport == "uvicorn":
-            # For uvicorn, we need to return the server and kwargs to handle in main()
-            return {"server": server, "transport": transport, "kwargs": transport_kwargs} #type: ignore
-        elif transport == "stdio":
-            # For stdio, return server and use sync run method
-            return {"server": server, "transport": transport, "kwargs": transport_kwargs} #type: ignore
-        else:
-            # For other transports, run normally
-            await server.run_async(transport=transport, **transport_kwargs)
-        
-    except KeyboardInterrupt:
-        logger.info("Server stopped by user") #type: ignore
-    except Exception as e:
-        logger.error(f"Server error: {e}") #type: ignore
-        sys.exit(1)
-
 
 def main() -> None:
     """Main entry point for the FastMCP server."""
+
     # Handle Windows event loop policy
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
@@ -512,40 +374,26 @@ def main() -> None:
         # Parse arguments first to check transport
         args = parse_arguments()
         transport = args.transport
+        # Set up logging and load configuration
+        if transport == "http":
+            transport = "streamable-http"
+
+        setup_logging(args.log_level)
+        logger = logging.getLogger(__name__)
+        logger.info(f"Starting FastD365FOMCPServer v{__version__} with transport: {transport}")
+
+        config = load_config(args)
         
-        # Handle stdio transport differently to avoid event loop conflicts
-        if transport == "stdio":
-            # For stdio, let FastMCP manage the event loop
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-            # Set up logging and load configuration
-            setup_logging(args.log_level)
-            config = load_config(args)
-            server = FastD365FOMCPServer(config)
-            
-            # Use FastMCP's run method directly (it manages the event loop)
-            server.mcp.run()
-        else:
-            # For non-stdio transports, use the async pattern
-            result = asyncio.run(async_main())
-            
-            # If result is a dict, it means we need to handle special transports
-            if isinstance(result, dict):
-                server = result["server"]
-                kwargs = result["kwargs"]
-                transport_type = result["transport"]
-                
-                if transport_type == "uvicorn":
-                    # Handle uvicorn in sync context to avoid event loop conflicts
-                    server.run_uvicorn_sync(**kwargs)
+        server = FastD365FOMCPServer(config)
+        
+        server.mcp.run(transport=transport)
+
         
     except KeyboardInterrupt:
         pass
     except Exception as e:
         print(f"Fatal error: {e}", file=sys.stderr)
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
