@@ -6,6 +6,12 @@
 
 [![Install with UVX in VS Code](https://img.shields.io/badge/VS_Code-Install_D365_FO_MCP_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://vscode.dev/redirect/mcp/install?name=d365fo&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22d365fo-client%40latest%22%2C%22d365fo-mcp-server%22%5D%2C%22env%22%3A%7B%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20tenant%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20secret%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%5D)
 [![Install with UVX in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_D365_FO_MCP_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=d365fo&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22d365fo-client%40latest%22%2C%22d365fo-mcp-server%22%5D%2C%22env%22%3A%7B%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20tenant%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20secret%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%5D)
+
+**🐳 Docker Installation for VS Code:**
+
+[![Install with Docker in VS Code](https://img.shields.io/badge/VS_Code-Install_D365_FO_MCP_Server_(Docker)-2496ED?style=flat-square&logo=docker&logoColor=white)](https://vscode.dev/redirect/mcp/install?name=d365fo-docker&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22--rm%22%2C%22-i%22%2C%22-v%22%2C%22d365fo-mcp%3A%2Fhome%2Fmcp_user%2F%22%2C%22-e%22%2C%22D365FO_CLIENT_ID%3D%24%7Binput%3Aclient_id%7D%22%2C%22-e%22%2C%22D365FO_CLIENT_SECRET%3D%24%7Binput%3Aclient_secret%7D%22%2C%22-e%22%2C%22D365FO_TENANT_ID%3D%24%7Binput%3Atenant_id%7D%22%2C%22ghcr.io%2Fmafzaal%2Fd365fo-client%3Alatest%22%5D%2C%22env%22%3A%7B%22D365FO_LOG_LEVEL%22%3A%22DEBUG%22%2C%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Tenant%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20Secret%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%5D)
+[![Install with Docker in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_D365_FO_MCP_Server_(Docker)-2496ED?style=flat-square&logo=docker&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=d365fo-docker&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22--rm%22%2C%22-i%22%2C%22-v%22%2C%22d365fo-mcp%3A%2Fhome%2Fmcp_user%2F%22%2C%22-e%22%2C%22D365FO_CLIENT_ID%3D%24%7Binput%3Aclient_id%7D%22%2C%22-e%22%2C%22D365FO_CLIENT_SECRET%3D%24%7Binput%3Aclient_secret%7D%22%2C%22-e%22%2C%22D365FO_TENANT_ID%3D%24%7Binput%3Atenant_id%7D%22%2C%22ghcr.io%2Fmafzaal%2Fd365fo-client%3Alatest%22%5D%2C%22env%22%3A%7B%22D365FO_LOG_LEVEL%22%3A%22DEBUG%22%2C%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Tenant%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20Secret%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%5D)
+
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/d365fo-client?label=Downloads)](https://pypi.org/project/d365fo-client/)
 
 **Also includes a comprehensive Python client library** for Microsoft Dynamics 365 Finance & Operations with OData endpoints, metadata operations, label management, and CLI tools.
@@ -173,6 +179,73 @@ For environments requiring service principal authentication:
 }
 ```
 
+**Option 3: Docker Integration**
+For containerized environments and enhanced isolation:
+
+```json
+{
+  "servers": {
+    "d365fo-mcp-server": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-v",
+        "d365fo-mcp:/home/mcp_user/",
+        "-e",
+        "D365FO_CLIENT_ID=${input:client_id}",
+        "-e",
+        "D365FO_CLIENT_SECRET=${input:client_secret}",
+        "-e",
+        "D365FO_TENANT_ID=${input:tenant_id}",
+        "ghcr.io/mafzaal/d365fo-client:latest"
+      ],
+      "env": {
+        "D365FO_LOG_LEVEL": "DEBUG",
+        "D365FO_CLIENT_ID": "${input:client_id}",
+        "D365FO_CLIENT_SECRET": "${input:client_secret}",
+        "D365FO_TENANT_ID": "${input:tenant_id}"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "id": "tenant_id",
+      "type": "promptString",
+      "description": "Azure AD Tenant ID for D365 F&O authentication",
+      "password": true
+    },
+    {
+      "id": "client_id",
+      "type": "promptString",
+      "description": "Azure AD Client ID for D365 F&O authentication",
+      "password": true
+    },
+    {
+      "id": "client_secret",
+      "type": "promptString",
+      "description": "Azure AD Client Secret for D365 F&O authentication",
+      "password": true
+    }
+  ]
+}
+```
+
+**Benefits of Docker approach:**
+- Complete environment isolation and reproducibility
+- No local Python installation required
+- Consistent runtime environment across different systems
+- Automatic dependency management with pre-built image
+- Enhanced security through containerization
+- Persistent data storage via Docker volume (`d365fo-mcp`)
+
+**Prerequisites:**
+- Docker installed and running
+- Access to Docker Hub or GitHub Container Registry
+- Network access for pulling the container image
+
 ##### Claude Desktop Integration
 
 **FastMCP Server:**
@@ -337,6 +410,71 @@ async with Client("d365fo-mcp-server") as client:
         {"entityName": "Customers", "top": 5}
     )
 ```
+
+#### Docker Deployment
+
+For containerized environments and production deployments:
+
+**Pull the Docker Image:**
+```bash
+# Pull from GitHub Container Registry
+docker pull ghcr.io/mafzaal/d365fo-client:latest
+
+# Or pull a specific version
+docker pull ghcr.io/mafzaal/d365fo-client:v0.2.3
+```
+
+**Standalone Docker Usage:**
+```bash
+# Run MCP server with environment variables
+docker run --rm -i \
+  -e D365FO_BASE_URL="https://your-environment.dynamics.com" \
+  -e D365FO_CLIENT_ID="your-client-id" \
+  -e D365FO_CLIENT_SECRET="your-client-secret" \
+  -e D365FO_TENANT_ID="your-tenant-id" \
+  -e D365FO_LOG_LEVEL="INFO" \
+  -v d365fo-mcp:/home/mcp_user/ \
+  ghcr.io/mafzaal/d365fo-client:latest
+
+# Run CLI commands with Docker
+docker run --rm -it \
+  -e D365FO_BASE_URL="https://your-environment.dynamics.com" \
+  -e D365FO_CLIENT_ID="your-client-id" \
+  -e D365FO_CLIENT_SECRET="your-client-secret" \
+  -e D365FO_TENANT_ID="your-tenant-id" \
+  ghcr.io/mafzaal/d365fo-client:latest \
+  d365fo-client entities --limit 10
+```
+
+**Docker Compose Example:**
+```yaml
+version: '3.8'
+services:
+  d365fo-mcp:
+    image: ghcr.io/mafzaal/d365fo-client:latest
+    environment:
+      - D365FO_BASE_URL=https://your-environment.dynamics.com
+      - D365FO_CLIENT_ID=${D365FO_CLIENT_ID}
+      - D365FO_CLIENT_SECRET=${D365FO_CLIENT_SECRET}
+      - D365FO_TENANT_ID=${D365FO_TENANT_ID}
+      - D365FO_LOG_LEVEL=INFO
+    volumes:
+      - d365fo-mcp:/home/mcp_user/
+    stdin_open: true
+    tty: true
+
+volumes:
+  d365fo-mcp:
+```
+
+**Docker Benefits:**
+- Complete environment isolation and reproducibility
+- No local Python installation required
+- Consistent runtime environment across different systems
+- Built-in dependency management
+- Enhanced security through containerization
+- Persistent data storage via Docker volumes
+- Easy integration with orchestration platforms (Kubernetes, Docker Swarm)
 
 ### Architecture Benefits
 
@@ -614,6 +752,18 @@ pip install d365fo-client
 git clone https://github.com/mafzaal/d365fo-client.git
 cd d365fo-client
 uv sync  # Installs with exact dependencies from uv.lock
+
+# Or use Docker (no local installation required)
+docker pull ghcr.io/mafzaal/d365fo-client:latest
+
+# Run with Docker
+docker run --rm -it \
+  -e D365FO_BASE_URL="https://your-environment.dynamics.com" \
+  -e D365FO_CLIENT_ID="your-client-id" \
+  -e D365FO_CLIENT_SECRET="your-client-secret" \
+  -e D365FO_TENANT_ID="your-tenant-id" \
+  -v d365fo-mcp:/home/mcp_user/ \
+  ghcr.io/mafzaal/d365fo-client:latest
 ```
 
 **Note**: The package includes MCP (Model Context Protocol) dependencies by default, enabling AI assistant integration. Both `d365fo-client` CLI and `d365fo-mcp-server` commands will be available after installation.

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2025-09-21
+
+### Added
+- **Docker Support**: Added containerization support for d365fo-client package
+  - Added `.dockerignore` file with comprehensive exclusion patterns for clean Docker builds
+  - Added `Dockerfile` with multi-stage build process optimized for production deployment
+  - Added GitHub workflow for automated Docker image building and publishing to GitHub Container Registry
+
+### Documentation
+- **Comprehensive MCP Tools Guide**: Added detailed introduction to MCP tools with usage examples and best practices
+- **Enhanced Installation Instructions**: Updated README with improved installation instructions for VS Code and VS Code Insiders
+- **PyPI Integration**: Added PyPI download badge and installation links to README for better discoverability
+
+### Dependencies
+- Bumped `actions/setup-python` from 5 to 6 (CI dependency)
+- Bumped `ruff` from 0.12.10 to 0.13.0 (linting tool update)
+- Bumped `pytest-cov` from 6.2.1 to 7.0.0 (test coverage tool major update)
+- Bumped `pytest` from 8.4.1 to 8.4.2 (testing framework patch update)
+- Bumped `azure-identity` from 1.24.0 to 1.25.0 (Azure authentication library update)
+- Bumped `mypy` from 1.17.1 to 1.18.1 (type checking tool update)
+- Bumped `mcp` from 1.13.1 to 1.14.0 (Model Context Protocol SDK update)
+- Bumped `pytest-asyncio` from 1.1.0 to 1.2.0 (async testing support update)
+
 ## [0.2.3] - 2025-08-31
 
 ### Added
