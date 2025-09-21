@@ -77,7 +77,7 @@ Transport Options:
   stdio       Standard input/output (default, for development and CLI tools)
   sse         Server-Sent Events (for web applications and browsers)  
   http        Streamable HTTP (for production deployments and microservices)
-  uvicorn     Production ASGI server with advanced features (recommended for production)
+
 
 Production Examples:
   # Development (default)
@@ -89,23 +89,6 @@ Production Examples:
   # Basic production HTTP
   %(prog)s --transport http --host 0.0.0.0 --port 8000
   
-  # Production uvicorn deployment (recommended)
-  %(prog)s --transport uvicorn --host 0.0.0.0 --port 8000 --workers 4
-  
-  # High-availability uvicorn with SSL
-  %(prog)s --transport uvicorn --host 0.0.0.0 --port 443 --workers 8 \\
-           --ssl-keyfile /path/to/key.pem --ssl-certfile /path/to/cert.pem --stateless
-  
-  # Development with uvicorn auto-reload
-  %(prog)s --transport uvicorn --port 8000 --reload --debug
-  
-  # Load balancer friendly deployment
-  %(prog)s --transport uvicorn --host 0.0.0.0 --port 8000 --workers 4 \\
-           --stateless --json-response --no-access-log
-  
-  # Container/Kubernetes deployment
-  %(prog)s --transport uvicorn --host 0.0.0.0 --port 8000 --workers 1 \\
-           --stateless --max-connections 500 --keepalive 10
   
 Environment Variables:
   D365FO_BASE_URL           D365FO environment URL
@@ -119,20 +102,8 @@ Environment Variables:
   MCP_MAX_CONCURRENT_REQUESTS  Max concurrent requests (default: 10)
   MCP_REQUEST_TIMEOUT       Request timeout in seconds (default: 30)
   D365FO_LOG_LEVEL          Logging level (DEBUG, INFO, WARNING, ERROR)
-  
-  # Uvicorn-specific environment variables
-  UVICORN_WORKERS           Number of worker processes (default: 1)
-  UVICORN_ACCESS_LOG        Enable access logging (true/false, default: true)
-  UVICORN_KEEPALIVE         Keep-alive timeout in seconds (default: 5)
-  UVICORN_MAX_CONNECTIONS   Maximum concurrent connections (default: 1000)
-  
-Production Deployment Tips:
-  - Use uvicorn transport for production deployments
-  - Set workers to 2x CPU cores for CPU-bound workloads
-  - Enable stateless mode for horizontal scaling
-  - Use SSL certificates for HTTPS in production
-  - Monitor with --access-log or external tools
-  - Set appropriate max-connections based on load
+  D365FO_META_CACHE_DIR   Metadata cache directory (default: ~/.d365fo-mcp/cache)
+
         """
     )
     
@@ -145,7 +116,7 @@ Production Deployment Tips:
     parser.add_argument(
         "--transport",
         type=str,
-        choices=["stdio", "sse", "http", "streamable-http", "uvicorn"],
+        choices=["stdio", "sse", "http", "streamable-http"],
         default="stdio",
         help="Transport protocol to use (default: stdio)"
     )
@@ -192,60 +163,7 @@ Production Deployment Tips:
         help="Set logging level (default: INFO)"
     )
     
-    # Uvicorn-specific production deployment options
-    uvicorn_group = parser.add_argument_group('uvicorn production options')
     
-    uvicorn_group.add_argument(
-        "--workers",
-        type=int,
-        default=1,
-        help="Number of worker processes for uvicorn (default: 1, production: 4-8)"
-    )
-    
-    uvicorn_group.add_argument(
-        "--reload",
-        action="store_true",
-        help="Enable auto-reload for development (uvicorn only, not for production)"
-    )
-    
-    uvicorn_group.add_argument(
-        "--ssl-keyfile",
-        type=str,
-        help="Path to SSL private key file for HTTPS (uvicorn only)"
-    )
-    
-    uvicorn_group.add_argument(
-        "--ssl-certfile", 
-        type=str,
-        help="Path to SSL certificate file for HTTPS (uvicorn only)"
-    )
-    
-    uvicorn_group.add_argument(
-        "--access-log",
-        action="store_true",
-        default=True,
-        help="Enable HTTP access logging (uvicorn only, default: enabled)"
-    )
-    
-    uvicorn_group.add_argument(
-        "--no-access-log",
-        action="store_true",
-        help="Disable HTTP access logging (uvicorn only)"
-    )
-    
-    uvicorn_group.add_argument(
-        "--keepalive",
-        type=int,
-        default=5,
-        help="HTTP keep-alive timeout in seconds (uvicorn only, default: 5)"
-    )
-    
-    uvicorn_group.add_argument(
-        "--max-connections",
-        type=int,
-        default=1000,
-        help="Maximum number of concurrent connections (uvicorn only, default: 1000)"
-    )
 
     return parser.parse_args()
 
@@ -261,16 +179,12 @@ def load_config(args: argparse.Namespace) -> Dict[str, Any]:
     """
     # Normalize transport argument
     transport = args.transport
-        
+
 
     # Get environment variables
     base_url = os.getenv("D365FO_BASE_URL", "https://usnconeboxax1aos.cloud.onebox.dynamics.com")
     
-    # Environment variable overrides for production deployment
-    uvicorn_workers = int(os.getenv("UVICORN_WORKERS", getattr(args, 'workers', 1)))
-    uvicorn_access_log = os.getenv("UVICORN_ACCESS_LOG", "true").lower() in ("true", "1", "yes")
-    uvicorn_keepalive = int(os.getenv("UVICORN_KEEPALIVE", getattr(args, 'keepalive', 5)))
-    uvicorn_max_connections = int(os.getenv("UVICORN_MAX_CONNECTIONS", getattr(args, 'max_connections', 1000)))
+    
     
     # Determine startup mode based on environment variables
     startup_mode = "profile_only"
@@ -315,20 +229,7 @@ def load_config(args: argparse.Namespace) -> Dict[str, Any]:
                         "headers": ["*"]
                     }
                 },
-                "uvicorn": {
-                    "enabled": True,
-                    "host": args.host,
-                    "port": args.port,
-                    "workers": uvicorn_workers,
-                    "reload": getattr(args, 'reload', False),
-                    "ssl_keyfile": getattr(args, 'ssl_keyfile', None),
-                    "ssl_certfile": getattr(args, 'ssl_certfile', None),
-                    "access_log": uvicorn_access_log and not getattr(args, 'no_access_log', False),
-                    "keepalive_timeout": uvicorn_keepalive,
-                    "limit_concurrency": uvicorn_max_connections,
-                    "stateless": args.stateless,
-                    "json_response": args.json_response,
-                }
+                
             }
         },
         "default_environment": {
@@ -338,26 +239,8 @@ def load_config(args: argparse.Namespace) -> Dict[str, Any]:
             "timeout": 60,
             "verify_ssl": True,
             "use_label_cache": True,
-        },
-        "cache": {
-            "metadata_cache_dir": os.path.expanduser("~/.d365fo-mcp/cache"),
-            "label_cache_expiry_minutes": int(os.getenv("MCP_LABEL_CACHE_EXPIRY", "120")),
-            "use_label_cache": True,
-            "cache_size_limit_mb": int(os.getenv("MCP_CACHE_SIZE_LIMIT", "100")),
-        },
-        "performance": {
-            "max_concurrent_requests": int(os.getenv("MCP_MAX_CONCURRENT_REQUESTS", "10")),
-            "connection_pool_size": int(os.getenv("MCP_CONNECTION_POOL_SIZE", "5")),
-            "request_timeout": int(os.getenv("MCP_REQUEST_TIMEOUT", "30")),
-            "batch_size": int(os.getenv("MCP_BATCH_SIZE", "100")),
-            "enable_performance_monitoring": os.getenv("MCP_PERFORMANCE_MONITORING", "true").lower() in ("true", "1", "yes"),
-        },
-        "security": {
-            "encrypt_cached_tokens": True,
-            "token_expiry_buffer_minutes": int(os.getenv("MCP_TOKEN_EXPIRY_BUFFER", "5")),
-            "max_retry_attempts": int(os.getenv("MCP_MAX_RETRY_ATTEMPTS", "3")),
-            "cors_enabled": os.getenv("MCP_CORS_ENABLED", "true").lower() in ("true", "1", "yes"),
-        },
+            "metadata_cache_dir": os.getenv("MCP_META_CACHE_DIR", os.path.expanduser("~/.d365fo-mcp/cache")),
+        }
     }
 
     return config
