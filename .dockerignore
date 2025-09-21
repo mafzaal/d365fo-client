@@ -1,0 +1,134 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Documentation (not needed in container)
+docs/
+*.md
+!README.md
+CHANGELOG*
+LICENSE*
+
+# GitHub workflows and CI/CD
+.github/
+
+# Development tools
+.flake8
+.isort.cfg
+.black
+.pre-commit-config.yaml
+mypy.ini
+tox.ini
+.tox/
+
+# Docker
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# Package management
+Pipfile*
+poetry.lock
+requirements*.txt
+
+# Examples and tests (usually not needed in production)
+examples/
+tests/
+test_*/
+*_test.py
+*test*.py
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Logs
+*.log
+logs/
+
+# OS generated files
+Thumbs.db
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Editor backup files
+*~
+*.bak
+*.swp
+*.swo
+
+# Environment variables (security)
+.env*
+!.env.example
+
+# Cache directories
+.cache/
+.npm/
+.yarn/
+
+# Build tools
+Makefile
+.make/
+
+# Development configuration
+mcp-config.json
