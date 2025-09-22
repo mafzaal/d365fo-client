@@ -1,6 +1,5 @@
 """Profile tools mixin for FastMCP server."""
 
-import json
 import logging
 from typing import Any, Dict, Optional
 
@@ -63,11 +62,11 @@ class ProfileToolsMixin(BaseToolsMixin):
         """Register all profile tools with FastMCP."""
         
         @self.mcp.tool()
-        async def d365fo_list_profiles() -> str:
+        async def d365fo_list_profiles() -> Dict[str, Any]:
             """Get list of all available D365FO environment profiles.
 
             Returns:
-                JSON string with list of profiles
+                Dictionary with list of profiles
             """
             try:
                 profiles = self.profile_manager.list_profiles()
@@ -77,50 +76,39 @@ class ProfileToolsMixin(BaseToolsMixin):
                     profile_dict = profile.to_dict() if hasattr(profile, 'to_dict') else {"name": name, "baseUrl": getattr(profile, 'base_url', '')}
                     profile_list.append(profile_dict)
 
-                return json.dumps(
-                    {
-                        "totalProfiles": len(profiles),
-                        "profiles": profile_list,
-                    },
-                    indent=2,
-                )
+                return {
+                    "totalProfiles": len(profiles),
+                    "profiles": profile_list,
+                }
 
             except Exception as e:
                 logger.error(f"List profiles failed: {e}")
-                return json.dumps({"error": str(e)}, indent=2)
+                return {"error": str(e)}
 
         @self.mcp.tool()
-        async def d365fo_get_profile(profileName: str) -> str:
+        async def d365fo_get_profile(profileName: str) -> Dict[str, Any]:
             """Get details of a specific D365FO environment profile.
 
             Args:
                 profileName: Name of the profile to retrieve
 
             Returns:
-                JSON string with profile details
+                Dictionary with profile details
             """
             try:
                 profile = self.profile_manager.get_profile(profileName)
 
                 if profile:
-                    return json.dumps(
-                        {"profileName": profileName, "profile": profile.to_dict()},
-                        indent=2,
-                    )
+                    return {"profileName": profileName, "profile": profile.to_dict()}
                 else:
-                    return json.dumps(
-                        {
-                            "error": f"Profile '{profileName}' not found",
-                            "profileName": profileName,
-                        },
-                        indent=2,
-                    )
+                    return {
+                        "error": f"Profile '{profileName}' not found",
+                        "profileName": profileName,
+                    }
 
             except Exception as e:
                 logger.error(f"Get profile failed: {e}")
-                return json.dumps(
-                    {"error": str(e), "profileName": profileName}, indent=2
-                )
+                return {"error": str(e), "profileName": profileName}
 
         @self.mcp.tool()
         async def d365fo_create_profile(
@@ -137,7 +125,7 @@ class ProfileToolsMixin(BaseToolsMixin):
             outputFormat: str = "table",
             setAsDefault: bool = False,
             credentialSource: Optional[Dict[str, Any]] = None,
-        ) -> str:
+        ) -> Dict[str, Any]:
             """Create a new D365FO environment profile with full configuration options.
 
             Args:
@@ -158,7 +146,7 @@ class ProfileToolsMixin(BaseToolsMixin):
                     - Azure Key Vault: {"sourceType": "keyvault", "vaultUrl": "https://vault.vault.azure.net/", "clientIdSecretName": "D365FO_CLIENT_ID", "clientSecretSecretName": "D365FO_CLIENT_SECRET", "tenantIdSecretName": "D365FO_TENANT_ID"}
 
             Returns:
-                JSON string with creation result
+                Dictionary with creation result
             """
             try:
                 # Handle credential source conversion
@@ -189,22 +177,17 @@ class ProfileToolsMixin(BaseToolsMixin):
                 if success:
                     created_profile = self.profile_manager.get_profile(name)
 
-                return json.dumps(
-                    {
-                        "profileName": name,
-                        "created": success,
-                        "setAsDefault": setAsDefault and success,
-                        "profile": created_profile.to_dict() if created_profile else None,
-                        "authType": "default_credentials" if not credentialSource else credentialSource.get("sourceType", "unknown"),
-                    },
-                    indent=2,
-                )
+                return {
+                    "profileName": name,
+                    "created": success,
+                    "setAsDefault": setAsDefault and success,
+                    "profile": created_profile.to_dict() if created_profile else None,
+                    "authType": "default_credentials" if not credentialSource else credentialSource.get("sourceType", "unknown"),
+                }
 
             except Exception as e:
                 logger.error(f"Create profile failed: {e}")
-                return json.dumps(
-                    {"error": str(e), "profileName": name, "created": False}, indent=2
-                )
+                return {"error": str(e), "profileName": name, "created": False}
 
         @self.mcp.tool()
         async def d365fo_update_profile(
@@ -220,7 +203,7 @@ class ProfileToolsMixin(BaseToolsMixin):
             cacheDir: Optional[str] = None,
             outputFormat: Optional[str] = None,
             credentialSource: Optional[Dict[str, Any]] = None,
-        ) -> str:
+        ) -> Dict[str, Any]:
             """Update an existing D365FO environment profile with full configuration options.
 
             Automatically invalidates all cached client connections to ensure they pick up
@@ -243,7 +226,7 @@ class ProfileToolsMixin(BaseToolsMixin):
                     - Azure Key Vault: {"sourceType": "keyvault", "vaultUrl": "https://vault.vault.azure.net/", "clientIdSecretName": "D365FO_CLIENT_ID", "clientSecretSecretName": "D365FO_CLIENT_SECRET", "tenantIdSecretName": "D365FO_TENANT_ID"}
 
             Returns:
-                JSON string with update result including number of clients invalidated
+                Dictionary with update result including number of clients invalidated
             """
             try:
                 # Convert parameter names and handle credential source
@@ -289,32 +272,26 @@ class ProfileToolsMixin(BaseToolsMixin):
                 if success:
                     updated_profile = self.profile_manager.get_profile(name)
 
-                return json.dumps(
-                    {
-                        "profileName": name,
-                        "updated": success,
-                        "updatedFields": list(update_params.keys()) if success else [],
-                        "profile": updated_profile.to_dict() if updated_profile else None,
-                        "clientsRefreshed": clients_refreshed,
-                    },
-                    indent=2,
-                )
+                return {
+                    "profileName": name,
+                    "updated": success,
+                    "updatedFields": list(update_params.keys()) if success else [],
+                    "profile": updated_profile.to_dict() if updated_profile else None,
+                    "clientsRefreshed": clients_refreshed,
+                }
 
             except Exception as e:
                 logger.error(f"Update profile failed: {e}")
-                return json.dumps(
-                    {
-                        "error": str(e),
-                        "profileName": name,
-                        "updated": False,
-                        "attemptedFields": [],
-                        "clientsRefreshed": False,
-                    },
-                    indent=2
-                )
+                return {
+                    "error": str(e),
+                    "profileName": name,
+                    "updated": False,
+                    "attemptedFields": [],
+                    "clientsRefreshed": False,
+                }
 
         @self.mcp.tool()
-        async def d365fo_delete_profile(profileName: str) -> str:
+        async def d365fo_delete_profile(profileName: str) -> Dict[str, Any]:
             """Delete a D365FO environment profile.
 
             Automatically invalidates all cached client connections since the profile
@@ -324,7 +301,7 @@ class ProfileToolsMixin(BaseToolsMixin):
                 profileName: Name of the profile to delete
 
             Returns:
-                JSON string with deletion result including number of clients invalidated
+                Dictionary with deletion result including number of clients invalidated
             """
             try:
                 success = self.profile_manager.delete_profile(profileName)
@@ -340,29 +317,23 @@ class ProfileToolsMixin(BaseToolsMixin):
                         clients_refreshed = False
                         # Continue with success response, client refresh failure is not critical
 
-                return json.dumps(
-                    {
-                        "profileName": profileName,
-                        "deleted": success,
-                        "clientsRefreshed": clients_refreshed,
-                    },
-                    indent=2
-                )
+                return {
+                    "profileName": profileName,
+                    "deleted": success,
+                    "clientsRefreshed": clients_refreshed,
+                }
 
             except Exception as e:
                 logger.error(f"Delete profile failed: {e}")
-                return json.dumps(
-                    {
-                        "error": str(e),
-                        "profileName": profileName,
-                        "deleted": False,
-                        "clientsRefreshed": False,
-                    },
-                    indent=2,
-                )
+                return {
+                    "error": str(e),
+                    "profileName": profileName,
+                    "deleted": False,
+                    "clientsRefreshed": False,
+                }
 
         @self.mcp.tool()
-        async def d365fo_set_default_profile(profileName: str) -> str:
+        async def d365fo_set_default_profile(profileName: str) -> Dict[str, Any]:
             """Set the default D365FO environment profile.
 
             Automatically refreshes all cached client connections since changing the default
@@ -372,7 +343,7 @@ class ProfileToolsMixin(BaseToolsMixin):
                 profileName: Name of the profile to set as default
 
             Returns:
-                JSON string with result including client refresh status
+                Dictionary with result including client refresh status
             """
             try:
                 success = self.profile_manager.set_default_profile(profileName)
@@ -388,114 +359,94 @@ class ProfileToolsMixin(BaseToolsMixin):
                         clients_refreshed = False
                         # Continue with success response, client refresh failure is not critical
 
-                return json.dumps(
-                    {
-                        "profileName": profileName,
-                        "setAsDefault": success,
-                        "clientsRefreshed": clients_refreshed,
-                    },
-                    indent=2
-                )
+                return {
+                    "profileName": profileName,
+                    "setAsDefault": success,
+                    "clientsRefreshed": clients_refreshed,
+                }
 
             except Exception as e:
                 logger.error(f"Set default profile failed: {e}")
-                return json.dumps(
-                    {
-                        "error": str(e),
-                        "profileName": profileName,
-                        "setAsDefault": False,
-                        "clientsRefreshed": False,
-                    },
-                    indent=2,
-                )
+                return {
+                    "error": str(e),
+                    "profileName": profileName,
+                    "setAsDefault": False,
+                    "clientsRefreshed": False,
+                }
 
         @self.mcp.tool()
-        async def d365fo_get_default_profile() -> str:
+        async def d365fo_get_default_profile() -> Dict[str, Any]:
             """Get the current default D365FO environment profile.
 
             Returns:
-                JSON string with default profile
+                Dictionary with default profile
             """
             try:
                 profile = self.profile_manager.get_default_profile()
 
                 if profile:
-                    return json.dumps({"defaultProfile": profile.to_dict()}, indent=2)
+                    return {"defaultProfile": profile.to_dict()}
                 else:
-                    return json.dumps({"error": "No default profile set"}, indent=2)
+                    return {"error": "No default profile set"}
 
             except Exception as e:
                 logger.error(f"Get default profile failed: {e}")
-                return json.dumps({"error": str(e)}, indent=2)
+                return {"error": str(e)}
 
         @self.mcp.tool()
-        async def d365fo_validate_profile(profileName: str) -> str:
+        async def d365fo_validate_profile(profileName: str) -> Dict[str, Any]:
             """Validate a D365FO environment profile configuration.
 
             Args:
                 profileName: Name of the profile to validate
 
             Returns:
-                JSON string with validation result
+                Dictionary with validation result
             """
             try:
                 profile = self.profile_manager.get_profile(profileName)
                 if not profile:
-                    return json.dumps(
-                        {"error": f"Profile '{profileName}' not found", "profileName": profileName, "isValid": False},
-                        indent=2,
-                    )
+                    return {"error": f"Profile '{profileName}' not found", "profileName": profileName, "isValid": False}
 
                 errors = self.profile_manager.validate_profile(profile)
                 is_valid = len(errors) == 0
 
-                return json.dumps(
-                    {"profileName": profileName, "isValid": is_valid, "errors": errors},
-                    indent=2,
-                )
+                return {"profileName": profileName, "isValid": is_valid, "errors": errors}
 
             except Exception as e:
                 logger.error(f"Validate profile failed: {e}")
-                return json.dumps(
-                    {"error": str(e), "profileName": profileName, "isValid": False},
-                    indent=2,
-                )
+                return {"error": str(e), "profileName": profileName, "isValid": False}
 
         @self.mcp.tool()
-        async def d365fo_test_profile_connection(profileName: str) -> str:
+        async def d365fo_test_profile_connection(profileName: str) -> Dict[str, Any]:
             """Test connection for a specific D365FO environment profile.
 
             Args:
                 profileName: Name of the profile to test
 
             Returns:
-                JSON string with connection test result
+                Dictionary with connection test result
             """
             try:
                 client = await self.client_manager.get_client(profileName)
                 result = await client.test_connection()
 
-                return json.dumps(
-                    {"profileName": profileName, "connectionTest": result}, indent=2
-                )
+                return {"profileName": profileName, "connectionTest": result}
 
             except Exception as e:
                 logger.error(f"Test profile connection failed: {e}")
-                return json.dumps(
-                    {
-                        "error": str(e),
-                        "profileName": profileName,
-                        "connectionSuccessful": False,
-                    },
-                    indent=2,
-                )
+                return {
+                    "error": str(e),
+                    "profileName": profileName,
+                    "connectionSuccessful": False,
+                }
 
         @self.mcp.tool()
         async def d365fo_clone_profile(
             sourceProfileName: str,
             newProfileName: str,
             description: Optional[str] = None,
-        ) -> str:
+        ) -> Dict[str, Any]:
             """Clone an existing D365FO environment profile with optional modifications.
 
             Args:
@@ -504,15 +455,12 @@ class ProfileToolsMixin(BaseToolsMixin):
                 description: Description for the new profile
 
             Returns:
-                JSON string with cloning result
+                Dictionary with cloning result
             """
             try:
                 source_profile = self.profile_manager.get_profile(sourceProfileName)
                 if not source_profile:
-                    return json.dumps(
-                        {"error": f"Source profile '{sourceProfileName}' not found", "profileName": sourceProfileName},
-                        indent=2,
-                    )
+                    return {"error": f"Source profile '{sourceProfileName}' not found", "profileName": sourceProfileName}
 
                 # Prepare overrides
                 clone_overrides = {}
@@ -530,59 +478,47 @@ class ProfileToolsMixin(BaseToolsMixin):
                 except Exception:
                     success = False
 
-                return json.dumps(
-                    {
-                        "profileName": newProfileName,
-                        "sourceProfile": sourceProfileName,
-                        "cloned": success,
-                        "description": new_profile.description,
-                    },
-                    indent=2,
-                )
+                return {
+                    "profileName": newProfileName,
+                    "sourceProfile": sourceProfileName,
+                    "cloned": success,
+                    "description": new_profile.description,
+                }
 
             except Exception as e:
                 logger.error(f"Clone profile failed: {e}")
-                return json.dumps(
-                    {"error": str(e), "sourceProfile": sourceProfileName, "newProfile": newProfileName, "cloned": False},
-                    indent=2,
-                )
+                return {"error": str(e), "sourceProfile": sourceProfileName, "newProfile": newProfileName, "cloned": False}
 
         @self.mcp.tool()
-        async def d365fo_export_profiles(filePath: str) -> str:
+        async def d365fo_export_profiles(filePath: str) -> Dict[str, Any]:
             """Export all D365FO environment profiles to a file.
 
             Args:
                 filePath: Path where to export the profiles
 
             Returns:
-                JSON string with export result
+                Dictionary with export result
             """
             try:
                 success = self.profile_manager.export_profiles(filePath)
                 profiles = self.profile_manager.list_profiles()
 
-                return json.dumps(
-                    {
-                        "filePath": filePath,
-                        "exported": success,
-                        "profileCount": len(profiles),
-                        "message": f"Exported {len(profiles)} profiles to {filePath}" if success else "Export failed",
-                    },
-                    indent=2,
-                )
+                return {
+                    "filePath": filePath,
+                    "exported": success,
+                    "profileCount": len(profiles),
+                    "message": f"Exported {len(profiles)} profiles to {filePath}" if success else "Export failed",
+                }
 
             except Exception as e:
                 logger.error(f"Export profiles failed: {e}")
-                return json.dumps(
-                    {"error": str(e), "filePath": filePath, "exported": False},
-                    indent=2,
-                )
+                return {"error": str(e), "filePath": filePath, "exported": False}
 
         @self.mcp.tool()
         async def d365fo_import_profiles(
             filePath: str,
             overwrite: bool = False
-        ) -> str:
+        ) -> Dict[str, Any]:
             """Import D365FO environment profiles from a file.
 
             Args:
@@ -590,7 +526,7 @@ class ProfileToolsMixin(BaseToolsMixin):
                 overwrite: Whether to overwrite existing profiles with the same name
 
             Returns:
-                JSON string with import results
+                Dictionary with import results
             """
             try:
                 results = self.profile_manager.import_profiles(filePath, overwrite)
@@ -598,34 +534,28 @@ class ProfileToolsMixin(BaseToolsMixin):
                 successful_imports = [name for name, success in results.items() if success]
                 failed_imports = [name for name, success in results.items() if not success]
 
-                return json.dumps(
-                    {
-                        "filePath": filePath,
-                        "overwrite": overwrite,
-                        "totalProfiles": len(results),
-                        "successfulImports": len(successful_imports),
-                        "failedImports": len(failed_imports),
-                        "results": results,
-                        "successful": successful_imports,
-                        "failed": failed_imports,
-                        "message": f"Imported {len(successful_imports)} profiles successfully, {len(failed_imports)} failed",
-                    },
-                    indent=2,
-                )
+                return {
+                    "filePath": filePath,
+                    "overwrite": overwrite,
+                    "totalProfiles": len(results),
+                    "successfulImports": len(successful_imports),
+                    "failedImports": len(failed_imports),
+                    "results": results,
+                    "successful": successful_imports,
+                    "failed": failed_imports,
+                    "message": f"Imported {len(successful_imports)} profiles successfully, {len(failed_imports)} failed",
+                }
 
             except Exception as e:
                 logger.error(f"Import profiles failed: {e}")
-                return json.dumps(
-                    {"error": str(e), "filePath": filePath, "imported": False},
-                    indent=2,
-                )
+                return {"error": str(e), "filePath": filePath, "imported": False}
 
         @self.mcp.tool()
         async def d365fo_search_profiles(
             pattern: Optional[str] = None,
             hasCredentialSource: Optional[bool] = None,
             credentialSourceType: Optional[str] = None
-        ) -> str:
+        ) -> Dict[str, Any]:
             """Search D365FO environment profiles based on criteria.
 
             Args:
@@ -634,7 +564,7 @@ class ProfileToolsMixin(BaseToolsMixin):
                 credentialSourceType: Filter by credential source type ("environment", "keyvault")
 
             Returns:
-                JSON string with matching profiles
+                Dictionary with matching profiles
             """
             try:
                 all_profiles = self.profile_manager.list_profiles()
@@ -680,49 +610,40 @@ class ProfileToolsMixin(BaseToolsMixin):
 
                     matching_profiles.append(profile_info)
 
-                return json.dumps(
-                    {
-                        "searchCriteria": {
-                            "pattern": pattern,
-                            "hasCredentialSource": hasCredentialSource,
-                            "credentialSourceType": credentialSourceType,
-                        },
-                        "totalMatches": len(matching_profiles),
-                        "profiles": matching_profiles,
+                return {
+                    "searchCriteria": {
+                        "pattern": pattern,
+                        "hasCredentialSource": hasCredentialSource,
+                        "credentialSourceType": credentialSourceType,
                     },
-                    indent=2,
-                )
+                    "totalMatches": len(matching_profiles),
+                    "profiles": matching_profiles,
+                }
 
             except Exception as e:
                 logger.error(f"Search profiles failed: {e}")
-                return json.dumps(
-                    {"error": str(e), "searchCriteria": {"pattern": pattern, "hasCredentialSource": hasCredentialSource, "credentialSourceType": credentialSourceType}},
-                    indent=2,
-                )
+                return {"error": str(e), "searchCriteria": {"pattern": pattern, "hasCredentialSource": hasCredentialSource, "credentialSourceType": credentialSourceType}}
 
         @self.mcp.tool()
-        async def d365fo_get_profile_names() -> str:
+        async def d365fo_get_profile_names() -> Dict[str, Any]:
             """Get list of all D365FO environment profile names.
 
             Returns:
-                JSON string with profile names
+                Dictionary with profile names
             """
             try:
                 profile_names = self.profile_manager.get_profile_names()
                 default_profile = self.profile_manager.get_default_profile()
 
-                return json.dumps(
-                    {
-                        "profileNames": profile_names,
-                        "totalCount": len(profile_names),
-                        "defaultProfile": default_profile.name if default_profile else None,
-                    },
-                    indent=2,
-                )
+                return {
+                    "profileNames": profile_names,
+                    "totalCount": len(profile_names),
+                    "defaultProfile": default_profile.name if default_profile else None,
+                }
 
             except Exception as e:
                 logger.error(f"Get profile names failed: {e}")
-                return json.dumps({"error": str(e)}, indent=2)
+                return {"error": str(e)}
 
     def _convert_credential_source(self, cred_source_data: Dict[str, Any]) -> Any:
         """Convert credential source data from API format to internal format.
