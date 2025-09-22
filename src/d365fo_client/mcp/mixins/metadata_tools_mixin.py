@@ -1,6 +1,5 @@
 """Metadata tools mixin for FastMCP server."""
 
-import json
 import logging
 import time
 from typing import List, Optional
@@ -26,8 +25,8 @@ class MetadataToolsMixin(BaseToolsMixin):
             is_read_only: Optional[bool] = None,
             limit: int = 100,
             profile: str = "default",
-        ) -> str:
-            """Search for D365 F&O data entities using simple keyword-based search. 
+        ) -> dict:
+            """Search for D365 F&O data entities using simple keyword-based search.
 
             IMPORTANT: When a user asks for something like "Get data management entities" or "Find customer group entities", break the request into individual keywords and perform MULTIPLE searches, then analyze all results:
 
@@ -53,7 +52,7 @@ class MetadataToolsMixin(BaseToolsMixin):
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with matching entities
+                Dictionary with matching entities
             """
             try:
                 client = await self._get_client(profile)
@@ -131,7 +130,7 @@ class MetadataToolsMixin(BaseToolsMixin):
                     "ftsMatches": fts_suggestions if fts_suggestions else None,
                 }
 
-                return json.dumps(response, indent=2)
+                return response
 
             except Exception as e:
                 logger.error(f"Search entities failed: {e}")
@@ -152,7 +151,7 @@ class MetadataToolsMixin(BaseToolsMixin):
             resolve_labels: bool = True,
             language: str = "en-US",
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Get the detailed schema for a specific D365 F&O data entity, including properties, keys, and available actions.
 
             Args:
@@ -163,7 +162,7 @@ class MetadataToolsMixin(BaseToolsMixin):
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with entity schema
+                Dictionary with entity schema
             """
             try:
                 client = await self._get_client(profile)
@@ -176,7 +175,7 @@ class MetadataToolsMixin(BaseToolsMixin):
                 logger.info(f"Retrieved entity info for {entity_info}")
                 entity_info_dict = entity_info.to_dict()
 
-                return json.dumps(entity_info_dict, indent=2)
+                return entity_info_dict
 
             except Exception as e:
                 logger.error(f"Get entity schema failed: {e}")
@@ -196,7 +195,7 @@ class MetadataToolsMixin(BaseToolsMixin):
             isFunction: Optional[bool] = None,
             limit: int = 100,
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Search for available OData actions in D365 F&O using simple keyword-based search.
 
             IMPORTANT: When searching for actions, break down user requests into individual keywords and perform MULTIPLE searches:
@@ -222,7 +221,7 @@ class MetadataToolsMixin(BaseToolsMixin):
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with matching actions
+                Dictionary with matching actions
             """
             try:
                 client = await self._get_client(profile)
@@ -300,7 +299,7 @@ class MetadataToolsMixin(BaseToolsMixin):
                     },
                 }
 
-                return json.dumps(response, indent=2)
+                return response
 
             except Exception as e:
                 logger.error(f"Search actions failed: {e}")
@@ -316,7 +315,7 @@ class MetadataToolsMixin(BaseToolsMixin):
         @self.mcp.tool()
         async def d365fo_search_enumerations(
             pattern: str, limit: int = 100, profile: str = "default"
-        ) -> str:
+        ) -> dict:
             """Search for enumerations (enums) in D365 F&O using simple keyword-based search.
 
             IMPORTANT: When searching for enumerations, break down user requests into individual keywords and perform MULTIPLE searches:
@@ -339,7 +338,7 @@ class MetadataToolsMixin(BaseToolsMixin):
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with matching enumerations
+                Dictionary with matching enumerations
             """
             try:
                 client = await self._get_client(profile)
@@ -369,7 +368,7 @@ class MetadataToolsMixin(BaseToolsMixin):
                     "limit": limit,
                 }
 
-                return json.dumps(response, indent=2)
+                return response
 
             except Exception as e:
                 logger.error(f"Search enumerations failed: {e}")
@@ -385,7 +384,7 @@ class MetadataToolsMixin(BaseToolsMixin):
             resolve_labels: bool = True,
             language: str = "en-US",
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Get the detailed members (fields) and their values for a specific D365 F&O enumeration.
 
             Args:
@@ -395,7 +394,7 @@ class MetadataToolsMixin(BaseToolsMixin):
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with enumeration details
+                Dictionary with enumeration details
             """
             try:
                 client = await self._get_client(profile)
@@ -421,7 +420,7 @@ class MetadataToolsMixin(BaseToolsMixin):
                     "language": language if resolve_labels else None,
                 }
 
-                return json.dumps(response, indent=2)
+                return response
 
             except Exception as e:
                 logger.error(f"Get enumeration fields failed: {e}")
@@ -433,14 +432,14 @@ class MetadataToolsMixin(BaseToolsMixin):
                 })
 
         @self.mcp.tool()
-        async def d365fo_get_installed_modules(profile: str = "default") -> str:
+        async def d365fo_get_installed_modules(profile: str = "default") -> dict:
             """Get the list of installed modules in the D365 F&O environment with their details including name, version, module ID, publisher, and display name.
 
             Args:
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with installed modules
+                Dictionary with installed modules
             """
             try:
                 client = await self._get_client(profile)
@@ -456,7 +455,7 @@ class MetadataToolsMixin(BaseToolsMixin):
                     "retrievedAt": f"{datetime.now().isoformat()}Z",
                 }
 
-                return json.dumps(response, indent=2)
+                return response
 
             except Exception as e:
                 logger.error(f"Get installed modules failed: {e}")
