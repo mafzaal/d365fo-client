@@ -8,12 +8,14 @@ import logging.handlers
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Literal
+from typing import Literal
 from mcp.server.fastmcp import FastMCP
 
 from d365fo_client import __version__
 from d365fo_client.mcp import FastD365FOMCPServer
-from d365fo_client.mcp.fastmcp_utils import load_default_config
+from d365fo_client.mcp.fastmcp_utils import create_default_profile_if_needed, load_default_config
+from d365fo_client.profile_manager import ProfileManager
+from d365fo_client.utils import get_default_cache_directory
 
 
 
@@ -168,83 +170,55 @@ Environment Variables:
     return parser.parse_args()
 
 
-def load_config(args: argparse.Namespace) -> Dict[str, Any]:
-    """Load configuration from arguments and environment.
-
-    Args:
-        args: Parsed command line arguments
-
-    Returns:
-        Configuration dictionary
-    """
-    # Normalize transport argument
-    transport = args.transport
+# Parse arguments first to check transport
+args = parse_arguments()
+arg_transport =  args.transport
 
 
-    # Get environment variables
-    base_url = os.getenv("D365FO_BASE_URL", "https://usnconeboxax1aos.cloud.onebox.dynamics.com")
-    
-    
-    
-    # Determine startup mode based on environment variables
-    startup_mode = "profile_only"
-    if base_url and base_url != "https://usnconeboxax1aos.cloud.onebox.dynamics.com":
-        if all([os.getenv("D365FO_CLIENT_ID"), os.getenv("D365FO_CLIENT_SECRET"), os.getenv("D365FO_TENANT_ID")]):
-            startup_mode = "client_credentials"
-        else:
-            startup_mode = "default_auth"
+# Set up logging and load configuration
+if arg_transport == "http":
+    arg_transport = "streamable-http"
 
-    config = {
-        "startup_mode": startup_mode,
-        "server": {
-            "name": "d365fo-fastmcp-server",
-            "version": __version__,
-            "debug": args.debug,
-            "transport": {
-                "default": transport,
-                "stdio": {
-                    "enabled": True
-                },
-                "sse": {
-                    "enabled": True,
-                    "host": args.host,
-                    "port": args.port,
-                    "cors": {
-                        "enabled": True,
-                        "origins": ["*"],
-                        "methods": ["GET", "POST"],
-                        "headers": ["*"]
-                    }
-                },
-                "http": {
-                    "enabled": True,
-                    "host": args.host,
-                    "port": args.port,
-                    "stateless": args.stateless,
-                    "json_response": args.json_response,
-                    "cors": {
-                        "enabled": True,
-                        "origins": ["*"],
-                        "methods": ["GET", "POST", "DELETE"],
-                        "headers": ["*"]
-                    }
-                },
-                
-            }
-        },
-        "default_environment": {
-            "base_url": base_url,
-            "use_default_credentials": True,
-            "use_cache_first": True,
-            "timeout": 60,
-            "verify_ssl": True,
-            "use_label_cache": True,
-            "metadata_cache_dir": os.getenv("MCP_META_CACHE_DIR", os.path.expanduser("~/.d365fo-mcp/cache")),
-        }
-    }
+transport:Literal["stdio", "sse", "streamable-http"] = arg_transport
 
-    return config
+setup_logging(args.log_level or os.getenv("D365FO_LOG_LEVEL", "INFO"))
+logger = logging.getLogger(__name__)
+logger.debug(f"Starting FastD365FOMCPServer v{__version__} with transport: {transport}")
 
+# Use load_default_config with args instead of separate load_config function
+config = load_default_config(args)
+
+default_fo = config.get("default_environment", {})
+
+config_path = default_fo.get("metadata_cache_dir", get_default_cache_directory())
+
+logger.info(f"Using config path: {config_path}")
+
+# Create profile manager with config path
+profile_manager = ProfileManager(str(Path(config_path) / "config.yaml"))
+
+if not create_default_profile_if_needed(profile_manager, config):
+    # TODO: Migrate legacy profiles if needed
+    logger.warning("No default profile created or found. Please create a profile to connect to D365FO.")
+
+# Extract server configuration
+server_config = config.get("server", {})
+transport_config = server_config.get("transport", {})
+# Initialize FastMCP server with configuration
+mcp = FastMCP(
+    name=server_config.get("name", "d365fo-mcp-server"),
+    instructions=server_config.get(
+        "instructions",
+        "Microsoft Dynamics 365 Finance & Operations MCP Server providing comprehensive access to D365FO data, metadata, and operations",
+    ),
+    host=transport_config.get("http", {}).get("host", "127.0.0.1"),
+    port=transport_config.get("http", {}).get("port", 8000),
+    debug=server_config.get("debug", False),
+    json_response=transport_config.get("http", {}).get("json_response", False),
+    stateless_http=transport_config.get("http", {}).get("stateless", False),
+)
+
+server = FastD365FOMCPServer(mcp,config,profile_manager=profile_manager)
 
 
 def main() -> None:
@@ -255,43 +229,7 @@ def main() -> None:
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     
     try:
-        # Parse arguments first to check transport
-        args = parse_arguments()
-        transport = args.transport
-        # Set up logging and load configuration
-        if transport == "http":
-            transport = "streamable-http"
-
-        setup_logging(args.log_level)
-        logger = logging.getLogger(__name__)
-        logger.info(f"Starting FastD365FOMCPServer v{__version__} with transport: {transport}")
-
-        # Use load_config if present, else fallback to load_default_config
-        try:
-            config = load_config(args)
-        except Exception:
-            config = load_default_config()
-
-               # Extract server configuration
-        server_config = config.get("server", {})
-        transport_config = server_config.get("transport", {})
-        # Initialize FastMCP server with configuration
-        mcp = FastMCP(
-            name=server_config.get("name", "d365fo-mcp-server"),
-            instructions=server_config.get(
-                "instructions",
-                "Microsoft Dynamics 365 Finance & Operations MCP Server providing comprehensive access to D365FO data, metadata, and operations",
-            ),
-            host=transport_config.get("http", {}).get("host", "127.0.0.1"),
-            port=transport_config.get("http", {}).get("port", 8000),
-            debug=server_config.get("debug", False),
-            json_response=transport_config.get("http", {}).get("json_response", False),
-            stateless_http=transport_config.get("http", {}).get("stateless", False),
-        )
-
-        server = FastD365FOMCPServer(mcp,config)
         mcp.run(transport=transport)
-
     except KeyboardInterrupt:
         pass
     except Exception as e:

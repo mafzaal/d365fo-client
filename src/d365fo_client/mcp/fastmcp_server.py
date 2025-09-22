@@ -79,7 +79,7 @@ class FastD365FOMCPServer(
 ):
     """FastMCP-based D365FO MCP Server with multi-transport support."""
 
-    def __init__(self, mcp: FastMCP, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, mcp: FastMCP, config: Optional[Dict[str, Any]] = None,profile_manager: Optional[ProfileManager] = None):
         """Initialize the FastMCP D365FO server.
 
         Args:
@@ -91,8 +91,8 @@ class FastD365FOMCPServer(
             from .fastmcp_utils import load_default_config
             self.config = load_default_config()
         
-        self.profile_manager = ProfileManager()
-        self.client_manager = D365FOClientManager(self.config, self.profile_manager)
+        self.profile_manager = profile_manager or ProfileManager()
+        self.client_manager = D365FOClientManager(self.profile_manager)
 
  
         self.mcp = mcp
