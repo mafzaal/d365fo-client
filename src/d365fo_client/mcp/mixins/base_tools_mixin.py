@@ -36,21 +36,20 @@ class BaseToolsMixin:
             raise RuntimeError("Client manager not initialized")
         return await self.client_manager.get_client(profile)
     
-    def _create_error_response(self, error: Exception, tool_name: str, arguments: dict) -> str:
+    def _create_error_response(self, error: Exception, tool_name: str, arguments: dict) -> dict:
         """Create standardized error response.
-        
+
         Args:
             error: Exception that occurred
             tool_name: Name of the tool that failed
             arguments: Arguments passed to the tool
-            
+
         Returns:
-            JSON string with error details
+            Dictionary with error details
         """
-        import json
-        return json.dumps({
+        return {
             "error": str(error),
             "tool": tool_name,
             "arguments": arguments,
             "error_type": type(error).__name__,
-        }, indent=2)
+        }

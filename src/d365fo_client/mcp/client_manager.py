@@ -52,6 +52,7 @@ class D365FOClientManager:
                     raise ValueError(f"Profile '{profile}' configuration is invalid")
                 
                 client = FOClient(client_config)
+                await client.initialize_metadata()
 
                 # Test connection
                 try:

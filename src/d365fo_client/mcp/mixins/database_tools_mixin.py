@@ -48,7 +48,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
             limit: int = 100,
             format: str = "table",
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Execute a SELECT query against the D365FO metadata database to get insights from cached metadata.
 
             IMPORTANT SAFETY NOTES:
@@ -88,7 +88,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with query results
+                Dictionary with query results
             """
             try:
                 start_time = time.time()
@@ -118,16 +118,24 @@ class DatabaseToolsMixin(BaseToolsMixin):
                 }
                 
                 if format == "table":
-                    response = f"Query Results:\n{formatted_results}\n\nExecution Metadata:\n{json.dumps(metadata, indent=2)}"
+                    response = {
+                        "query_results": formatted_results,
+                        "metadata": metadata
+                    }
                 else:
                     # For JSON/CSV, include metadata in structured format
                     if format == "json":
                         parsed_results = json.loads(formatted_results)
-                        parsed_results["metadata"] = metadata
-                        response = json.dumps(parsed_results, indent=2)
+                        response = {
+                            "query_results": parsed_results,
+                            "metadata": metadata
+                        }
                     else:
-                        response = formatted_results + f"\n\n# Metadata: {json.dumps(metadata)}"
-                
+                        response = {
+                            "query_results": formatted_results,
+                            "metadata": metadata
+                        }
+
                 return response
 
             except Exception as e:
@@ -146,7 +154,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
             include_indexes: bool = True,
             include_relationships: bool = True,
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Get comprehensive schema information for the D365FO metadata database.
 
             This tool provides detailed information about:
@@ -167,7 +175,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with database schema
+                Dictionary with database schema
             """
             try:
                 db_path = await self._get_database_path(profile)
@@ -176,7 +184,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
                     db_path, table_name, include_statistics, include_indexes, include_relationships
                 )
                 
-                return json.dumps(schema_info, indent=2)
+                return schema_info
 
             except Exception as e:
                 logger.error(f"Get database schema failed: {e}")
@@ -194,7 +202,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
             include_sample_data: bool = False,
             include_relationships: bool = True,
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Get detailed information about a specific database table including:
             - Column definitions with types, nullability, and defaults
             - Primary and foreign key constraints
@@ -212,7 +220,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with table information
+                Dictionary with table information
             """
             try:
                 db_path = await self._get_database_path(profile)
@@ -221,7 +229,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
                     db_path, table_name, include_sample_data, include_relationships
                 )
                 
-                return json.dumps(table_info, indent=2)
+                return table_info
 
             except Exception as e:
                 logger.error(f"Get table info failed: {e}")
@@ -238,7 +246,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
             include_version_stats: bool = True,
             include_performance_stats: bool = True,
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Get comprehensive database statistics and analytics including:
             - Overall database size and table counts
             - Record counts by table
@@ -257,7 +265,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with database statistics
+                Dictionary with database statistics
             """
             try:
                 # Get database statistics using existing method
@@ -275,7 +283,7 @@ class DatabaseToolsMixin(BaseToolsMixin):
                     )
                     stats.update(additional_stats)
                 
-                return json.dumps(stats, indent=2)
+                return stats
 
             except Exception as e:
                 logger.error(f"Get database statistics failed: {e}")
