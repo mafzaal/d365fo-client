@@ -15,7 +15,7 @@ class ConnectionToolsMixin(BaseToolsMixin):
         """Register all connection tools with FastMCP."""
         
         @self.mcp.tool()
-        async def d365fo_test_connection(profile: str = "default") -> str:
+        async def d365fo_test_connection(profile: str = "default") -> dict:
             """Test connection to D365FO environment.
 
             Args:
@@ -26,15 +26,14 @@ class ConnectionToolsMixin(BaseToolsMixin):
             """
             try:
                 result = await self.client_manager.test_connection(profile)
-                return json.dumps(result, indent=2)
+
+                return {"status":result}
             except Exception as e:
                 logger.error(f"Connection test failed: {e}")
-                return json.dumps(
-                    {"status": "error", "error": str(e), "profile": profile}, indent=2
-                )
+                return {"status": "error", "error": str(e), "profile": profile}
 
         @self.mcp.tool()
-        async def d365fo_get_environment_info(profile: str = "default") -> str:
+        async def d365fo_get_environment_info(profile: str = "default") -> dict:
             """Get D365FO environment information and version details.
 
             Args:
@@ -45,7 +44,7 @@ class ConnectionToolsMixin(BaseToolsMixin):
             """
             try:
                 result = await self.client_manager.get_environment_info(profile)
-                return json.dumps(result, indent=2)
+                return result
             except Exception as e:
                 logger.error(f"Failed to get environment info: {e}")
-                return json.dumps({"error": str(e), "profile": profile}, indent=2)
+                return {"error": str(e), "profile": profile}
