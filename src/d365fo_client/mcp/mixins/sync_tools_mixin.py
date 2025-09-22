@@ -1,6 +1,5 @@
 """Sync tools mixin for FastMCP server."""
 
-import json
 import logging
 from typing import Optional
 
@@ -21,7 +20,7 @@ class SyncToolsMixin(BaseToolsMixin):
             strategy: str = "full_without_labels",
             global_version_id: Optional[int] = None,
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Start a metadata synchronization session and return a session ID for tracking progress.
 
             This downloads and caches metadata from D365 F&O including entities, schemas, enumerations, and labels.
@@ -34,7 +33,7 @@ class SyncToolsMixin(BaseToolsMixin):
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with sync session details
+                Dictionary with sync session details
             """
             try:
                 client = await self._get_client(profile)
@@ -48,7 +47,7 @@ class SyncToolsMixin(BaseToolsMixin):
                         "error": "Sync session management not available in this client version",
                         "message": "Upgrade to session-based sync manager to access sync functionality"
                     }
-                    return json.dumps(error_response, indent=2)
+                    return error_response
 
                 strategy_enum = SyncStrategy(strategy)
                 sync_needed = True
@@ -62,7 +61,7 @@ class SyncToolsMixin(BaseToolsMixin):
                             "error": "Metadata cache not available in this client version",
                             "message": "Cannot auto-detect version without metadata cache"
                         }
-                        return json.dumps(error_response, indent=2)
+                        return error_response
 
                     sync_needed, detected_version_id = await client.metadata_cache.check_version_and_sync()
                     if detected_version_id is None:
@@ -86,7 +85,7 @@ class SyncToolsMixin(BaseToolsMixin):
                     "instructions": f"Use d365fo_get_sync_progress with session_id '{session_id}' to monitor progress" if sync_needed or strategy_enum == SyncStrategy.LABELS_ONLY else None
                 }
 
-                return json.dumps(response, indent=2)
+                return response
 
             except Exception as e:
                 logger.error(f"Start sync failed: {e}")
@@ -100,12 +99,12 @@ class SyncToolsMixin(BaseToolsMixin):
                         "profile": profile
                     }
                 }
-                return json.dumps(error_response, indent=2)
+                return error_response
 
         @self.mcp.tool()
         async def d365fo_get_sync_progress(
             session_id: str, profile: str = "default"
-        ) -> str:
+        ) -> dict:
             """Get detailed progress information for a specific sync session including current phase, completion percentage, items processed, and estimated time remaining.
 
             Args:
@@ -113,7 +112,7 @@ class SyncToolsMixin(BaseToolsMixin):
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with sync progress
+                Dictionary with sync progress
             """
             try:
                 client = await self._get_client(profile)
@@ -127,7 +126,7 @@ class SyncToolsMixin(BaseToolsMixin):
                         "error": "Sync session management not available in this client version",
                         "session_id": session_id
                     }
-                    return json.dumps(error_response, indent=2)
+                    return error_response
 
                 # Get session details
                 session = client.sync_session_manager.get_sync_session(session_id)
@@ -138,7 +137,7 @@ class SyncToolsMixin(BaseToolsMixin):
                         "error": f"Session {session_id} not found",
                         "session_id": session_id
                     }
-                    return json.dumps(error_response, indent=2)
+                    return error_response
 
                 # Convert session to detailed progress response
                 response = {
@@ -155,7 +154,7 @@ class SyncToolsMixin(BaseToolsMixin):
                     }
                 }
 
-                return json.dumps(response, indent=2)
+                return response
 
             except Exception as e:
                 logger.error(f"Get sync progress failed: {e}")
@@ -165,10 +164,10 @@ class SyncToolsMixin(BaseToolsMixin):
                     "tool": "d365fo_get_sync_progress",
                     "arguments": {"session_id": session_id, "profile": profile}
                 }
-                return json.dumps(error_response, indent=2)
+                return error_response
 
         @self.mcp.tool()
-        async def d365fo_cancel_sync(session_id: str, profile: str = "default") -> str:
+        async def d365fo_cancel_sync(session_id: str, profile: str = "default") -> dict:
             """Cancel a running sync session. Only sessions that are currently running and marked as cancellable can be cancelled.
 
             Args:
@@ -176,7 +175,7 @@ class SyncToolsMixin(BaseToolsMixin):
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with cancellation result
+                Dictionary with cancellation result
             """
             try:
                 client = await self._get_client(profile)
@@ -190,7 +189,7 @@ class SyncToolsMixin(BaseToolsMixin):
                         "error": "Sync session management not available in this client version",
                         "session_id": session_id
                     }
-                    return json.dumps(error_response, indent=2)
+                    return error_response
 
                 # Cancel session
                 cancelled = await client.sync_session_manager.cancel_sync_session(session_id)
@@ -202,7 +201,7 @@ class SyncToolsMixin(BaseToolsMixin):
                     "details": "Session may not be cancellable if already completed or failed"
                 }
 
-                return json.dumps(response, indent=2)
+                return response
 
             except Exception as e:
                 logger.error(f"Cancel sync failed: {e}")
@@ -212,17 +211,17 @@ class SyncToolsMixin(BaseToolsMixin):
                     "tool": "d365fo_cancel_sync",
                     "arguments": {"session_id": session_id, "profile": profile}
                 }
-                return json.dumps(error_response, indent=2)
+                return error_response
 
         @self.mcp.tool()
-        async def d365fo_list_sync_sessions(profile: str = "default") -> str:
+        async def d365fo_list_sync_sessions(profile: str = "default") -> dict:
             """Get a list of all currently active sync sessions with their status, progress, and details.
 
             Args:
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with active sync sessions
+                Dictionary with active sync sessions
             """
             try:
                 client = await self._get_client(profile)
@@ -236,7 +235,7 @@ class SyncToolsMixin(BaseToolsMixin):
                         "error": "Sync session management not available in this client version",
                         "message": "Upgrade to session-based sync manager to access session listing"
                     }
-                    return json.dumps(error_response, indent=2)
+                    return error_response
 
                 # Get active sessions
                 active_sessions = client.sync_session_manager.get_active_sessions()
@@ -252,7 +251,7 @@ class SyncToolsMixin(BaseToolsMixin):
                     }
                 }
 
-                return json.dumps(response, indent=2)
+                return response
 
             except Exception as e:
                 logger.error(f"List sync sessions failed: {e}")
@@ -262,12 +261,12 @@ class SyncToolsMixin(BaseToolsMixin):
                     "tool": "d365fo_list_sync_sessions",
                     "arguments": {"profile": profile}
                 }
-                return json.dumps(error_response, indent=2)
+                return error_response
 
         @self.mcp.tool()
         async def d365fo_get_sync_history(
             limit: int = 20, profile: str = "default"
-        ) -> str:
+        ) -> dict:
             """Get the history of completed sync sessions including success/failure status, duration, and statistics.
 
             Args:
@@ -275,7 +274,7 @@ class SyncToolsMixin(BaseToolsMixin):
                 profile: Configuration profile to use (optional - uses default profile if not specified)
 
             Returns:
-                JSON string with sync history
+                Dictionary with sync history
             """
             try:
                 # Validate limit parameter
@@ -292,7 +291,7 @@ class SyncToolsMixin(BaseToolsMixin):
                         "error": "Sync session management not available in this client version",
                         "message": "Upgrade to session-based sync manager to access history"
                     }
-                    return json.dumps(error_response, indent=2)
+                    return error_response
 
                 # Get session history
                 history = client.sync_session_manager.get_session_history(limit)
@@ -309,7 +308,7 @@ class SyncToolsMixin(BaseToolsMixin):
                     }
                 }
 
-                return json.dumps(response, indent=2)
+                return response
 
             except Exception as e:
                 logger.error(f"Get sync history failed: {e}")
@@ -319,4 +318,4 @@ class SyncToolsMixin(BaseToolsMixin):
                     "tool": "d365fo_get_sync_history",
                     "arguments": {"limit": limit, "profile": profile}
                 }
-                return json.dumps(error_response, indent=2)
+                return error_response
