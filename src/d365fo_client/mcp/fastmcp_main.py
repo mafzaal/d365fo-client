@@ -183,7 +183,8 @@ transport:Literal["stdio", "sse", "streamable-http"] = arg_transport
 
 setup_logging(args.log_level or os.getenv("D365FO_LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
-logger.debug(f"Starting FastD365FOMCPServer v{__version__} with transport: {transport}")
+
+logger.info(f"Starting FastD365FOMCPServer v{__version__} with transport: {transport}")
 
 # Use load_default_config with args instead of separate load_config function
 config = load_default_config(args)
@@ -199,7 +200,7 @@ profile_manager = ProfileManager(str(Path(config_path) / "config.yaml"))
 
 if not create_default_profile_if_needed(profile_manager, config):
     # TODO: Migrate legacy profiles if needed
-    logger.warning("No default profile created or found. Please create a profile to connect to D365FO.")
+    logger.warning("Migrate legacy profiles if needed.")
 
 # Extract server configuration
 server_config = config.get("server", {})

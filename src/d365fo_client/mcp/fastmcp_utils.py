@@ -58,14 +58,12 @@ def load_default_config(args: Optional[argparse.Namespace] = None) -> Dict[str, 
         "D365FO_USE_CACHE_FIRST": "use_cache_first",
         "D365FO_TIMEOUT": "timeout",
         "D365FO_CACHE_DIR": "metadata_cache_dir",
-    }
-
-    # Environment variables for legacy credentials
-    legacy_env_mappings = {
         "D365FO_CLIENT_ID": "client_id",
         "D365FO_CLIENT_SECRET": "client_secret",
         "D365FO_TENANT_ID": "tenant_id",
     }
+
+
 
     # Build default environment from environment variables
     default_environment = {
@@ -93,14 +91,7 @@ def load_default_config(args: Optional[argparse.Namespace] = None) -> Dict[str, 
             else:
                 default_environment[config_key] = value
 
-    # Add legacy credentials if provided
-    legacy_credentials = {}
-    for env_var, config_key in legacy_env_mappings.items():
-        if env_var in os.environ:
-            legacy_credentials[config_key] = os.environ[env_var]
-    
-    if legacy_credentials:
-        default_environment.update(legacy_credentials)
+
 
     return {
         "startup_mode": startup_mode,
