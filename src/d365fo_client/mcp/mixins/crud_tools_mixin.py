@@ -1,6 +1,5 @@
 """CRUD tools mixin for FastMCP server."""
 
-import json
 import logging
 from typing import List, Optional
 
@@ -26,7 +25,7 @@ class CrudToolsMixin(BaseToolsMixin):
             count: bool = False,
             expand: Optional[List[str]] = None,
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Query D365FO data entities with simplified filtering capabilities.
 
             Args:
@@ -47,7 +46,7 @@ class CrudToolsMixin(BaseToolsMixin):
                 profile: Profile name for connection configuration
 
             Returns:
-                JSON string with query results including data array, count, and pagination info
+                Dictionary with query results including data array, count, and pagination info
 
             Note: This tool uses simplified OData filtering that only supports "eq" operations with wildcard patterns.
             For complex queries, retrieve data first and filter programmatically.
@@ -71,27 +70,21 @@ class CrudToolsMixin(BaseToolsMixin):
                 # Execute query
                 result = await client.get_entities(entityName, options=options)
 
-                return json.dumps(
-                    {
-                        "entityName": entityName,
-                        "data": result.get("value", []),
-                        "count": result.get("@odata.count"),
-                        "nextLink": result.get("@odata.nextLink"),
-                        "totalRecords": len(result.get("value", [])),
-                    },
-                    indent=2,
-                )
+                return {
+                    "entityName": entityName,
+                    "data": result.get("value", []),
+                    "count": result.get("@odata.count"),
+                    "nextLink": result.get("@odata.nextLink"),
+                    "totalRecords": len(result.get("value", [])),
+                }
 
             except Exception as e:
                 logger.error(f"Query entities failed: {e}")
-                return json.dumps(
-                    {
-                        "error": str(e),
-                        "entityName": entityName,
-                        "parameters": {"select": select, "filter": filter, "top": top},
-                    },
-                    indent=2,
-                )
+                return {
+                    "error": str(e),
+                    "entityName": entityName,
+                    "parameters": {"select": select, "filter": filter, "top": top},
+                }
 
         @self.mcp.tool()
         async def d365fo_get_entity_record(
@@ -101,7 +94,7 @@ class CrudToolsMixin(BaseToolsMixin):
             select: Optional[List[str]] = None,
             expand: Optional[List[str]] = None,
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Get a specific record from a D365FO data entity.
 
             Args:
@@ -113,7 +106,7 @@ class CrudToolsMixin(BaseToolsMixin):
                 profile: Optional profile name
 
             Returns:
-                JSON string with the entity record
+                Dictionary with the entity record
             """
             try:
                 client = await self._get_client(profile)
@@ -135,15 +128,11 @@ class CrudToolsMixin(BaseToolsMixin):
                 # Get entity record
                 result = await client.get_entity_by_key(entityName, key, options)# type: ignore
 
-                return json.dumps(
-                    {"entityName": entityName, "key": key, "data": result}, indent=2
-                )
+                return {"entityName": entityName, "key": key, "data": result}
 
             except Exception as e:
                 logger.error(f"Get entity record failed: {e}")
-                return json.dumps(
-                    {"error": str(e), "entityName": entityName, "key": key}, indent=2
-                )
+                return {"error": str(e), "entityName": entityName, "key_fields": key_fields, "key_values": key_values, "key": key}
 
         @self.mcp.tool()
         async def d365fo_create_entity_record(
@@ -151,7 +140,7 @@ class CrudToolsMixin(BaseToolsMixin):
             data: dict,
             returnRecord: bool = False,
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Create a new record in a D365 Finance & Operations data entity.
 
             Args:
@@ -161,7 +150,7 @@ class CrudToolsMixin(BaseToolsMixin):
                 profile: Optional profile name
 
             Returns:
-                JSON string with creation result
+                Dictionary with creation result
             """
             try:
                 client = await self._get_client(profile)
@@ -171,21 +160,15 @@ class CrudToolsMixin(BaseToolsMixin):
                     entityName, data
                 )
 
-                return json.dumps(
-                    {
-                        "entityName": entityName,
-                        "created": True,
-                        "data": result if returnRecord else data,
-                    },
-                    indent=2,
-                )
+                return {
+                    "entityName": entityName,
+                    "created": True,
+                    "data": result if returnRecord else data,
+                }
 
             except Exception as e:
                 logger.error(f"Create entity record failed: {e}")
-                return json.dumps(
-                    {"error": str(e), "entityName": entityName, "created": False},
-                    indent=2,
-                )
+                return {"error": str(e), "entityName": entityName, "created": False}
 
         @self.mcp.tool()
         async def d365fo_update_entity_record(
@@ -194,9 +177,8 @@ class CrudToolsMixin(BaseToolsMixin):
             key_values: List[str],
             data: dict,
             returnRecord: bool = False,
-            ifMatch: Optional[str] = None,
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Update an existing record in a D365 Finance & Operations data entity.
 
             Args:
@@ -205,11 +187,10 @@ class CrudToolsMixin(BaseToolsMixin):
                 key_values: List of key values corresponding to key fields
                 data: Record data containing fields to update
                 returnRecord: Whether to return the complete updated record
-                ifMatch: ETag value for optimistic concurrency control
                 profile: Optional profile name
 
             Returns:
-                JSON string with update result
+                Dictionary with update result
             """
             try:
                 client = await self._get_client(profile)
@@ -224,47 +205,39 @@ class CrudToolsMixin(BaseToolsMixin):
                     entityName, key, data
                 )
 
-                return json.dumps(
-                    {
-                        "entityName": entityName,
-                        "key": key,
-                        "updated": True,
-                        "data": result if returnRecord else data,
-                    },
-                    indent=2,
-                )
+                return {
+                    "entityName": entityName,
+                    "key": key,
+                    "updated": True,
+                    "data": result if returnRecord else data,
+                }
 
             except Exception as e:
                 logger.error(f"Update entity record failed: {e}")
-                return json.dumps(
-                    {
-                        "error": str(e),
-                        "entityName": entityName,
-                        "key": key, # type: ignore
-                        "updated": False,
-                    },
-                    indent=2,
-                )
+                return {
+                    "error": str(e),
+                    "entityName": entityName,
+                    "key": key, # type: ignore
+                    "updated": False,
+                }
 
         @self.mcp.tool()
         async def d365fo_delete_entity_record(
-            entityName: str, 
+            entityName: str,
             key_fields: List[str],
             key_values: List[str],
-            ifMatch: Optional[str] = None, 
             profile: str = "default"
-        ) -> str:
+        ) -> dict:
             """Delete a record from a D365 Finance & Operations data entity.
 
             Args:
                 entityName: The entity's public collection name or entity set name (e.g., "CustomersV3", "SalesOrders", "DataManagementEntities")
                 key_fields: List of key field names for composite keys
                 key_values: List of key values corresponding to key fields
-                ifMatch: ETag value for optimistic concurrency control
                 profile: Optional profile name
 
             Returns:
-                JSON string with deletion result
+                Dictionary with deletion result
             """
             try:
                 client = await self._get_client(profile)
@@ -277,21 +250,16 @@ class CrudToolsMixin(BaseToolsMixin):
                 # Delete entity record
                 await client.delete_entity(entityName, key)
 
-                return json.dumps(
-                    {"entityName": entityName, "key": key, "deleted": True}, indent=2
-                )
+                return {"entityName": entityName, "key": key, "deleted": True}
 
             except Exception as e:
                 logger.error(f"Delete entity record failed: {e}")
-                return json.dumps(
-                    {
-                        "error": str(e),
-                        "entityName": entityName,
-                        "key": key, # type: ignore
-                        "deleted": False,
-                    },
-                    indent=2,
-                )
+                return {
+                    "error": str(e),
+                    "entityName": entityName,
+                    "key": key, # type: ignore
+                    "deleted": False,
+                }
 
         @self.mcp.tool()
         async def d365fo_call_action(
@@ -299,10 +267,8 @@ class CrudToolsMixin(BaseToolsMixin):
             parameters: dict = None,# type: ignore
             entityName: str = None,# type: ignore
             entityKey: str = None,# type: ignore
-            bindingKind: str = None,# type: ignore
-            timeout: int = 30,
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Execute an OData action method in D365 Finance & Operations.
 
             Args:
@@ -310,35 +276,26 @@ class CrudToolsMixin(BaseToolsMixin):
                 parameters: Action parameters as key-value pairs
                 entityName: The entity's public collection name or entity set name (e.g., "CustomersV3", "SalesOrders", "DataManagementEntities")
                 entityKey: Primary key for entity-bound actions
-                bindingKind: Action binding type (Unbound, BoundToEntitySet, BoundToEntity)
-                timeout: Request timeout in seconds
                 profile: Optional profile name
 
             Returns:
-                JSON string with action result
+                Dictionary with action result
             """
             try:
                 client = await self._get_client(profile)
 
                 # Call action
-                
-                result = await client.call_action(# type: ignore
-                    actionName=actionName,# type: ignore
+
+                result = await client.call_action(
+                    action_name=actionName,# type: ignore
                     parameters=parameters or {},
                     entity_name=entityName,
                     entity_key=entityKey,
-                    binding_kind=bindingKind,# type: ignore
-                    timeout=timeout,# type: ignore
+                    
                 )
 
-                return json.dumps(
-                    {"actionName": actionName, "success": True, "result": result},
-                    indent=2,
-                )
+                return {"actionName": actionName, "success": True, "result": result}
 
             except Exception as e:
                 logger.error(f"Call action failed: {e}")
-                return json.dumps(
-                    {"error": str(e), "actionName": actionName, "success": False},
-                    indent=2,
-                )
+                return {"error": str(e), "actionName": actionName, "success": False}
