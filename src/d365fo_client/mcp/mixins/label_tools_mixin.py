@@ -1,6 +1,5 @@
 """Label tools mixin for FastMCP server."""
 
-import json
 import logging
 from typing import List
 
@@ -20,7 +19,7 @@ class LabelToolsMixin(BaseToolsMixin):
             labelId: str,
             language: str = "en-US",
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Get label text by label ID.
 
             Args:
@@ -30,7 +29,7 @@ class LabelToolsMixin(BaseToolsMixin):
                 profile: Optional profile name
 
             Returns:
-                JSON string with label text
+                Dictionary with label text
             """
             try:
                 client = await self._get_client(profile)
@@ -41,21 +40,22 @@ class LabelToolsMixin(BaseToolsMixin):
                     language=language,
                 )
 
-                return json.dumps(
-                    {"labelId": labelId, "language": language, "labelText": label_text},
-                    indent=2,
-                )
+                return {
+                    "labelId": labelId,
+                    "language": language,
+                    "labelText": label_text,
+                }
 
             except Exception as e:
                 logger.error(f"Get label failed: {e}")
-                return json.dumps({"error": str(e), "labelId": labelId}, indent=2)
+                return {"error": str(e), "labelId": labelId}
 
         @self.mcp.tool()
         async def d365fo_get_labels_batch(
             labelIds: List[str],
             language: str = "en-US",
             profile: str = "default",
-        ) -> str:
+        ) -> dict:
             """Get multiple labels in a single request.
 
             Args:
@@ -65,7 +65,7 @@ class LabelToolsMixin(BaseToolsMixin):
                 profile: Optional profile name
 
             Returns:
-                JSON string with label texts
+                Dictionary with label texts
             """
             try:
                 client = await self._get_client(profile)
@@ -76,15 +76,12 @@ class LabelToolsMixin(BaseToolsMixin):
                     language=language,
                 )
 
-                return json.dumps(
-                    {
-                        "language": language,
-                        "totalRequested": len(labelIds),
-                        "labels": labels,
-                    },
-                    indent=2,
-                )
+                return {
+                    "language": language,
+                    "totalRequested": len(labelIds),
+                    "labels": labels,
+                }
 
             except Exception as e:
                 logger.error(f"Get labels batch failed: {e}")
-                return json.dumps({"error": str(e), "labelIds": labelIds}, indent=2)
+                return {"error": str(e), "labelIds": labelIds}
