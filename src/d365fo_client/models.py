@@ -101,6 +101,7 @@ class FOClientConfig:
 
     # Sync configuration
     metadata_sync_interval_minutes: int = 60
+    language: str = "en-US"
 
     def __post_init__(self):
         """Post-initialization validation and setup."""
@@ -134,10 +135,12 @@ class FOClientConfig:
         if self.max_memory_cache_size <= 0:
             raise ValueError("max_memory_cache_size must be greater than 0")
 
+    @property
     def uses_default_credentials(self) -> bool:
         """Check if using Azure Default Credentials."""
         return self.credential_source is None
 
+    @property
     def uses_credential_source(self) -> bool:
         """Check if using a specific credential source."""
         return self.credential_source is not None
@@ -184,8 +187,6 @@ class FOClientConfig:
         if has_legacy_creds and "credential_source" not in data:
             # Determine if we should use default credentials
             use_default = data.get("use_default_credentials", True)
-            auth_mode = data.get("auth_mode", "default")
-
             # Check if explicit credentials are provided
             client_id = data.get("client_id")
             client_secret = data.get("client_secret")

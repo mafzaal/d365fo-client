@@ -210,6 +210,8 @@ class EnvironmentCredentialProvider(CredentialProvider):
             raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
         
         logger.debug(f"Retrieved credentials from environment variables: {source.client_id_var}, {source.client_secret_var}, {source.tenant_id_var}")
+        assert client_id and client_secret and tenant_id  # For type checker
+
         return client_id, client_secret, tenant_id
 
 
@@ -252,6 +254,7 @@ class KeyVaultCredentialProvider(CredentialProvider):
                 raise ValueError("One or more secrets retrieved from Key Vault are empty")
             
             logger.debug(f"Retrieved credentials from Key Vault: {source.vault_url}")
+            assert client_id and client_secret and tenant_id  # For type checker
             return client_id, client_secret, tenant_id
             
         except Exception as e:
@@ -281,6 +284,8 @@ class KeyVaultCredentialProvider(CredentialProvider):
         elif source.keyvault_auth_mode == "client_secret":
             if not all([source.keyvault_client_id, source.keyvault_client_secret, source.keyvault_tenant_id]):
                 raise ValueError("Key Vault client_secret authentication requires keyvault_client_id, keyvault_client_secret, and keyvault_tenant_id")
+            
+            assert source.keyvault_client_id and source.keyvault_client_secret and source.keyvault_tenant_id  # For type checker
             
             credential = ClientSecretCredential(
                 tenant_id=source.keyvault_tenant_id,

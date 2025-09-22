@@ -532,10 +532,13 @@ class CLIManager:
 
             profile_list = []
             for name, profile in profiles.items():
+                # Determine auth mode based on credential source
+                auth_mode = "default" if profile.credential_source is None else "explicit"
+                
                 profile_info = {
                     "name": name,
                     "base_url": profile.base_url,
-                    "auth_mode": profile.auth_mode,
+                    "auth_mode": auth_mode,
                     "default": (
                         "✓" if default_profile and default_profile.name == name else ""
                     ),
@@ -563,22 +566,22 @@ class CLIManager:
                 return 1
 
             # Convert profile to dict for display
+            auth_mode = "default" if profile.credential_source is None else "explicit"
+            
             profile_dict = {
                 "name": profile.name,
                 "base_url": profile.base_url,
-                "auth_mode": profile.auth_mode,
+                "auth_mode": auth_mode,
                 "verify_ssl": profile.verify_ssl,
                 "output_format": profile.output_format,
-                "label_cache": profile.label_cache,
-                "label_expiry": profile.label_expiry,
+                "label_cache": profile.use_label_cache,
+                "label_expiry": profile.label_cache_expiry_minutes,
                 "language": profile.language,
             }
 
-            # Only show auth details if they exist
-            if profile.client_id:
-                profile_dict["client_id"] = profile.client_id
-            if profile.tenant_id:
-                profile_dict["tenant_id"] = profile.tenant_id
+            # Only show credential source info if it exists
+            if profile.credential_source:
+                profile_dict["credential_source"] = profile.credential_source.source_type
 
             output = self.output_formatter.format_output(profile_dict)
             print(output)
@@ -607,14 +610,23 @@ class CLIManager:
                 print(format_error_message(f"Profile already exists: {profile_name}"))
                 return 1
 
+            # Handle legacy credential parameters
+            auth_mode = getattr(args, "auth_mode", "default")
+            client_id = getattr(args, "client_id", None)
+            client_secret = getattr(args, "client_secret", None)
+            tenant_id = getattr(args, "tenant_id", None)
+            
+            # Create credential source from legacy parameters if needed
+            credential_source = None
+            if auth_mode != "default" and all([client_id, client_secret, tenant_id]):
+                from .credential_sources import EnvironmentCredentialSource
+                credential_source = EnvironmentCredentialSource()
+
             # Create new profile
             profile = Profile(
                 name=profile_name,
                 base_url=base_url,
-                auth_mode=getattr(args, "auth_mode", "default"),
-                client_id=getattr(args, "client_id", None),
-                client_secret=getattr(args, "client_secret", None),
-                tenant_id=getattr(args, "tenant_id", None),
+                credential_source=credential_source,
                 verify_ssl=getattr(args, "verify_ssl", True),
                 output_format=getattr(args, "output_format", "table"),
                 use_label_cache=getattr(args, "label_cache", True),

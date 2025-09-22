@@ -92,7 +92,7 @@ class ConfigManager:
 
         profile_data = profiles[profile_name]
         try:
-            return Profile.from_dict(profile_name, profile_data)
+            return Profile.create_from_dict(profile_name, profile_data)
         except Exception as e:
             logger.error(f"Error loading profile {profile_name}: {e}")
             return None
@@ -141,7 +141,7 @@ class ConfigManager:
         profiles = {}
         for name, data in self._config_data.get("profiles", {}).items():
             try:
-                profiles[name] = Profile.from_dict(name, data)
+                profiles[name] = Profile.create_from_dict(name, data)
             except Exception as e:
                 logger.error(f"Error loading profile {name}: {e}")
                 continue
@@ -199,7 +199,7 @@ class ConfigManager:
         }
 
         # Temporary variables for legacy credential handling
-        legacy_credentials = {
+        legacy_credentials: Dict[str, Optional[str]] = {
             "client_id": None,
             "client_secret": None,
             "tenant_id": None,
@@ -237,6 +237,7 @@ class ConfigManager:
             "D365FO_LABEL_EXPIRY": "label_cache_expiry_minutes",
             "D365FO_USE_CACHE_FIRST": "use_cache_first",
             "D365FO_TIMEOUT": "timeout",
+            "D365FO_CACHE_DIR": "metadata_cache_dir",
         }
 
         # Environment variables for legacy credentials

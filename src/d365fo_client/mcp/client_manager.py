@@ -20,14 +20,13 @@ logger = logging.getLogger(__name__)
 class D365FOClientManager:
     """Manages D365FO client instances and connection pooling."""
 
-    def __init__(self, config: dict, profile_manager: Optional[ProfileManager] = None):
+    def __init__(self, profile_manager: Optional[ProfileManager] = None):
         """Initialize the client manager.
 
         Args:
             config: Configuration dictionary with client settings
             profile_manager: Optional shared ProfileManager instance
         """
-        self.config = config
         self._client_pool: Dict[str, FOClient] = {}
         self._session_lock = asyncio.Lock()
         self._last_health_check: Optional[datetime] = None

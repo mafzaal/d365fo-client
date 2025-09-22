@@ -165,7 +165,7 @@ class TestConfigManager:
 
         assert isinstance(config, FOClientConfig)
         assert config.base_url == "https://test.dynamics.com"
-        assert config.uses_default_credentials() is True
+        assert config.uses_default_credentials is True
         assert config.verify_ssl is True
 
 

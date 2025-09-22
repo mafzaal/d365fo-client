@@ -126,7 +126,7 @@ class ProfileManager:
                 label_cache_expiry_minutes=label_cache_expiry_minutes,
                 use_cache_first=use_cache_first,
                 language=language,
-                cache_dir=cache_dir,
+                metadata_cache_dir=cache_dir,  # Map cache_dir parameter to metadata_cache_dir field
                 description=description,
                 output_format="table",  # Default for CLI compatibility
                 credential_source=effective_credential_source
