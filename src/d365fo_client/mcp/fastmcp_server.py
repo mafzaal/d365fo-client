@@ -417,9 +417,24 @@ class FastD365FOMCPServer(
             """
             try:
                 profiles = self.profile_manager.list_profiles()
+                # Convert Profile objects to dictionaries for JSON serialization
+                profiles_data = []
+                for profile in profiles:
+                    if hasattr(profile, 'to_dict'):
+                        profiles_data.append(profile.to_dict())
+                    else:
+                        # Fallback: convert to dict manually
+                        profiles_data.append({
+                            "name": getattr(profile, 'name', 'Unknown'),
+                            "base_url": getattr(profile, 'base_url', ''),
+                            "client_id": getattr(profile, 'client_id', ''),
+                            "tenant_id": getattr(profile, 'tenant_id', ''),
+                            # Add other relevant fields as needed
+                        })
+                
                 return json.dumps({
-                    "profiles": profiles,
-                    "total_count": len(profiles),
+                    "profiles": profiles_data,
+                    "total_count": len(profiles_data),
                 })
                 
             except Exception as e:
@@ -544,8 +559,9 @@ class FastD365FOMCPServer(
                     "",
                     f"**Environment**: {env_info.get('environment_name', 'Unknown')}",
                     f"**Base URL**: {env_info.get('base_url', 'N/A')}",
-                    f"**Application Version**: {env_info.get('application_version', 'Unknown')}",
-                    f"**Platform Version**: {env_info.get('platform_version', 'Unknown')}",
+                    f"**Application Version**: {env_info.get('versions', {}).get('application', env_info.get('version', {}).get('application_version', 'Unknown'))}",
+                    f"**Platform Version**: {env_info.get('versions', {}).get('platform', env_info.get('platform_version', 'Unknown'))}",
+                    f"**Build Version**: {env_info.get('versions', {}).get('build', 'Unknown')}",
                     "",
                     "## Available Features",
                     "- OData API for data access",

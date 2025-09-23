@@ -16,11 +16,11 @@ class PerformanceToolsMixin(BaseToolsMixin):
         """Register all performance tools with FastMCP."""
         
         @self.mcp.tool()
-        async def d365fo_get_server_performance() -> str:
+        async def d365fo_get_server_performance() -> dict:
             """Get FastMCP server performance statistics and health metrics.
 
             Returns:
-                JSON string with server performance data
+                Dict with server performance data
             """
             try:
                 performance_stats = self.get_performance_stats()
@@ -28,25 +28,22 @@ class PerformanceToolsMixin(BaseToolsMixin):
                 # Add client manager health stats
                 client_health = await self.client_manager.health_check()
 
-                return json.dumps(
-                    {
-                        "server_performance": performance_stats,
-                        "client_health": client_health,
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                    indent=2,
-                )
+                return {
+                    "server_performance": performance_stats,
+                    "client_health": client_health,
+                    "timestamp": datetime.now().isoformat(),
+                }
 
             except Exception as e:
                 logger.error(f"Get server performance failed: {e}")
-                return json.dumps({"error": str(e)}, indent=2)
+                return {"error": str(e)}
 
         @self.mcp.tool()
-        async def d365fo_reset_performance_stats() -> str:
+        async def d365fo_reset_performance_stats() -> dict:
             """Reset server performance statistics.
 
             Returns:
-                JSON string with reset confirmation
+                Dict with reset confirmation
             """
             try:
                 # Reset performance stats
@@ -68,26 +65,21 @@ class PerformanceToolsMixin(BaseToolsMixin):
                 # Clean up expired sessions
                 self._cleanup_expired_sessions()
 
-                return json.dumps(
-                    {
-                        "performance_stats_reset": True,
-                        "reset_timestamp": datetime.now().isoformat(),
-                    },
-                    indent=2,
-                )
+                return {
+                    "performance_stats_reset": True,
+                    "reset_timestamp": datetime.now().isoformat(),
+                }
 
             except Exception as e:
                 logger.error(f"Reset performance stats failed: {e}")
-                return json.dumps(
-                    {"error": str(e), "reset_successful": False}, indent=2
-                )
+                return {"error": str(e), "reset_successful": False}
 
         @self.mcp.tool()
-        async def d365fo_get_server_config() -> str:
+        async def d365fo_get_server_config() -> dict:
             """Get current FastMCP server configuration and feature status.
 
             Returns:
-                JSON string with server configuration
+                Dict with server configuration
             """
             try:
                 from ... import __version__
@@ -107,14 +99,11 @@ class PerformanceToolsMixin(BaseToolsMixin):
                     "security_config": self.config.get("security", {}),
                 }
 
-                return json.dumps(
-                    {
-                        "server_config": config_info,
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                    indent=2,
-                )
+                return {
+                    "server_config": config_info,
+                    "timestamp": datetime.now().isoformat(),
+                }
 
             except Exception as e:
                 logger.error(f"Get server config failed: {e}")
-                return json.dumps({"error": str(e)}, indent=2)
+                return {"error": str(e)}
