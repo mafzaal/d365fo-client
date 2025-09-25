@@ -106,6 +106,7 @@ Environment Variables:
   D365FO_CLIENT_ID          Azure AD client ID (optional)
   D365FO_CLIENT_SECRET      Azure AD client secret (optional)  
   D365FO_TENANT_ID          Azure AD tenant ID (optional)
+  D365FO_MCP_TRANSPORT      Default transport protocol (stdio, sse, http, streamable-http)
   MCP_HTTP_HOST             Default HTTP host (default: 127.0.0.1)
   MCP_HTTP_PORT             Default HTTP port (default: 8000)
   MCP_HTTP_STATELESS        Enable stateless mode (true/false)
@@ -129,8 +130,8 @@ Environment Variables:
         "--transport",
         type=str,
         choices=["stdio", "sse", "http", "streamable-http"],
-        default="stdio",
-        help="Transport protocol to use (default: stdio)"
+        default=os.getenv("D365FO_MCP_TRANSPORT", "stdio"),
+        help="Transport protocol to use (default: stdio, from D365FO_MCP_TRANSPORT env var)"
     )
     
     parser.add_argument(
@@ -171,8 +172,8 @@ Environment Variables:
         "--log-level",
         type=str,
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        default="INFO",
-        help="Set logging level (default: INFO)"
+        default=os.getenv("D365FO_LOG_LEVEL", "INFO"),
+        help="Set logging level (default: INFO, from D365FO_LOG_LEVEL env var)"
     )
     
     
@@ -203,7 +204,6 @@ default_fo = config.get("default_environment", {})
 
 config_path = default_fo.get("metadata_cache_dir", get_default_cache_directory())
 
-logger.info(f"Using config path: {config_path}")
 
 # Create profile manager with config path
 profile_manager = ProfileManager(str(Path(config_path) / "config.yaml"))
@@ -215,6 +215,20 @@ if not create_default_profile_if_needed(profile_manager, config):
 # Extract server configuration
 server_config = config.get("server", {})
 transport_config = server_config.get("transport", {})
+
+# Log startup configuration details
+logger.info("=== Server Startup Configuration ===")
+logger.info(f"Transport: {transport}")
+logger.info(f"Host: {transport_config.get('http', {}).get('host', '127.0.0.1')}")
+logger.info(f"Port: {transport_config.get('http', {}).get('port', 8000)}")
+logger.info(f"Debug mode: {server_config.get('debug', False)}")
+logger.info(f"JSON response: {transport_config.get('http', {}).get('json_response', False)}")
+logger.info(f"Stateless HTTP: {transport_config.get('http', {}).get('stateless', False)}")
+logger.info(f"Log level: {args.log_level}")
+logger.info(f"Config path: {config_path}")
+logger.info(f"D365FO Base URL: {default_fo.get('base_url', 'Not configured')}")
+logger.info("====================================")
+
 # Initialize FastMCP server with configuration
 mcp = FastMCP(
     name=server_config.get("name", "d365fo-mcp-server"),
@@ -231,6 +245,8 @@ mcp = FastMCP(
 
 server = FastD365FOMCPServer(mcp,config,profile_manager=profile_manager)
 
+logger.info("FastD365FOMCPServer initialized successfully")
+
 
 def main() -> None:
     """Main entry point for the FastMCP server."""
@@ -242,8 +258,9 @@ def main() -> None:
     try:
         mcp.run(transport=transport)
     except KeyboardInterrupt:
-        pass
+        logger.info("Server stopped by user (Ctrl+C)")
     except Exception as e:
+        logger.error(f"Fatal error: {e}", exc_info=True)
         print(f"Fatal error: {e}", file=sys.stderr)
         sys.exit(1)
 
