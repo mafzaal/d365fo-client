@@ -21,9 +21,19 @@ def setup_logging(level: str = "INFO") -> None:
     """
     log_level = getattr(logging, level.upper(), logging.INFO)
 
-    # Create logs directory
-    log_dir = Path.home() / ".d365fo-mcp" / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
+    # Get log file path from environment variable or use default
+    log_file_path = os.getenv("D365FO_LOG_FILE")
+    
+    if log_file_path:
+        # Use custom log file path from environment variable
+        log_file = Path(log_file_path)
+        # Ensure parent directory exists
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        # Use default log file path
+        log_dir = Path.home() / ".d365fo-mcp" / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / "mcp-server.log"
 
     # Clear existing handlers to avoid duplicate logging
     root_logger = logging.getLogger()
@@ -31,7 +41,6 @@ def setup_logging(level: str = "INFO") -> None:
         root_logger.removeHandler(handler)
 
     # Create rotating file handler - rotates every 24 hours (midnight)
-    log_file = log_dir / "mcp-server.log"
     file_handler = logging.handlers.TimedRotatingFileHandler(
         filename=str(log_file),
         when='midnight',        # Rotate at midnight

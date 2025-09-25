@@ -27,9 +27,19 @@ def setup_logging(level: str = "INFO") -> None:
     """
     log_level = getattr(logging, level.upper(), logging.INFO)
 
-    # Create logs directory
-    log_dir = Path.home() / ".d365fo-mcp" / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
+    # Get log file path from environment variable or use default
+    log_file_path = os.getenv("D365FO_LOG_FILE")
+    
+    if log_file_path:
+        # Use custom log file path from environment variable
+        log_file = Path(log_file_path)
+        # Ensure parent directory exists
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        # Use default log file path
+        log_dir = Path.home() / ".d365fo-mcp" / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / "fastmcp-server.log"
 
     # Clear existing handlers to avoid duplicate logging
     root_logger = logging.getLogger()
@@ -37,7 +47,6 @@ def setup_logging(level: str = "INFO") -> None:
         root_logger.removeHandler(handler)
 
     # Create rotating file handler - rotates every 24 hours (midnight)
-    log_file = log_dir / "fastmcp-server.log"
     file_handler = logging.handlers.TimedRotatingFileHandler(
         filename=str(log_file),
         when='midnight',        # Rotate at midnight
@@ -104,6 +113,7 @@ Environment Variables:
   MCP_MAX_CONCURRENT_REQUESTS  Max concurrent requests (default: 10)
   MCP_REQUEST_TIMEOUT       Request timeout in seconds (default: 30)
   D365FO_LOG_LEVEL          Logging level (DEBUG, INFO, WARNING, ERROR)
+  D365FO_LOG_FILE           Custom log file path (default: ~/.d365fo-mcp/logs/fastmcp-server.log)
   D365FO_META_CACHE_DIR   Metadata cache directory (default: ~/.d365fo-mcp/cache)
 
         """

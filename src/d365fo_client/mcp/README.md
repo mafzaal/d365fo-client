@@ -103,6 +103,7 @@ List all available resources:
 - `D365FO_TENANT_ID` - Azure AD tenant ID (optional with default credentials)
 - `D365FO_CACHE_DIR` - Cache directory (default: `~/.d365fo-mcp/cache`)
 - `D365FO_LOG_LEVEL` - Logging level (default: INFO)
+- `D365FO_LOG_FILE` - Custom log file path (default: `~/.d365fo-mcp/logs/{server}.log`)
 
 ### Authentication
 The server supports multiple authentication methods:
