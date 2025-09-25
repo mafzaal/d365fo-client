@@ -13,7 +13,7 @@ from mcp.server.fastmcp import FastMCP
 
 from d365fo_client import __version__
 from d365fo_client.mcp import FastD365FOMCPServer
-from d365fo_client.mcp.fastmcp_utils import create_default_profile_if_needed, load_default_config
+from d365fo_client.mcp.fastmcp_utils import create_default_profile_if_needed, load_default_config, migrate_legacy_config
 from d365fo_client.profile_manager import ProfileManager
 from d365fo_client.utils import get_default_cache_directory
 
@@ -208,9 +208,14 @@ config_path = default_fo.get("metadata_cache_dir", get_default_cache_directory()
 # Create profile manager with config path
 profile_manager = ProfileManager(str(Path(config_path) / "config.yaml"))
 
+# Migrate legacy configuration if needed
+if migrate_legacy_config(profile_manager):
+    logger.info("Legacy configuration migrated successfully")
+else:
+    logger.debug("No legacy configuration migration needed")
+
 if not create_default_profile_if_needed(profile_manager, config):
-    # TODO: Migrate legacy profiles if needed
-    logger.warning("Migrate legacy profiles if needed.")
+    logger.debug("Default profile already exists or creation not needed")
 
 # Extract server configuration
 server_config = config.get("server", {})
