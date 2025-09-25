@@ -75,7 +75,7 @@ class AuthenticationManager:
 
         # Try different scopes
         scopes_to_try = [
-            f"{self.config.base_url}/.default",
+            f"{self.config.base_url.rstrip('/')}/.default",
         ]
 
         for scope in scopes_to_try:
