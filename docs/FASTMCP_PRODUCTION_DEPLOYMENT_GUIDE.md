@@ -352,10 +352,10 @@ d365fo_get_server_performance
 #### 2. Request Limiting
 ```bash
 # Limit concurrent requests to prevent overload
-export MCP_MAX_CONCURRENT_REQUESTS="20"  # Default: 10
+export D365FO_MAX_CONCURRENT_REQUESTS="20"  # Default: 10
 
 # Set request timeout
-export MCP_REQUEST_TIMEOUT="45"  # Default: 30 seconds
+export D365FO_REQUEST_TIMEOUT="45"  # Default: 30 seconds
 ```
 
 #### 3. Performance Monitoring
@@ -385,27 +385,27 @@ The server tracks the following metrics:
 
 #### Small Scale (< 100 requests/min)
 ```bash
-export MCP_MAX_CONCURRENT_REQUESTS="5"
+export D365FO_MAX_CONCURRENT_REQUESTS="5"
 export MCP_CONNECTION_POOL_SIZE="3"
-export MCP_REQUEST_TIMEOUT="30"
+export D365FO_REQUEST_TIMEOUT="30"
 export MCP_CACHE_SIZE_LIMIT="50"
 ```
 
 #### Medium Scale (100-1000 requests/min)
 ```bash
-export MCP_MAX_CONCURRENT_REQUESTS="15"
+export D365FO_MAX_CONCURRENT_REQUESTS="15"
 export MCP_CONNECTION_POOL_SIZE="8"
-export MCP_REQUEST_TIMEOUT="45"
+export D365FO_REQUEST_TIMEOUT="45"
 export MCP_CACHE_SIZE_LIMIT="150"
 ```
 
 #### Large Scale (> 1000 requests/min)
 ```bash
-export MCP_MAX_CONCURRENT_REQUESTS="30"
+export D365FO_MAX_CONCURRENT_REQUESTS="30"
 export MCP_CONNECTION_POOL_SIZE="15"
-export MCP_REQUEST_TIMEOUT="60"
+export D365FO_REQUEST_TIMEOUT="60"
 export MCP_CACHE_SIZE_LIMIT="300"
-export MCP_HTTP_STATELESS="true"  # Enable for horizontal scaling
+export D365FO_HTTP_STATELESS="true"  # Enable for horizontal scaling
 ```
 
 ## Configuration Management
@@ -955,7 +955,7 @@ watch -n 5 'curl -s -X POST http://localhost:8000/tools/d365fo_get_server_perfor
 if [ "$(curl -s http://localhost:8000/tools/d365fo_get_server_performance | jq '.server_performance.avg_response_time_ms')" -gt 1000 ]; then
     echo "Response time degradation detected"
     # Reduce concurrent requests
-    export MCP_MAX_CONCURRENT_REQUESTS="5"
+    export D365FO_MAX_CONCURRENT_REQUESTS="5"
 fi
 
 # Memory issues
@@ -979,8 +979,8 @@ d365fo_get_server_performance | jq '.server_performance.connection_pool_stats'
 
 # Remediation
 export MCP_CONNECTION_POOL_SIZE="15"  # Increase pool size
-export MCP_REQUEST_TIMEOUT="30"       # Reduce timeout
-export MCP_MAX_CONCURRENT_REQUESTS="10"  # Limit concurrent requests
+export D365FO_REQUEST_TIMEOUT="30"       # Reduce timeout
+export D365FO_MAX_CONCURRENT_REQUESTS="10"  # Limit concurrent requests
 
 # Restart with new settings
 docker restart d365fo-mcp-server
@@ -992,7 +992,7 @@ docker restart d365fo-mcp-server
 
 ```bash
 # Increase timeout settings for production workloads
-export MCP_REQUEST_TIMEOUT="120"      # 2 minutes for complex operations
+export D365FO_REQUEST_TIMEOUT="120"      # 2 minutes for complex operations
 export MCP_CONNECTION_POOL_SIZE="20"  # Larger pool for high throughput
 
 # Test D365FO connectivity
@@ -1033,7 +1033,7 @@ export MCP_CACHE_SIZE_LIMIT="100"     # Reduce cache size
 export MCP_MAX_REQUEST_HISTORY="500"  # Reduce request history
 
 # Enable memory-efficient mode
-export MCP_HTTP_STATELESS="true"      # Stateless mode uses less memory
+export D365FO_HTTP_STATELESS="true"      # Stateless mode uses less memory
 ```
 
 ### Health Check Diagnostics
@@ -1088,12 +1088,12 @@ exit 0
 
 ```bash
 # High-traffic production environment
-export MCP_MAX_CONCURRENT_REQUESTS="50"
+export D365FO_MAX_CONCURRENT_REQUESTS="50"
 export MCP_CONNECTION_POOL_SIZE="25"
-export MCP_REQUEST_TIMEOUT="90"
+export D365FO_REQUEST_TIMEOUT="90"
 export MCP_BATCH_SIZE="200"
-export MCP_HTTP_STATELESS="true"
-export MCP_HTTP_JSON="true"
+export D365FO_HTTP_STATELESS="true"
+export D365FO_HTTP_JSON="true"
 export MCP_PERFORMANCE_MONITORING="true"
 
 # Memory optimization
@@ -1215,8 +1215,8 @@ docker logs -f d365fo-mcp-server
   - [ ] Network connectivity to D365FO environment verified
   
 - [ ] **Performance Configuration**
-  - [ ] MCP_MAX_CONCURRENT_REQUESTS set appropriately
-  - [ ] MCP_REQUEST_TIMEOUT configured for workload
+  - [ ] D365FO_MAX_CONCURRENT_REQUESTS set appropriately
+  - [ ] D365FO_REQUEST_TIMEOUT configured for workload
   - [ ] MCP_CONNECTION_POOL_SIZE optimized
   - [ ] Memory limits configured
   

@@ -27,17 +27,17 @@ def load_default_config(args: Optional[argparse.Namespace] = None) -> Dict[str, 
     if args is not None:
         transport = args.transport
         # Use env vars if args are at their default values
-        host = args.host if args.host != "127.0.0.1" else os.getenv("MCP_HTTP_HOST", "127.0.0.1")
-        port = args.port if args.port != 8000 else int(os.getenv("MCP_HTTP_PORT", "8000"))
-        stateless = args.stateless or os.getenv("MCP_HTTP_STATELESS", "").lower() in ("true", "1", "yes")
-        json_response = args.json_response or os.getenv("MCP_HTTP_JSON", "").lower() in ("true", "1", "yes")
+        host = args.host if args.host != os.getenv("D365FO_HTTP_HOST", "127.0.0.1") else os.getenv("D365FO_HTTP_HOST", "127.0.0.1")
+        port = args.port if args.port != int(os.getenv("D365FO_HTTP_PORT", "8000")) else int(os.getenv("D365FO_HTTP_PORT", "8000"))
+        stateless = args.stateless or os.getenv("D365FO_HTTP_STATELESS", "").lower() in ("true", "1", "yes")
+        json_response = args.json_response or os.getenv("D365FO_HTTP_JSON", "").lower() in ("true", "1", "yes")
         debug = args.debug or os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
     else:
         transport = 'stdio'
-        host = os.getenv("MCP_HTTP_HOST", "127.0.0.1")
-        port = int(os.getenv("MCP_HTTP_PORT", "8000"))
-        stateless = os.getenv("MCP_HTTP_STATELESS", "").lower() in ("true", "1", "yes")
-        json_response = os.getenv("MCP_HTTP_JSON", "").lower() in ("true", "1", "yes")
+        host = os.getenv("D365FO_HTTP_HOST", "127.0.0.1")
+        port = int(os.getenv("D365FO_HTTP_PORT", "8000"))
+        stateless = os.getenv("D365FO_HTTP_STATELESS", "").lower() in ("true", "1", "yes")
+        json_response = os.getenv("D365FO_HTTP_JSON", "").lower() in ("true", "1", "yes")
         debug = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
 
     # Get environment variables
@@ -135,10 +135,10 @@ def load_default_config(args: Optional[argparse.Namespace] = None) -> Dict[str, 
         "default_environment": default_environment,
         "performance": {
             "max_concurrent_requests": int(
-                os.getenv("MCP_MAX_CONCURRENT_REQUESTS", "10")
+                os.getenv("D365FO_MAX_CONCURRENT_REQUESTS", "10")
             ),
             "connection_pool_size": int(os.getenv("MCP_CONNECTION_POOL_SIZE", "5")),
-            "request_timeout": int(os.getenv("MCP_REQUEST_TIMEOUT", "30")),
+            "request_timeout": int(os.getenv("D365FO_REQUEST_TIMEOUT", "30")),
             "batch_size": int(os.getenv("MCP_BATCH_SIZE", "100")),
             "enable_performance_monitoring": os.getenv(
                 "MCP_PERFORMANCE_MONITORING", "true"

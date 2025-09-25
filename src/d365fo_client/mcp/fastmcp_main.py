@@ -107,12 +107,12 @@ Environment Variables:
   D365FO_CLIENT_SECRET      Azure AD client secret (optional)  
   D365FO_TENANT_ID          Azure AD tenant ID (optional)
   D365FO_MCP_TRANSPORT      Default transport protocol (stdio, sse, http, streamable-http)
-  MCP_HTTP_HOST             Default HTTP host (default: 127.0.0.1)
-  MCP_HTTP_PORT             Default HTTP port (default: 8000)
-  MCP_HTTP_STATELESS        Enable stateless mode (true/false)
-  MCP_HTTP_JSON             Enable JSON response mode (true/false)
-  MCP_MAX_CONCURRENT_REQUESTS  Max concurrent requests (default: 10)
-  MCP_REQUEST_TIMEOUT       Request timeout in seconds (default: 30)
+  D365FO_HTTP_HOST          Default HTTP host (default: 127.0.0.1)
+  D365FO_HTTP_PORT          Default HTTP port (default: 8000)
+  D365FO_HTTP_STATELESS     Enable stateless mode (true/false)
+  D365FO_HTTP_JSON          Enable JSON response mode (true/false)
+  D365FO_MAX_CONCURRENT_REQUESTS  Max concurrent requests (default: 10)
+  D365FO_REQUEST_TIMEOUT    Request timeout in seconds (default: 30)
   D365FO_LOG_LEVEL          Logging level (DEBUG, INFO, WARNING, ERROR)
   D365FO_LOG_FILE           Custom log file path (default: ~/.d365fo-mcp/logs/fastmcp-server.log)
   D365FO_META_CACHE_DIR   Metadata cache directory (default: ~/.d365fo-mcp/cache)
@@ -137,14 +137,14 @@ Environment Variables:
     parser.add_argument(
         "--host",
         type=str,
-        default="127.0.0.1",
+        default=os.getenv("D365FO_HTTP_HOST", "127.0.0.1"),
         help="Host to bind to for SSE/HTTP transports (default: 127.0.0.1)"
     )
     
     parser.add_argument(
         "--port",
         type=int,
-        default=8000,
+        default=int(os.getenv("D365FO_HTTP_PORT", "8000")),
         help="Port to bind to for SSE/HTTP transports (default: 8000)"
     )
     

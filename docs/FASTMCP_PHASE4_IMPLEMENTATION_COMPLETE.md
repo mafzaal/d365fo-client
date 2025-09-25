@@ -11,7 +11,7 @@ Successfully implemented all Phase 4 production features for the D365FO FastMCP 
   - WeakValueDictionary-based session storage for automatic garbage collection
   - Configurable session timeouts (30 minutes default)
   - Automatic session cleanup for expired sessions
-  - Environment variable configuration: `MCP_HTTP_STATELESS`
+  - Environment variable configuration: `D365FO_HTTP_STATELESS`
 - **Code**: `FastD365FOMCPServer._get_session_context()`, `_cleanup_expired_sessions()`
 - **Benefits**: Enables horizontal scaling and stateless operation for cloud deployments
 
@@ -20,7 +20,7 @@ Successfully implemented all Phase 4 production features for the D365FO FastMCP 
 - **Key Features**:
   - Configurable JSON response formatting
   - Better API integration for structured data output
-  - Environment variable configuration: `MCP_HTTP_JSON`
+  - Environment variable configuration: `D365FO_HTTP_JSON`
 - **Code**: `FastD365FOMCPServer.__init__()` with `json_response` configuration
 - **Benefits**: Improved client integration and standardized response formats
 
@@ -33,7 +33,7 @@ Successfully implemented all Phase 4 production features for the D365FO FastMCP 
   - Built-in percentile calculations for response time analysis
   - Memory management with request history limits
 - **Code**: `get_performance_stats()`, `_record_request_time()`, `_calculate_percentile()`
-- **Environment Variables**: `MCP_MAX_CONCURRENT_REQUESTS`, `MCP_REQUEST_TIMEOUT`, `MCP_CONNECTION_POOL_SIZE`
+- **Environment Variables**: `D365FO_MAX_CONCURRENT_REQUESTS`, `D365FO_REQUEST_TIMEOUT`, `MCP_CONNECTION_POOL_SIZE`
 - **Benefits**: Production-grade performance monitoring and resource management
 
 ### 4. Comprehensive Documentation ✅
@@ -96,10 +96,10 @@ class SessionContext:
 
 ### Environment Configuration
 Complete environment variable support for production deployment:
-- `MCP_HTTP_STATELESS` - Enable stateless HTTP mode
-- `MCP_HTTP_JSON` - Enable JSON response mode
-- `MCP_MAX_CONCURRENT_REQUESTS` - Request concurrency limits
-- `MCP_REQUEST_TIMEOUT` - Request timeout configuration
+- `D365FO_HTTP_STATELESS` - Enable stateless HTTP mode
+- `D365FO_HTTP_JSON` - Enable JSON response mode
+- `D365FO_MAX_CONCURRENT_REQUESTS` - Request concurrency limits
+- `D365FO_REQUEST_TIMEOUT` - Request timeout configuration
 - `MCP_CONNECTION_POOL_SIZE` - Connection pool sizing
 - `MCP_PERFORMANCE_MONITORING` - Enable performance monitoring
 - Standard D365FO environment variables for authentication and connectivity

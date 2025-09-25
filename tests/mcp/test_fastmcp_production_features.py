@@ -277,11 +277,11 @@ class TestProductionConfiguration:
     async def test_environment_variable_configuration(self):
         """Test configuration from environment variables."""
         with patch.dict(os.environ, {
-            'MCP_MAX_CONCURRENT_REQUESTS': '25',
-            'MCP_REQUEST_TIMEOUT': '60',
+            'D365FO_MAX_CONCURRENT_REQUESTS': '25',
+            'D365FO_REQUEST_TIMEOUT': '60',
             'MCP_CONNECTION_POOL_SIZE': '15',
-            'MCP_HTTP_STATELESS': 'true',
-            'MCP_HTTP_JSON': 'true',
+            'D365FO_HTTP_STATELESS': 'true',
+            'D365FO_HTTP_JSON': 'true',
             'MCP_PERFORMANCE_MONITORING': 'true'
         }):
             # Create server with environment-based config
@@ -528,10 +528,10 @@ class TestIntegrationProduction:
         """Test production environment variable configuration."""
         production_env = {
             'D365FO_BASE_URL': 'https://prod.dynamics.com',
-            'MCP_HTTP_STATELESS': 'true',
-            'MCP_HTTP_JSON': 'true',
-            'MCP_MAX_CONCURRENT_REQUESTS': '30',
-            'MCP_REQUEST_TIMEOUT': '90',
+            'D365FO_HTTP_STATELESS': 'true',
+            'D365FO_HTTP_JSON': 'true',
+            'D365FO_MAX_CONCURRENT_REQUESTS': '30',
+            'D365FO_REQUEST_TIMEOUT': '90',
             'MCP_CONNECTION_POOL_SIZE': '20',
             'MCP_PERFORMANCE_MONITORING': 'true',
             'D365FO_LOG_LEVEL': 'INFO'

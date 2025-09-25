@@ -116,7 +116,7 @@ export D365FO_BASE_URL=https://prod.dynamics.com
 export UVICORN_WORKERS=4
 export UVICORN_ACCESS_LOG=false
 export UVICORN_MAX_CONNECTIONS=2000
-export MCP_HTTP_STATELESS=true
+export D365FO_HTTP_STATELESS=true
 ```
 
 ### Docker Deployment
