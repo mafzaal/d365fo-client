@@ -42,13 +42,17 @@ class Profile(FOClientConfig):
         Since Profile now inherits from FOClientConfig, we can return a copy
         of self with only the FOClientConfig fields.
         """
-        from dataclasses import fields, asdict
+        from dataclasses import fields
         
         # Get all FOClientConfig field names
         fo_client_fields = {f.name for f in fields(FOClientConfig)}
         
         # Create a dict with only FOClientConfig fields from this instance
-        client_data = {k: v for k, v in asdict(self).items() if k in fo_client_fields}
+        # Use getattr to preserve object types (especially credential_source)
+        client_data = {}
+        for field_name in fo_client_fields:
+            if hasattr(self, field_name):
+                client_data[field_name] = getattr(self, field_name)
         
         return FOClientConfig(**client_data)
 

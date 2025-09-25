@@ -297,7 +297,7 @@ class ProfileManager:
             export_data = {"version": "1.0", "profiles": {}}
 
             for name, profile in profiles.items():
-                export_data["profiles"][name] = asdict(profile)
+                export_data["profiles"][name] = profile.to_dict()
 
             with open(file_path, "w", encoding="utf-8") as f:
                 yaml.dump(export_data, f, default_flow_style=False, allow_unicode=True)
@@ -343,14 +343,13 @@ class ProfileManager:
                     if overwrite and self.get_profile(name):
                         self.delete_profile(name)
 
-                    # Extract description if present
-                    description = profile_data.pop("description", None)
-
-                    # Create profile
-                    success = self.create_profile(
-                        description=description, **profile_data
-                    )
-                    results[name] = success
+                    # Create profile directly using Profile.create_from_dict
+                    # This handles all fields including credential_source properly
+                    profile = Profile.create_from_dict(name, profile_data)
+                    
+                    # Save the profile directly via config manager
+                    self.config_manager.save_profile(profile)
+                    results[name] = True
 
                 except Exception as e:
                     logger.error(f"Error importing profile {name}: {e}")
