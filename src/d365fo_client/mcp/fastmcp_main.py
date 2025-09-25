@@ -8,38 +8,38 @@ import logging.handlers
 import os
 import sys
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 from mcp.server.fastmcp import FastMCP
 
 from d365fo_client import __version__
 from d365fo_client.mcp import FastD365FOMCPServer
 from d365fo_client.mcp.fastmcp_utils import create_default_profile_if_needed, load_default_config, migrate_legacy_config
 from d365fo_client.profile_manager import ProfileManager
+from d365fo_client.settings import get_settings
 from d365fo_client.utils import get_default_cache_directory
 
 
 
-def setup_logging(level: str = "INFO") -> None:
+def setup_logging(level: str = "INFO", log_file_path: Optional[str] = None) -> None:
     """Set up logging configuration with 24-hour log rotation.
 
     Args:
         level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        log_file_path: Custom log file path, if None uses default from settings
     """
     log_level = getattr(logging, level.upper(), logging.INFO)
 
-    # Get log file path from environment variable or use default
-    log_file_path = os.getenv("D365FO_LOG_FILE")
-    
+    # Get log file path from parameter or settings
     if log_file_path:
-        # Use custom log file path from environment variable
         log_file = Path(log_file_path)
         # Ensure parent directory exists
         log_file.parent.mkdir(parents=True, exist_ok=True)
     else:
-        # Use default log file path
-        log_dir = Path.home() / ".d365fo-mcp" / "logs"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        log_file = log_dir / "fastmcp-server.log"
+        # Use default log file path from settings
+        settings = get_settings()
+        log_file = Path(settings.log_file)
+        # Settings already ensures directories exist
+        log_file.parent.mkdir(parents=True, exist_ok=True)
 
     # Clear existing handlers to avoid duplicate logging
     root_logger = logging.getLogger()
@@ -126,26 +126,29 @@ Environment Variables:
         version=f"%(prog)s {__version__}"
     )
     
+    # Get settings for defaults
+    settings = get_settings()
+    
     parser.add_argument(
         "--transport",
         type=str,
         choices=["stdio", "sse", "http", "streamable-http"],
-        default=os.getenv("D365FO_MCP_TRANSPORT", "stdio"),
-        help="Transport protocol to use (default: stdio, from D365FO_MCP_TRANSPORT env var)"
+        default=settings.mcp_transport.value,
+        help=f"Transport protocol to use (default: {settings.mcp_transport.value}, from D365FO_MCP_TRANSPORT env var)"
     )
     
     parser.add_argument(
         "--host",
         type=str,
-        default=os.getenv("D365FO_HTTP_HOST", "127.0.0.1"),
-        help="Host to bind to for SSE/HTTP transports (default: 127.0.0.1)"
+        default=settings.http_host,
+        help=f"Host to bind to for SSE/HTTP transports (default: {settings.http_host})"
     )
     
     parser.add_argument(
         "--port",
         type=int,
-        default=int(os.getenv("D365FO_HTTP_PORT", "8000")),
-        help="Port to bind to for SSE/HTTP transports (default: 8000)"
+        default=settings.http_port,
+        help=f"Port to bind to for SSE/HTTP transports (default: {settings.http_port})"
     )
     
     parser.add_argument(
@@ -172,8 +175,8 @@ Environment Variables:
         "--log-level",
         type=str,
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        default=os.getenv("D365FO_LOG_LEVEL", "INFO"),
-        help="Set logging level (default: INFO, from D365FO_LOG_LEVEL env var)"
+        default=settings.log_level.value,
+        help=f"Set logging level (default: {settings.log_level.value}, from D365FO_LOG_LEVEL env var)"
     )
     
     
@@ -181,18 +184,21 @@ Environment Variables:
     return parser.parse_args()
 
 
-# Parse arguments first to check transport
-args = parse_arguments()
-arg_transport =  args.transport
+# Get settings first
+settings = get_settings()
 
+# Parse arguments  
+args = parse_arguments()
+arg_transport = args.transport
 
 # Set up logging and load configuration
 if arg_transport == "http":
     arg_transport = "streamable-http"
 
-transport:Literal["stdio", "sse", "streamable-http"] = arg_transport
+transport: Literal["stdio", "sse", "streamable-http"] = arg_transport
 
-setup_logging(args.log_level or os.getenv("D365FO_LOG_LEVEL", "INFO"))
+# Use settings for logging setup
+setup_logging(args.log_level or settings.log_level.value, settings.log_file)
 logger = logging.getLogger(__name__)
 
 logger.info(f"Starting FastD365FOMCPServer v{__version__} with transport: {transport}")
@@ -202,7 +208,7 @@ config = load_default_config(args)
 
 default_fo = config.get("default_environment", {})
 
-config_path = default_fo.get("metadata_cache_dir", get_default_cache_directory())
+config_path = default_fo.get("metadata_cache_dir", settings.meta_cache_dir)
 
 
 # Create profile manager with config path
@@ -231,7 +237,10 @@ logger.info(f"JSON response: {transport_config.get('http', {}).get('json_respons
 logger.info(f"Stateless HTTP: {transport_config.get('http', {}).get('stateless', False)}")
 logger.info(f"Log level: {args.log_level}")
 logger.info(f"Config path: {config_path}")
-logger.info(f"D365FO Base URL: {default_fo.get('base_url', 'Not configured')}")
+logger.info(f"D365FO Base URL: {default_fo.get('base_url', settings.base_url)}")
+logger.info(f"Settings Base URL: {settings.base_url}")
+logger.info(f"Startup Mode: {settings.get_startup_mode()}")
+logger.info(f"Client Credentials: {'Configured' if settings.has_client_credentials() else 'Not configured'}")
 logger.info("====================================")
 
 # Initialize FastMCP server with configuration

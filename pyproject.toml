@@ -19,6 +19,7 @@ dependencies = [
     "pyyaml>=6.0",
     "mcp>=1.13.0",
     "uvicorn[standard]>=0.32.0",
+    "pydantic-settings>=2.6.0",
 ]
 keywords = ["dynamics365", "d365", "finance", "operations", "erp", "microsoft"]
 classifiers = [

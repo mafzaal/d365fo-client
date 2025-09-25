@@ -8,6 +8,7 @@ import yaml
 from d365fo_client import __version__
 from d365fo_client.credential_sources import EnvironmentCredentialSource
 from d365fo_client.profile_manager import ProfileManager
+from d365fo_client.settings import get_settings
 from d365fo_client.utils import get_default_cache_directory
 
 logger = logging.getLogger(__name__)
@@ -22,76 +23,42 @@ def load_default_config(args: Optional[argparse.Namespace] = None) -> Dict[str, 
     Returns:
         Configuration dictionary
     """
-    # Extract values from args with environment variable fallbacks
-    # For command line arguments, prefer explicit args over env vars, but fall back to env vars for defaults
+    # Get settings instance
+    settings = get_settings()
+    
+    # Extract values from args with settings fallbacks
     if args is not None:
         transport = args.transport
-        # Use env vars if args are at their default values
-        host = args.host if args.host != os.getenv("D365FO_HTTP_HOST", "127.0.0.1") else os.getenv("D365FO_HTTP_HOST", "127.0.0.1")
-        port = args.port if args.port != int(os.getenv("D365FO_HTTP_PORT", "8000")) else int(os.getenv("D365FO_HTTP_PORT", "8000"))
-        stateless = args.stateless or os.getenv("D365FO_HTTP_STATELESS", "").lower() in ("true", "1", "yes")
-        json_response = args.json_response or os.getenv("D365FO_HTTP_JSON", "").lower() in ("true", "1", "yes")
-        debug = args.debug or os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
+        host = args.host if hasattr(args, 'host') else settings.http_host
+        port = args.port if hasattr(args, 'port') else settings.http_port
+        stateless = getattr(args, 'stateless', False) or settings.http_stateless
+        json_response = getattr(args, 'json_response', False) or settings.http_json
+        debug = getattr(args, 'debug', False) or settings.debug
     else:
-        transport = 'stdio'
-        host = os.getenv("D365FO_HTTP_HOST", "127.0.0.1")
-        port = int(os.getenv("D365FO_HTTP_PORT", "8000"))
-        stateless = os.getenv("D365FO_HTTP_STATELESS", "").lower() in ("true", "1", "yes")
-        json_response = os.getenv("D365FO_HTTP_JSON", "").lower() in ("true", "1", "yes")
-        debug = os.getenv("DEBUG", "").lower() in ("true", "1", "yes")
+        transport = settings.mcp_transport.value
+        host = settings.http_host
+        port = settings.http_port
+        stateless = settings.http_stateless
+        json_response = settings.http_json
+        debug = settings.debug
 
-    # Get environment variables
-    base_url = os.getenv("D365FO_BASE_URL", "https://usnconeboxax1aos.cloud.onebox.dynamics.com")
-    
-    # Determine startup mode based on environment variables
-    startup_mode = "profile_only"
-    if base_url and base_url != "https://usnconeboxax1aos.cloud.onebox.dynamics.com":
-        if all([os.getenv("D365FO_CLIENT_ID"), os.getenv("D365FO_CLIENT_SECRET"), os.getenv("D365FO_TENANT_ID")]):
-            startup_mode = "client_credentials"
-        else:
-            startup_mode = "default_auth"
+    # Get startup mode from settings
+    startup_mode = settings.get_startup_mode()
 
-    # Environment variable mappings
-    env_mappings = {
-        "D365FO_BASE_URL": "base_url",
-        "D365FO_VERIFY_SSL": "verify_ssl",
-        "D365FO_LABEL_CACHE": "use_label_cache",
-        "D365FO_LABEL_EXPIRY": "label_cache_expiry_minutes",
-        "D365FO_USE_CACHE_FIRST": "use_cache_first",
-        "D365FO_TIMEOUT": "timeout",
-        "D365FO_CACHE_DIR": "metadata_cache_dir",
-        "D365FO_CLIENT_ID": "client_id",
-        "D365FO_CLIENT_SECRET": "client_secret",
-        "D365FO_TENANT_ID": "tenant_id",
-    }
-
-
-
-    # Build default environment from environment variables
+    # Build default environment from settings
     default_environment = {
         "use_default_credentials": True,
-        "use_cache_first": True,
-        "timeout": 60,
-        "verify_ssl": True,
-        "use_label_cache": True,
-        "metadata_cache_dir": os.getenv("D365FO_CACHE_DIR", get_default_cache_directory()),
+        "use_cache_first": settings.use_cache_first,
+        "timeout": settings.timeout,
+        "verify_ssl": settings.verify_ssl,
+        "use_label_cache": settings.use_label_cache,
+        "label_cache_expiry_minutes": settings.label_cache_expiry_minutes,
+        "metadata_cache_dir": settings.cache_dir,
+        "base_url": settings.base_url,
+        "client_id": settings.client_id,
+        "client_secret": settings.client_secret,
+        "tenant_id": settings.tenant_id,
     }
-
-    # Apply environment variable mappings
-    for env_var, config_key in env_mappings.items():
-        if env_var in os.environ:
-            value = os.environ[env_var]
-            # Convert boolean strings
-            if config_key in ["verify_ssl", "use_label_cache", "use_cache_first"]:
-                default_environment[config_key] = value.lower() in ("true", "1", "yes", "on")
-            # Convert numeric strings
-            elif config_key in ["timeout", "label_cache_expiry_minutes"]:
-                try:
-                    default_environment[config_key] = int(value)
-                except ValueError:
-                    pass  # Keep default value
-            else:
-                default_environment[config_key] = value
 
 
 
@@ -134,11 +101,9 @@ def load_default_config(args: Optional[argparse.Namespace] = None) -> Dict[str, 
         },
         "default_environment": default_environment,
         "performance": {
-            "max_concurrent_requests": int(
-                os.getenv("D365FO_MAX_CONCURRENT_REQUESTS", "10")
-            ),
+            "max_concurrent_requests": settings.max_concurrent_requests,
             "connection_pool_size": int(os.getenv("MCP_CONNECTION_POOL_SIZE", "5")),
-            "request_timeout": int(os.getenv("D365FO_REQUEST_TIMEOUT", "30")),
+            "request_timeout": settings.request_timeout,
             "batch_size": int(os.getenv("MCP_BATCH_SIZE", "100")),
             "enable_performance_monitoring": os.getenv(
                 "MCP_PERFORMANCE_MONITORING", "true"
@@ -170,8 +135,11 @@ def create_default_profile_if_needed(profile_manager:"ProfileManager", config:Di
         # Get default environment configuration
         default_environment = config.get("default_environment", {})
         
+        # Get settings for direct access
+        settings = get_settings()
+        
         # Get base URL from environment or config
-        base_url = default_environment.get("base_url") or os.getenv("D365FO_BASE_URL")
+        base_url = default_environment.get("base_url") or settings.base_url
 
         if not base_url:
             logger.warning("Cannot create default profile - D365FO_BASE_URL not set")
@@ -181,9 +149,9 @@ def create_default_profile_if_needed(profile_manager:"ProfileManager", config:Di
         startup_mode = config.get("startup_mode", "profile_only")
         
         # Check for legacy credentials in environment
-        client_id = default_environment.get("client_id") or os.getenv("D365FO_CLIENT_ID")
-        client_secret = default_environment.get("client_secret") or os.getenv("D365FO_CLIENT_SECRET")
-        tenant_id = default_environment.get("tenant_id") or os.getenv("D365FO_TENANT_ID")
+        client_id = default_environment.get("client_id") or settings.client_id
+        client_secret = default_environment.get("client_secret") or settings.client_secret
+        tenant_id = default_environment.get("tenant_id") or settings.tenant_id
         
         if startup_mode == "client_credentials":
             auth_mode = "client_credentials"

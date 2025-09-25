@@ -195,6 +195,7 @@ from .models import (
 from .output import OutputFormatter
 from .profile_manager import ProfileManager
 from .profiles import Profile
+from .settings import D365FOSettings, get_settings, reset_settings
 from .utils import (
     ensure_directory_exists,
     extract_domain_from_url,
@@ -250,6 +251,10 @@ __all__ = [
     "Profile",
     "ProfileManager",
     "CLIManager",
+    # Settings
+    "D365FOSettings",
+    "get_settings", 
+    "reset_settings",
     # Legacy aliases
     "CLIProfile",
     "EnvironmentProfile",
