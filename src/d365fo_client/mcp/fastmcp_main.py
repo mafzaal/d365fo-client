@@ -283,7 +283,7 @@ if is_remote_transport:
         base_url=settings.mcp_auth_base_url,                   # Must match your App registration
         required_scopes=required_scopes or ["User.Read"],  # type: ignore # Scopes your app needs
         redirect_path="/auth/callback",  # Ensure callback path is explicit
-        clients_storage_path=settings.meta_cache_dir or ...
+        clients_storage_path=config_path or ...
     )
     from mcp.shared.auth import OAuthClientInformationFull
 

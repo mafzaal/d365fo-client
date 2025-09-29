@@ -194,6 +194,7 @@ class AzureProvider(OAuthProxy):
                     "required_scopes": required_scopes,
                     "timeout_seconds": timeout_seconds,
                     "allowed_client_redirect_uris": allowed_client_redirect_uris,
+                    "clients_storage_path": clients_storage_path,
                 }.items()
                 if v is not NotSet
             }
