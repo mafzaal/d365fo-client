@@ -10,13 +10,15 @@ import sys
 from pathlib import Path
 from typing import Literal, Optional
 from mcp.server.fastmcp import FastMCP
+from pydantic import AnyHttpUrl, AnyUrl
 
 from d365fo_client import __version__
+from d365fo_client.mcp.auth_server.auth.providers.azure import AzureProvider
 from d365fo_client.mcp import FastD365FOMCPServer
 from d365fo_client.mcp.fastmcp_utils import create_default_profile_if_needed, load_default_config, migrate_legacy_config
 from d365fo_client.profile_manager import ProfileManager
 from d365fo_client.settings import get_settings
-from d365fo_client.utils import get_default_cache_directory
+from mcp.server.auth.settings import  AuthSettings,ClientRegistrationOptions
 
 
 
@@ -37,7 +39,7 @@ def setup_logging(level: str = "INFO", log_file_path: Optional[str] = None) -> N
     else:
         # Use default log file path from settings
         settings = get_settings()
-        log_file = Path(settings.log_file)
+        log_file = Path(settings.log_file) #type: ignore
         # Settings already ensures directories exist
         log_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -107,15 +109,20 @@ Environment Variables:
   D365FO_CLIENT_SECRET      Azure AD client secret (optional)  
   D365FO_TENANT_ID          Azure AD tenant ID (optional)
   D365FO_MCP_TRANSPORT      Default transport protocol (stdio, sse, http, streamable-http)
-  D365FO_HTTP_HOST          Default HTTP host (default: 127.0.0.1)
-  D365FO_HTTP_PORT          Default HTTP port (default: 8000)
-  D365FO_HTTP_STATELESS     Enable stateless mode (true/false)
-  D365FO_HTTP_JSON          Enable JSON response mode (true/false)
-  D365FO_MAX_CONCURRENT_REQUESTS  Max concurrent requests (default: 10)
-  D365FO_REQUEST_TIMEOUT    Request timeout in seconds (default: 30)
-  D365FO_LOG_LEVEL          Logging level (DEBUG, INFO, WARNING, ERROR)
-  D365FO_LOG_FILE           Custom log file path (default: ~/.d365fo-mcp/logs/fastmcp-server.log)
-  D365FO_META_CACHE_DIR   Metadata cache directory (default: ~/.d365fo-mcp/cache)
+  D365FO_MCP_HTTP_HOST          Default HTTP host (default: 127.0.0.1)
+  D365FO_MCP_HTTP_PORT          Default HTTP port (default: 8000)
+  D365FO_MCP_HTTP_STATELESS     Enable stateless mode (true/false)
+  D365FO_MCP_HTTP_JSON          Enable JSON response mode (true/false)
+  D365FO_MCP_MAX_CONCURRENT_REQUESTS  Max concurrent requests (default: 10)
+  D365FO_MCP_REQUEST_TIMEOUT    Request timeout in seconds (default: 30)
+  D365FO_MCP_AUTH_CLIENT_ID     Azure AD client ID for authentication
+  D365FO_MCP_AUTH_CLIENT_SECRET Azure AD client secret for authentication
+  D365FO_MCP_AUTH_TENANT_ID    Azure AD tenant ID for authentication
+  D365FO_MCP_AUTH_BASE_URL     http://localhost:8000
+  D365FO_MCP_AUTH_REQUIRED_SCOPES  User.Read,email,openid,profile
+  D365FO_LOG_LEVEL               Logging level (DEBUG, INFO, WARNING, ERROR)
+  D365FO_LOG_FILE                Custom log file path (default: ~/.d365fo-mcp/logs/fastmcp-server.log)
+  D365FO_META_CACHE_DIR          Metadata cache directory (default: ~/.d365fo-mcp/cache)
 
         """
     )
@@ -227,11 +234,15 @@ if not create_default_profile_if_needed(profile_manager, config):
 server_config = config.get("server", {})
 transport_config = server_config.get("transport", {})
 
+is_remote_transport = transport in ["sse", "streamable-http"]
+
 # Log startup configuration details
 logger.info("=== Server Startup Configuration ===")
 logger.info(f"Transport: {transport}")
-logger.info(f"Host: {transport_config.get('http', {}).get('host', '127.0.0.1')}")
-logger.info(f"Port: {transport_config.get('http', {}).get('port', 8000)}")
+if is_remote_transport:
+    logger.info(f"Host: {transport_config.get('http', {}).get('host', '127.0.0.1')}")
+    logger.info(f"Port: {transport_config.get('http', {}).get('port', 8000)}")
+
 logger.info(f"Debug mode: {server_config.get('debug', False)}")
 logger.info(f"JSON response: {transport_config.get('http', {}).get('json_response', False)}")
 logger.info(f"Stateless HTTP: {transport_config.get('http', {}).get('stateless', False)}")
@@ -243,9 +254,64 @@ logger.info(f"Startup Mode: {settings.get_startup_mode()}")
 logger.info(f"Client Credentials: {'Configured' if settings.has_client_credentials() else 'Not configured'}")
 logger.info("====================================")
 
+if is_remote_transport and not settings.has_mcp_auth_credentials():
+
+    logger.error("Warning: Client credentials (D365FO_MCP_AUTH_CLIENT_ID and D365FO_MCP_AUTH_CLIENT_SECRET, D365FO_MCP_AUTH_TENANT_ID,D365FO_MCP_AUTH_BASE_URL and D365FO_MCP_AUTH_REQUIRED_SCOPES) are not set. " +
+                   "Remote transports require authentication to the D365FO environment.")
+    sys.exit(1)    
+
+auth_provider: AzureProvider | None = None
+auth: AuthSettings | None = None
+
+if is_remote_transport:
+    assert settings.mcp_auth_client_id is not None
+    assert settings.mcp_auth_client_secret is not None
+    assert settings.mcp_auth_tenant_id is not None
+    assert settings.mcp_auth_base_url is not None
+    assert settings.mcp_auth_required_scopes is not None
+    required_scopes=settings.mcp_auth_required_scopes_list()
+
+    # if "AX.FullAccess" not in required_scopes:
+    #     logger.warning("Warning: 'AX.FullAccess' scope is not supported. Adding it automatically.")
+    #     required_scopes.append("https://erp.dynamics.com/AX.FullAccess")
+
+    # Initialize authorization settings
+    auth_provider = AzureProvider(
+        client_id=settings.mcp_auth_client_id,  # Your Azure App Client ID
+        client_secret=settings.mcp_auth_client_secret,                 # Your Azure App Client Secret
+        tenant_id=settings.mcp_auth_tenant_id, # Your Azure Tenant ID (REQUIRED)
+        base_url=settings.mcp_auth_base_url,                   # Must match your App registration
+        required_scopes=required_scopes or ["User.Read"],  # type: ignore # Scopes your app needs
+        redirect_path="/auth/callback",  # Ensure callback path is explicit
+        clients_storage_path=settings.meta_cache_dir or ...
+    )
+    from mcp.shared.auth import OAuthClientInformationFull
+
+    # auth_provider._clients["eae68fdd-610b-47c5-9907-709c7452f1b3"] = OAuthClientInformationFull(
+    #     client_id="5eae68fdd-610b-47c5-9907-709c7452f1b3",
+    #     client_name="Test Client",
+    #     redirect_uris=[AnyUrl("http://127.0.0.1:33418")],
+    #     scope=",".join(required_scopes)
+    # )
+
+
+    auth=AuthSettings(
+            issuer_url=AnyHttpUrl(settings.mcp_auth_base_url),
+            client_registration_options=ClientRegistrationOptions(
+                enabled=True,
+                valid_scopes=required_scopes or ["User.Read"], # type: ignore
+                default_scopes=required_scopes or ["User.Read"], # type: ignore
+            ),
+            required_scopes=required_scopes or ["User.Read"], # type: ignore
+            resource_server_url=AnyHttpUrl(settings.mcp_auth_base_url),
+            
+        )
+
 # Initialize FastMCP server with configuration
 mcp = FastMCP(
     name=server_config.get("name", "d365fo-mcp-server"),
+    auth_server_provider=auth_provider,
+    auth=auth,
     instructions=server_config.get(
         "instructions",
         "Microsoft Dynamics 365 Finance & Operations MCP Server providing comprehensive access to D365FO data, metadata, and operations",
@@ -255,9 +321,20 @@ mcp = FastMCP(
     debug=server_config.get("debug", False),
     json_response=transport_config.get("http", {}).get("json_response", False),
     stateless_http=transport_config.get("http", {}).get("stateless", False),
+    streamable_http_path= "/" if transport == "streamable-http" else "/mcp",
+    sse_path="/" if transport == "streamable-http" else "/sse",
+
 )
 
-server = FastD365FOMCPServer(mcp,config,profile_manager=profile_manager)
+if is_remote_transport:
+    from starlette.requests import Request
+    from starlette.responses import RedirectResponse
+    
+    @mcp.custom_route(path=auth_provider._redirect_path, methods=["GET"]) # type: ignore
+    async def handle_idp_callback(request: Request) -> RedirectResponse:
+        return await auth_provider._handle_idp_callback(request) # type: ignore
+
+server = FastD365FOMCPServer(mcp, config, profile_manager=profile_manager)
 
 logger.info("FastD365FOMCPServer initialized successfully")
 
@@ -268,7 +345,6 @@ def main() -> None:
     # Handle Windows event loop policy
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    
     try:
         mcp.run(transport=transport)
     except KeyboardInterrupt:

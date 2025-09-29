@@ -73,6 +73,38 @@ class D365FOSettings(BaseSettings):
         alias="D365FO_TENANT_ID"
     )
     
+    # === MCP Authentication Settings ===
+    
+    mcp_auth_client_id: Optional[str] = Field(
+        default=None,
+        description="MCP authentication client ID",
+        alias="D365FO_MCP_AUTH_CLIENT_ID"
+    )
+    
+    mcp_auth_client_secret: Optional[str] = Field(
+        default=None,
+        description="MCP authentication client secret",
+        alias="D365FO_MCP_AUTH_CLIENT_SECRET"
+    )
+    
+    mcp_auth_tenant_id: Optional[str] = Field(
+        default=None,
+        description="MCP authentication tenant ID",
+        alias="D365FO_MCP_AUTH_TENANT_ID"
+    )
+    
+    mcp_auth_base_url: str = Field(
+        default="http://localhost:8000",
+        description="MCP authentication base URL",
+        alias="D365FO_MCP_AUTH_BASE_URL"
+    )
+    
+    mcp_auth_required_scopes: str = Field(
+        default="User.Read,email,openid,profile",
+        description="MCP authentication required scopes (comma-separated)",
+        alias="D365FO_MCP_AUTH_REQUIRED_SCOPES"
+    )
+    
     # === MCP Server Transport Settings ===
     
     mcp_transport: TransportProtocol = Field(
@@ -84,7 +116,7 @@ class D365FOSettings(BaseSettings):
     http_host: str = Field(
         default="127.0.0.1",
         description="Default HTTP host",
-        alias="D365FO_HTTP_HOST"
+        alias="D365FO_MCP_HTTP_HOST"
     )
     
     http_port: int = Field(
@@ -92,19 +124,19 @@ class D365FOSettings(BaseSettings):
         gt=0,
         le=65535,
         description="Default HTTP port",
-        alias="D365FO_HTTP_PORT"
+        alias="D365FO_MCP_HTTP_PORT"
     )
     
     http_stateless: bool = Field(
         default=False,
         description="Enable stateless mode (true/false)",
-        alias="D365FO_HTTP_STATELESS"
+        alias="D365FO_MCP_HTTP_STATELESS"
     )
     
     http_json: bool = Field(
         default=False,
         description="Enable JSON response mode (true/false)",
-        alias="D365FO_HTTP_JSON"
+        alias="D365FO_MCP_HTTP_JSON"
     )
     
     # === Connection and Performance Settings ===
@@ -113,14 +145,14 @@ class D365FOSettings(BaseSettings):
         default=10,
         gt=0,
         description="Max concurrent requests",
-        alias="D365FO_MAX_CONCURRENT_REQUESTS"
+        alias="D365FO_MCP_MAX_CONCURRENT_REQUESTS"
     )
     
     request_timeout: int = Field(
         default=30,
         gt=0,
         description="Request timeout in seconds",
-        alias="D365FO_REQUEST_TIMEOUT"
+        alias="D365FO_MCP_REQUEST_TIMEOUT"
     )
     
     timeout: int = Field(
@@ -250,6 +282,10 @@ class D365FOSettings(BaseSettings):
         """Check if client credentials are configured."""
         return all([self.client_id, self.client_secret, self.tenant_id])
     
+    def has_mcp_auth_credentials(self) -> bool:
+        """Check if MCP authentication credentials are configured."""
+        return all([self.mcp_auth_client_id, self.mcp_auth_client_secret, self.mcp_auth_tenant_id])
+    
     def get_startup_mode(self) -> Literal["profile_only", "default_auth", "client_credentials"]:
         """Determine startup mode based on configuration."""
         if self.base_url and self.base_url != "https://usnconeboxax1aos.cloud.onebox.dynamics.com":
@@ -258,6 +294,10 @@ class D365FOSettings(BaseSettings):
             else:
                 return "default_auth"
         return "profile_only"
+    
+    def mcp_auth_required_scopes_list(self) -> list[str]:
+        """Get MCP authentication required scopes as a list."""
+        return [scope.strip() for scope in self.mcp_auth_required_scopes.split(",") if scope.strip()]
     
     def to_dict(self) -> dict:
         """Convert settings to dictionary."""
