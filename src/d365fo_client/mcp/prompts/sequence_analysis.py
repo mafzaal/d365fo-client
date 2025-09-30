@@ -94,7 +94,7 @@ Analyze D365 Finance & Operations number sequences to identify configuration iss
 ## Available MCP Tools
 
 **Entity Query Tools:**
-- `d365fo_query_entities` - Query D365FO entities (limited OData support)
+- `d365fo_query_entities` - Query D365FO entities (simplified 'eq' filtering with wildcards only)
 - `d365fo_get_entity_by_key` - Get specific entity record by key
 - `d365fo_search_entities` - Search for entities by name pattern
 - `d365fo_get_entity_schema` - Get entity metadata and schema information

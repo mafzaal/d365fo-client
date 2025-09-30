@@ -1,7 +1,7 @@
 """Authentication utilities for D365 F&O client."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 from azure.identity import ClientSecretCredential, DefaultAzureCredential
 
@@ -22,13 +22,13 @@ class AuthenticationManager:
         self._token = None
         self._token_expires = None
         self._credential_manager = CredentialManager()
-        self.credential = None  # Will be set by _setup_credentials
+        self.credential: Optional[Union[ClientSecretCredential, DefaultAzureCredential]] = None  # Will be set by _setup_credentials
 
     async def _setup_credentials(self):
         """Setup authentication credentials with support for credential sources"""
         
         # Check if credential source is specified in config
-        credential_source = getattr(self.config, 'credential_source', None)
+        credential_source = self.config.credential_source
         
         if credential_source is not None:
             # Use credential source to get credentials
@@ -46,22 +46,8 @@ class AuthenticationManager:
         
         # Fallback to existing logic for backward compatibility
   
-        if (
-            self.config.client_id
-            and self.config.client_secret
-            and self.config.tenant_id
-        ):
-            self.credential = ClientSecretCredential(
-                tenant_id=self.config.tenant_id,
-                client_id=self.config.client_id,
-                client_secret=self.config.client_secret,
-            )
-        elif self.config.use_default_credentials:
-            self.credential = DefaultAzureCredential()
-        else:
-            raise ValueError(
-                "Must provide either use_default_credentials=True, client credentials, or credential_source"
-            )
+        self.credential = DefaultAzureCredential()
+      
 
     async def get_token(self) -> str:
         """Get authentication token
@@ -77,6 +63,9 @@ class AuthenticationManager:
         if self.credential is None:
             await self._setup_credentials()
 
+        if self.credential is None:
+            raise ValueError("Authentication credentials are not set up.")
+
         if (
             self._token
             and self._token_expires
@@ -86,8 +75,7 @@ class AuthenticationManager:
 
         # Try different scopes
         scopes_to_try = [
-            f"{self.config.base_url}/.default",
-            f"{self.config.client_id}/.default" if self.config.client_id else None,
+            f"{self.config.base_url.rstrip('/')}/.default",
         ]
 
         for scope in scopes_to_try:

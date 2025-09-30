@@ -1,19 +1,17 @@
 """Integration tests package for d365fo-client.
 
-This package contains integration tests that test the client against real or mock D365 F&O environments.
+This package contains integration tests that test the client against real D365 F&O environments.
 Integration tests are organized into different tiers:
 
-1. Mock Server Tests (tests/integration/mock_server/) - Fast, reliable, no external dependencies
-2. Sandbox Tests (tests/integration/sandbox/) - Against test D365 environments
-3. Live Tests (tests/integration/live/) - Against real D365 environments (optional)
+1. Sandbox Tests - Against test D365 environments
+2. Live Tests - Against real D365 environments (optional)
 
 Configuration:
 - Set INTEGRATION_TEST_LEVEL environment variable to control which tests run
-- Values: 'mock', 'sandbox', 'live', 'all'
+- Values: 'sandbox', 'live', 'all'
 - Default: 'sandbox' (sandbox environment tests)
 
 Environment Variables:
-- D365FO_TEST_BASE_URL: Base URL for test environment
 - D365FO_SANDBOX_BASE_URL: Base URL for sandbox environment
 - D365FO_LIVE_BASE_URL: Base URL for live environment (if available)
 - D365FO_CLIENT_ID, D365FO_CLIENT_SECRET, D365FO_TENANT_ID: Auth credentials
@@ -29,7 +27,7 @@ INTEGRATION_TEST_LEVEL = os.getenv("INTEGRATION_TEST_LEVEL", "sandbox").lower()
 
 def skip_if_not_level(required_level: str):
     """Decorator to skip tests based on integration test level."""
-    levels = ["mock", "sandbox", "live", "all"]
+    levels = ["sandbox", "live", "all"]
 
     if INTEGRATION_TEST_LEVEL == "all":
         return pytest.mark.integration
@@ -47,13 +45,8 @@ def skip_if_not_level(required_level: str):
 
 # Test environment configurations
 TEST_ENVIRONMENTS = {
-    "mock": {
-        "base_url": "http://localhost:8000",
-        "requires_auth": False,
-        "description": "Local mock server",
-    },
     "sandbox": {
-        "base_url": os.getenv("D365FO_SANDBOX_BASE_URL", "https://test.dynamics.com"),
+        "base_url": os.getenv("D365FO_SANDBOX_BASE_URL", "https://usnconeboxax1aos.cloud.onebox.dynamics.com"),
         "requires_auth": True,
         "description": "D365 F&O test/sandbox environment",
     },

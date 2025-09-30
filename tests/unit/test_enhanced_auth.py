@@ -16,7 +16,7 @@ class TestEnhancedAuthenticationManager:
         """Test credential setup with default credentials."""
         config = FOClientConfig(
             base_url="https://test.dynamics.com",
-            use_default_credentials=True
+            credential_source=None  # None means use default credentials
         )
         
         auth_manager = AuthenticationManager(config)
@@ -29,12 +29,10 @@ class TestEnhancedAuthenticationManager:
     @pytest.mark.asyncio
     async def test_setup_credentials_client_secret(self):
         """Test credential setup with client secret credentials."""
+        credential_source = EnvironmentCredentialSource()
         config = FOClientConfig(
             base_url="https://test.dynamics.com",
-            use_default_credentials=False,
-            client_id="test-client-id",
-            client_secret="test-client-secret",
-            tenant_id="test-tenant-id"
+            credential_source=credential_source
         )
         
         auth_manager = AuthenticationManager(config)

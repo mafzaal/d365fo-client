@@ -4,9 +4,20 @@ import uuid
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Dict, List, Optional, Callable, Set
+from typing import Dict, List, Optional, Set
 
-from .models import SyncStrategy, SyncResult
+# Removed import to avoid circular dependency - models will be defined here
+
+
+class SyncStrategy(StrEnum):
+    """Metadata synchronization strategies"""
+
+    FULL = "full"
+    INCREMENTAL = "incremental"
+    ENTITIES_ONLY = "entities_only"
+    LABELS_ONLY = "labels_only"
+    SHARING_MODE = "sharing_mode"
+    FULL_WITHOUT_LABELS = "full_without_labels"
 
 
 class SyncStatus(StrEnum):
@@ -31,6 +42,78 @@ class SyncPhase(StrEnum):
     FINALIZING = "finalizing"
     COMPLETED = "completed"
     FAILED = "failed"
+
+
+@dataclass
+class SyncResult:
+    """Enhanced synchronization result with sharing metrics"""
+
+    sync_type: str  # full|incremental|linked|skipped|failed
+    entities_synced: int = 0
+    actions_synced: int = 0
+    enumerations_synced: int = 0
+    labels_synced: int = 0
+    duration_ms: float = 0.0
+    success: bool = True
+    errors: List[str] = field(default_factory=list)
+
+    # Enhanced metrics for V2
+    entities_shared: int = 0
+    actions_shared: int = 0
+    enumerations_shared: int = 0
+    labels_shared: int = 0
+    cache_hit_rate: float = 0.0
+    sharing_efficiency: float = 0.0  # Percentage of items shared vs downloaded
+    source_version_id: Optional[int] = None  # Version we shared from
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            "sync_type": self.sync_type,
+            "entities_synced": self.entities_synced,
+            "actions_synced": self.actions_synced,
+            "enumerations_synced": self.enumerations_synced,
+            "labels_synced": self.labels_synced,
+            "duration_ms": self.duration_ms,
+            "success": self.success,
+            "errors": self.errors,
+            "entities_shared": self.entities_shared,
+            "actions_shared": self.actions_shared,
+            "enumerations_shared": self.enumerations_shared,
+            "labels_shared": self.labels_shared,
+            "cache_hit_rate": self.cache_hit_rate,
+            "sharing_efficiency": self.sharing_efficiency,
+            "source_version_id": self.source_version_id
+        }
+
+
+@dataclass
+class SyncProgress:
+    """Sync progress tracking"""
+
+    global_version_id: int
+    strategy: SyncStrategy
+    phase: str
+    total_steps: int
+    completed_steps: int
+    current_operation: str
+    start_time: datetime
+    estimated_completion: Optional[datetime] = None
+    error: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            "global_version_id": self.global_version_id,
+            "strategy": self.strategy,
+            "phase": self.phase,
+            "total_steps": self.total_steps,
+            "completed_steps": self.completed_steps,
+            "current_operation": self.current_operation,
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "estimated_completion": self.estimated_completion.isoformat() if self.estimated_completion else None,
+            "error": self.error
+        }
 
 
 @dataclass

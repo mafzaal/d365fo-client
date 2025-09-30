@@ -76,21 +76,31 @@ def run_tests(
         cmd.append(str(test_dir / specific_test))
     else:
         # Filter tests based on level to avoid running incompatible tests
-        if test_level == "mock":
-            # Include all mock-compatible test files
+        if test_level == "sandbox":
+            # Include all sandbox test files currently in integration directory
             cmd.extend(
                 [
-                    str(test_dir / "test_mock_server.py"),
-                    str(test_dir / "test_crud_comprehensive.py"),
-                    str(test_dir / "test_cli_integration.py"),
+                    str(test_dir / "test_sandbox.py"),
+                    str(test_dir / "test_sandbox_crud.py"),
+                    str(test_dir / "test_sandbox_metadata.py"),
+                    str(test_dir / "test_sandbox_performance.py"),
+                    str(test_dir / "test_sandbox_error_handling.py"),
                 ]
             )
-        elif test_level == "sandbox":
-            cmd.append(str(test_dir / "test_sandbox.py"))
         elif test_level == "live":
-            cmd.append(str(test_dir / "test_live.py"))
+            # Live tests to be implemented - for now run sandbox tests
+            print("⚠️  Live tests not yet implemented. Running sandbox tests instead.")
+            cmd.extend(
+                [
+                    str(test_dir / "test_sandbox.py"),
+                    str(test_dir / "test_sandbox_crud.py"),
+                    str(test_dir / "test_sandbox_metadata.py"),
+                    str(test_dir / "test_sandbox_performance.py"),
+                    str(test_dir / "test_sandbox_error_handling.py"),
+                ]
+            )
         else:
-            # For 'all' level, run everything
+            # For 'all' level, run everything in integration directory
             cmd.append(str(test_dir))
 
     # Add pytest options
@@ -146,44 +156,56 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Test Levels:
-  mock     - Run only mock server tests (fast, no external dependencies)
-  sandbox  - Run mock + sandbox tests (requires test environment)
-  live     - Run mock + live tests (requires production environment)
-  all      - Run all tests (requires both test and production environments)
+  sandbox  - Run sandbox tests (requires D365 F&O test environment)
+  live     - Run live tests (currently runs sandbox tests - live tests TBD)
+  all      - Run all integration tests in the directory
+
+Available Test Files:
+  test_sandbox.py                    - Core connection and version tests
+  test_sandbox_crud.py               - CRUD operations and data validation
+  test_sandbox_metadata.py           - Metadata API and entity discovery
+  test_sandbox_performance.py        - Performance benchmarking
+  test_sandbox_error_handling.py     - Error scenarios and resilience
 
 Examples:
-  # Run only mock server tests
-  python test_runner.py mock
-  
-  # Run sandbox tests with verbose output
-  python test_runner.py sandbox --verbose
-  
-  # Run specific test file
-  python test_runner.py mock --test test_mock_server.py
-  
-  # Run with coverage report
-  python test_runner.py mock --coverage
-  
-  # Run tests matching specific markers
-  python test_runner.py all --markers "not slow"
+  # Run all sandbox tests
+  python test_runner.py sandbox
 
-Environment Variables:
-  D365FO_SANDBOX_BASE_URL    - URL for sandbox environment
-  D365FO_LIVE_BASE_URL       - URL for live environment
-  D365FO_CLIENT_ID            - Azure AD client ID
-  D365FO_CLIENT_SECRET        - Azure AD client secret
-  D365FO_TENANT_ID            - Azure AD tenant ID
+  # Run with verbose output
+  python test_runner.py sandbox --verbose
+
+  # Run specific test category
+  python test_runner.py sandbox --test test_sandbox_crud.py
+
+  # Run with coverage report
+  python test_runner.py sandbox --coverage
+
+  # Run performance tests only
+  python test_runner.py sandbox --markers "performance"
+
+  # Skip slow tests
+  python test_runner.py sandbox --markers "not slow"
+
+Required Environment Variables:
+  D365FO_SANDBOX_BASE_URL    - URL for sandbox environment (required)
+
+Optional Environment Variables:
+  D365FO_CLIENT_ID           - Azure AD client ID (if not using default credentials)
+  D365FO_CLIENT_SECRET       - Azure AD client secret
+  D365FO_TENANT_ID           - Azure AD tenant ID
+
+Note: Unit tests for version methods are now in tests/unit/ directory.
         """,
     )
 
     parser.add_argument(
         "level",
-        choices=["mock", "sandbox", "live", "all"],
+        choices=["sandbox", "live", "all"],
         help="Integration test level to run",
     )
 
     parser.add_argument(
-        "--test", "-t", help="Specific test file to run (e.g., test_mock_server.py)"
+        "--test", "-t", help="Specific test file to run (e.g., test_sandbox_crud.py, test_sandbox_metadata.py)"
     )
 
     parser.add_argument(

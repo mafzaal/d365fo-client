@@ -12,7 +12,7 @@ async def example_usage():
     """Example usage of the F&O client with label functionality"""
     config = FOClientConfig(
         base_url="https://usnconeboxax1aos.cloud.onebox.dynamics.com",
-        use_default_credentials=True,
+
         verify_ssl=False,
         use_label_cache=True,
         label_cache_expiry_minutes=60,

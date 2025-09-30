@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>D365FO FastMCP SSE Integration</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #0078d4, #106ebe);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.disconnected { background: #f8d7da; color: #721c24; }
+        .status.connecting { background: #fff3cd; color: #856404; }
+        
+        .button {
+            background: #0078d4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        
+        .button:hover {
+            background: #106ebe;
+        }
+        
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+        
+        .log-entry.info { color: #0066cc; }
+        .log-entry.success { color: #28a745; }
+        .log-entry.error { color: #dc3545; }
+        .log-entry.warning { color: #ffc107; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .entity-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            background: #f8f9fa;
+        }
+        
+        .entity-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 4px;
+            border-left: 4px solid #0078d4;
+        }
+        
+        .metric {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #0078d4;
+        }
+        
+        .metric-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 D365FO FastMCP Server</h1>
+        <p>Real-time Server-Sent Events Integration Demo</p>
+        <div>
+            Connection Status: <span id="connection-status" class="status disconnected">Disconnected</span>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h3>🔌 Connection Control</h3>
+            <button id="connect-btn" class="button">Connect to SSE Server</button>
+            <button id="disconnect-btn" class="button" disabled>Disconnect</button>
+            <div style="margin-top: 15px;">
+                <label for="server-url">Server URL:</label>
+                <input type="text" id="server-url" value="http://localhost:8001" style="width: 200px; margin-left: 10px; padding: 5px;">
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📊 Live Metrics</h3>
+            <div style="display: flex; justify-content: space-around;">
+                <div class="metric">
+                    <div id="requests-count" class="metric-value">0</div>
+                    <div class="metric-label">Requests Sent</div>
+                </div>
+                <div class="metric">
+                    <div id="responses-count" class="metric-value">0</div>
+                    <div class="metric-label">Responses Received</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h3>🛠️ D365FO Operations</h3>
+            <button id="test-connection" class="button" disabled>Test Connection</button>
+            <button id="get-environment" class="button" disabled>Get Environment Info</button>
+            <button id="search-entities" class="button" disabled>Search Customer Entities</button>
+            <button id="list-profiles" class="button" disabled>List Profiles</button>
+            <button id="get-tools" class="button" disabled>List Available Tools</button>
+        </div>
+
+        <div class="card">
+            <h3>📈 Environment Status</h3>
+            <div id="environment-info">
+                <p style="color: #666; font-style: italic;">Connect to server to view environment information</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>🔍 Entity Search Results</h3>
+        <div id="entities-list" class="entity-list">
+            <p style="color: #666; font-style: italic;">No entities loaded. Click "Search Customer Entities" to populate.</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>📋 Activity Log</h3>
+        <button id="clear-log" class="button" style="float: right;">Clear Log</button>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        class D365FOSSEClient {
+            constructor() {
+                this.eventSource = null;
+                this.isConnected = false;
+                this.requestId = 1;
+                this.requestsCount = 0;
+                this.responsesCount = 0;
+                this.pendingRequests = new Map();
+                
+                this.initializeEventListeners();
+            }
+            
+            initializeEventListeners() {
+                // Connection controls
+                document.getElementById('connect-btn').addEventListener('click', () => this.connect());
+                document.getElementById('disconnect-btn').addEventListener('click', () => this.disconnect());
+                
+                // D365FO operations
+                document.getElementById('test-connection').addEventListener('click', () => this.testConnection());
+                document.getElementById('get-environment').addEventListener('click', () => this.getEnvironmentInfo());
+                document.getElementById('search-entities').addEventListener('click', () => this.searchEntities());
+                document.getElementById('list-profiles').addEventListener('click', () => this.listProfiles());
+                document.getElementById('get-tools').addEventListener('click', () => this.getTools());
+                
+                // Utility
+                document.getElementById('clear-log').addEventListener('click', () => this.clearLog());
+            }
+            
+            connect() {
+                const serverUrl = document.getElementById('server-url').value;
+                const sseUrl = `${serverUrl}/sse`;
+                
+                this.log('info', `Connecting to ${sseUrl}...`);
+                this.updateConnectionStatus('connecting');
+                
+                try {
+                    this.eventSource = new EventSource(sseUrl);
+                    
+                    this.eventSource.onopen = () => {
+                        this.isConnected = true;
+                        this.updateConnectionStatus('connected');
+                        this.enableOperationButtons(true);
+                        this.log('success', 'Connected to FastMCP SSE server');
+                    };
+                    
+                    this.eventSource.onmessage = (event) => {
+                        this.handleMessage(event.data);
+                    };
+                    
+                    this.eventSource.onerror = (error) => {
+                        this.log('error', `Connection error: ${error.type || 'Unknown error'}`);
+                        this.disconnect();
+                    };
+                    
+                } catch (error) {
+                    this.log('error', `Failed to connect: ${error.message}`);
+                    this.updateConnectionStatus('disconnected');
+                }
+            }
+            
+            disconnect() {
+                if (this.eventSource) {
+                    this.eventSource.close();
+                    this.eventSource = null;
+                }
+                
+                this.isConnected = false;
+                this.updateConnectionStatus('disconnected');
+                this.enableOperationButtons(false);
+                this.log('info', 'Disconnected from server');
+            }
+            
+            updateConnectionStatus(status) {
+                const statusElement = document.getElementById('connection-status');
+                statusElement.className = `status ${status}`;
+                statusElement.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+                
+                document.getElementById('connect-btn').disabled = (status === 'connected' || status === 'connecting');
+                document.getElementById('disconnect-btn').disabled = (status === 'disconnected');
+            }
+            
+            enableOperationButtons(enabled) {
+                const buttons = ['test-connection', 'get-environment', 'search-entities', 'list-profiles', 'get-tools'];
+                buttons.forEach(id => {
+                    document.getElementById(id).disabled = !enabled;
+                });
+            }
+            
+            async sendRequest(method, params = {}) {
+                if (!this.isConnected) {
+                    this.log('error', 'Not connected to server');
+                    return;
+                }
+                
+                const requestId = this.requestId++;
+                const request = {
+                    jsonrpc: "2.0",
+                    id: requestId,
+                    method: method,
+                    params: params
+                };
+                
+                this.requestsCount++;
+                this.updateMetrics();
+                
+                try {
+                    const serverUrl = document.getElementById('server-url').value;
+                    const response = await fetch(`${serverUrl}/sse/send`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(request)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
+                    this.log('info', `Sent ${method} request (ID: ${requestId})`);
+                    
+                } catch (error) {
+                    this.log('error', `Failed to send request: ${error.message}`);
+                }
+            }
+            
+            handleMessage(data) {
+                try {
+                    const message = JSON.parse(data);
+                    this.responsesCount++;
+                    this.updateMetrics();
+                    
+                    if (message.error) {
+                        this.log('error', `Error response: ${JSON.stringify(message.error)}`);
+                        return;
+                    }
+                    
+                    if (message.method && message.method.startsWith('tools/call')) {
+                        this.handleToolResponse(message);
+                    } else if (message.method === 'tools/list') {
+                        this.handleToolsList(message);
+                    } else {
+                        this.log('info', `Received: ${JSON.stringify(message, null, 2)}`);
+                    }
+                    
+                } catch (error) {
+                    this.log('error', `Failed to parse message: ${error.message}`);
+                }
+            }
+            
+            handleToolResponse(message) {
+                const result = message.result || {};
+                const toolName = result.toolName || 'Unknown Tool';
+                
+                this.log('success', `${toolName} completed`);
+                
+                // Handle specific tool responses
+                if (toolName === 'd365fo_test_connection') {
+                    this.handleConnectionTest(result);
+                } else if (toolName === 'd365fo_get_environment_info') {
+                    this.handleEnvironmentInfo(result);
+                } else if (toolName === 'd365fo_search_entities') {
+                    this.handleEntitiesSearch(result);
+                } else if (toolName === 'd365fo_list_profiles') {
+                    this.handleProfilesList(result);
+                }
+            }
+            
+            handleToolsList(message) {
+                const tools = message.result?.tools || [];
+                this.log('success', `Found ${tools.length} available tools`);
+                
+                // Log first few tools
+                tools.slice(0, 5).forEach(tool => {
+                    this.log('info', `Tool: ${tool.name}`);
+                });
+            }
+            
+            handleConnectionTest(result) {
+                if (result.success) {
+                    const responseTime = result.response_time_ms || 'N/A';
+                    this.log('success', `D365FO connection successful (${responseTime}ms)`);
+                } else {
+                    this.log('error', `D365FO connection failed: ${result.error_message || 'Unknown error'}`);
+                }
+            }
+            
+            handleEnvironmentInfo(result) {
+                if (result.success) {
+                    const envInfo = result.environment_info || {};
+                    const html = `
+                        <div><strong>Base URL:</strong> ${envInfo.base_url || 'N/A'}</div>
+                        <div><strong>Application Version:</strong> ${envInfo.application_version || 'N/A'}</div>
+                        <div><strong>Platform Version:</strong> ${envInfo.platform_version || 'N/A'}</div>
+                        <div><strong>Build Version:</strong> ${envInfo.build_version || 'N/A'}</div>
+                    `;
+                    document.getElementById('environment-info').innerHTML = html;
+                    this.log('success', 'Environment information updated');
+                } else {
+                    this.log('error', `Failed to get environment info: ${result.error_message || 'Unknown error'}`);
+                }
+            }
+            
+            handleEntitiesSearch(result) {
+                if (result.success) {
+                    const entities = result.entities || [];
+                    let html = '';
+                    
+                    if (entities.length === 0) {
+                        html = '<p style="color: #666; font-style: italic;">No customer entities found</p>';
+                    } else {
+                        entities.forEach(entity => {
+                            html += `
+                                <div class="entity-item">
+                                    <strong>${entity.name || 'N/A'}</strong><br>
+                                    <small>${entity.label_text || 'No description'}</small><br>
+                                    <small>Data Service: ${entity.data_service_enabled ? '✅' : '❌'} | 
+                                           DMF: ${entity.data_management_enabled ? '✅' : '❌'}</small>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    document.getElementById('entities-list').innerHTML = html;
+                    this.log('success', `Found ${entities.length} customer entities`);
+                } else {
+                    this.log('error', `Entity search failed: ${result.error_message || 'Unknown error'}`);
+                }
+            }
+            
+            handleProfilesList(result) {
+                if (result.success) {
+                    const profiles = result.profiles || [];
+                    this.log('success', `Found ${profiles.length} profiles`);
+                    profiles.forEach(profile => {
+                        const defaultTag = profile.is_default ? ' (default)' : '';
+                        this.log('info', `Profile: ${profile.name}${defaultTag}`);
+                    });
+                } else {
+                    this.log('error', `Profile listing failed: ${result.error_message || 'Unknown error'}`);
+                }
+            }
+            
+            updateMetrics() {
+                document.getElementById('requests-count').textContent = this.requestsCount;
+                document.getElementById('responses-count').textContent = this.responsesCount;
+            }
+            
+            log(level, message) {
+                const log = document.getElementById('log');
+                const timestamp = new Date().toLocaleTimeString();
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${level}`;
+                entry.textContent = `[${timestamp}] ${message}`;
+                
+                log.appendChild(entry);
+                log.scrollTop = log.scrollHeight;
+            }
+            
+            clearLog() {
+                document.getElementById('log').innerHTML = '';
+            }
+            
+            // Operation methods
+            testConnection() {
+                this.sendRequest('tools/call', {
+                    name: 'd365fo_test_connection',
+                    arguments: {}
+                });
+            }
+            
+            getEnvironmentInfo() {
+                this.sendRequest('tools/call', {
+                    name: 'd365fo_get_environment_info',
+                    arguments: {}
+                });
+            }
+            
+            searchEntities() {
+                this.sendRequest('tools/call', {
+                    name: 'd365fo_search_entities',
+                    arguments: {
+                        pattern: 'customer',
+                        limit: 10,
+                        data_service_enabled: true
+                    }
+                });
+            }
+            
+            listProfiles() {
+                this.sendRequest('tools/call', {
+                    name: 'd365fo_list_profiles',
+                    arguments: {}
+                });
+            }
+            
+            getTools() {
+                this.sendRequest('tools/list');
+            }
+        }
+        
+        // Initialize the client when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.d365foClient = new D365FOSSEClient();
+        });
+    </script>
+</body>
+</html>

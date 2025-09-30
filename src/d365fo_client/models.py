@@ -8,7 +8,7 @@ from enum import Enum, StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from .utils import get_environment_cache_directory
+from .utils import get_default_cache_directory
 
 if TYPE_CHECKING:
     from typing import ForwardRef
@@ -60,18 +60,6 @@ class ODataBindingKind(StrEnum):
     UNBOUND = "Unbound"
 
 
-class SyncStrategy(StrEnum):
-    """Metadata synchronization strategies"""
-
-    FULL = "full"
-    INCREMENTAL = "incremental"
-    ENTITIES_ONLY = "entities_only"
-    LABELS_ONLY = "labels_only"
-    SHARING_MODE = "sharing_mode"
-    FULL_WITHOUT_LABELS = "full_without_labels"
-
-
-
 class Cardinality(StrEnum):
     """Navigation Property Cardinality"""
 
@@ -81,39 +69,142 @@ class Cardinality(StrEnum):
 
 @dataclass
 class FOClientConfig:
-    """Configuration for F&O Client"""
+    """Configuration for F&O Client
 
+    This class handles all configuration options for connecting to and interacting
+    with Microsoft Dynamics 365 Finance & Operations environments.
+
+    Authentication is handled through credential_source:
+    - If None: Uses Azure Default Credentials (DefaultAzureCredential)
+    - If provided: Uses the specified credential source (environment vars, Key Vault, etc.)
+    """
+
+    # Core connection settings
     base_url: str
-    auth_mode: Optional[str] = "defaut" # default | client_credentials
-    client_id: Optional[str] = None
-    client_secret: Optional[str] = None
-    tenant_id: Optional[str] = None
-    use_default_credentials: bool = True
     verify_ssl: bool = False
-    metadata_cache_dir: str = None
     timeout: int = 30
-    # Label cache configuration
-    use_label_cache: bool = True
-    label_cache_expiry_minutes: int = 60
-    # Metadata cache configuration
-    enable_metadata_cache: bool = True
-    metadata_sync_interval_minutes: int = 60
-    cache_ttl_seconds: int = 300
-    enable_fts_search: bool = True
-    max_memory_cache_size: int = 1000
-    # Cache-first behavior configuration
-    use_cache_first: bool = True
-    # Credential source configuration
+
+    # Authentication - unified through credential source
     credential_source: Optional["CredentialSource"] = None
 
+    # Cache configuration
+    metadata_cache_dir: Optional[str] = None
+    enable_metadata_cache: bool = True
+    use_cache_first: bool = True
+    cache_ttl_seconds: int = 300
+    max_memory_cache_size: int = 1000
+    enable_fts_search: bool = True
+
+    # Label cache settings
+    use_label_cache: bool = True
+    label_cache_expiry_minutes: int = 60
+
+    # Sync configuration
+    metadata_sync_interval_minutes: int = 60
+    language: str = "en-US"
+
     def __post_init__(self):
-        """Post-initialization to set default cache directory if not provided."""
+        """Post-initialization validation and setup."""
+        # Set default cache directory if not provided
         if self.metadata_cache_dir is None:
-            cache_dir = (
-                Path.home() / ".d365fo-client"
-            )  # get_environment_cache_directory(self.base_url)
-            cache_dir.mkdir(exist_ok=True)
-            self.metadata_cache_dir = str(cache_dir)
+            self.metadata_cache_dir = get_default_cache_directory()
+
+        # Validate configuration
+        self._validate_config()
+
+    def _validate_config(self) -> None:
+        """Validate configuration parameters."""
+        if not self.base_url:
+            raise ValueError("base_url is required")
+
+        if not self.base_url.startswith(("http://", "https://")):
+            raise ValueError("base_url must start with http:// or https://")
+
+        if self.timeout <= 0:
+            raise ValueError("timeout must be greater than 0")
+
+        if self.label_cache_expiry_minutes <= 0:
+            raise ValueError("label_cache_expiry_minutes must be greater than 0")
+
+        if self.metadata_sync_interval_minutes <= 0:
+            raise ValueError("metadata_sync_interval_minutes must be greater than 0")
+
+        if self.cache_ttl_seconds <= 0:
+            raise ValueError("cache_ttl_seconds must be greater than 0")
+
+        if self.max_memory_cache_size <= 0:
+            raise ValueError("max_memory_cache_size must be greater than 0")
+
+    @property
+    def uses_default_credentials(self) -> bool:
+        """Check if using Azure Default Credentials."""
+        return self.credential_source is None
+
+    @property
+    def uses_credential_source(self) -> bool:
+        """Check if using a specific credential source."""
+        return self.credential_source is not None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization."""
+        from dataclasses import asdict
+        data = asdict(self)
+
+        # Handle credential_source serialization
+        if self.credential_source is not None:
+            data["credential_source"] = self.credential_source.to_dict()
+
+        return data
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "FOClientConfig":
+        """Create from dictionary with validation and migration."""
+        # Migrate legacy credential fields to credential_source
+        migrated_data = cls._migrate_legacy_credentials(data.copy())
+
+        # Handle credential_source deserialization
+        if "credential_source" in migrated_data and migrated_data["credential_source"] is not None:
+            from .credential_sources import CredentialSource
+            credential_source_data = migrated_data["credential_source"]
+            try:
+                migrated_data["credential_source"] = CredentialSource.from_dict(credential_source_data)
+            except Exception:
+                migrated_data["credential_source"] = None
+
+        # Filter out unknown and deprecated fields
+        valid_fields = {f.name for f in cls.__dataclass_fields__.values()}
+        filtered_data = {k: v for k, v in migrated_data.items() if k in valid_fields}
+
+        return cls(**filtered_data)
+
+    @classmethod
+    def _migrate_legacy_credentials(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Migrate legacy credential fields to credential_source."""
+        # Check for legacy credential fields
+        legacy_fields = ["client_id", "client_secret", "tenant_id", "auth_mode", "use_default_credentials"]
+        has_legacy_creds = any(field in data for field in legacy_fields)
+
+        if has_legacy_creds and "credential_source" not in data:
+            # Determine if we should use default credentials
+            use_default = data.get("use_default_credentials", True)
+            # Check if explicit credentials are provided
+            client_id = data.get("client_id")
+            client_secret = data.get("client_secret")
+            tenant_id = data.get("tenant_id")
+
+            has_explicit_creds = all([client_id, client_secret, tenant_id])
+
+            if not use_default and has_explicit_creds:
+                # Create environment credential source for backward compatibility
+                from .credential_sources import EnvironmentCredentialSource
+                data["credential_source"] = EnvironmentCredentialSource().to_dict()
+            # If use_default or no explicit creds, credential_source remains None (default creds)
+
+        # Remove legacy fields
+        for field in legacy_fields:
+            data.pop(field, None)
+
+        return data
 
 
 @dataclass
@@ -486,20 +577,20 @@ class ActionTypeInfo:
         }
 
 
-@dataclass
-class ActionParameterInfo:
-    """Enhanced action parameter information"""
+# @dataclass
+# class ActionParameterInfo:
+#     """Enhanced action parameter information"""
 
-    name: str
-    type: "ActionTypeInfo"
-    parameter_order: int = 0
+#     name: str
+#     type: "ActionTypeInfo"
+#     parameter_order: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "name": self.name,
-            "type": self.type.to_dict(),
-            "parameter_order": self.parameter_order,
-        }
+#     def to_dict(self) -> Dict[str, Any]:
+#         return {
+#             "name": self.name,
+#             "type": self.type.to_dict(),
+#             "parameter_order": self.parameter_order,
+#         }
 
 
 @dataclass
@@ -600,21 +691,6 @@ class SearchResults:
             "query_time_ms": self.query_time_ms,
             "cache_hit": self.cache_hit,
         }
-
-
-@dataclass
-class SyncResult:
-    """Metadata synchronization result"""
-
-    sync_type: str  # full|incremental|skipped
-    entities_synced: int = 0
-    actions_synced: int = 0
-    enumerations_synced: int = 0
-    labels_synced: int = 0
-    duration_ms: float = 0.0
-    success: bool = True
-    errors: List[str] = field(default_factory=list)
-    reason: Optional[str] = None
 
 
 # ============================================================================
@@ -812,79 +888,3 @@ class VersionDetectionResult:
         }
 
 
-@dataclass
-class SyncResultV2:
-    """Enhanced synchronization result for v2 with sharing metrics"""
-
-    sync_type: str  # full|incremental|linked|skipped|failed
-    entities_synced: int = 0
-    actions_synced: int = 0
-    enumerations_synced: int = 0
-    labels_synced: int = 0
-    duration_ms: float = 0.0
-    success: bool = True
-    errors: List[str] = field(default_factory=list)
-    reason: Optional[str] = None
-    # V2 specific fields
-    global_version_id: Optional[int] = None
-    was_shared: bool = False
-    reference_count: int = 1
-    storage_saved_bytes: int = 0
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for JSON serialization"""
-        return {
-            "sync_type": self.sync_type,
-            "entities_synced": self.entities_synced,
-            "actions_synced": self.actions_synced,
-            "enumerations_synced": self.enumerations_synced,
-            "labels_synced": self.labels_synced,
-            "duration_ms": self.duration_ms,
-            "success": self.success,
-            "errors": self.errors,
-            "reason": self.reason,
-            "global_version_id": self.global_version_id,
-            "was_shared": self.was_shared,
-            "reference_count": self.reference_count,
-            "storage_saved_bytes": self.storage_saved_bytes,
-        }
-
-
-@dataclass
-class SyncProgress:
-    """Sync progress tracking"""
-
-    global_version_id: int
-    strategy: SyncStrategy
-    phase: str
-    total_steps: int
-    completed_steps: int
-    current_operation: str
-    start_time: datetime
-    estimated_completion: Optional[datetime] = None
-    error: Optional[str] = None
-
-
-@dataclass
-class SyncResult:
-    """Sync operation result"""
-
-    success: bool
-    error: Optional[str]
-    duration_ms: int
-    entity_count: int
-    action_count: int
-    enumeration_count: int
-    label_count: int
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization"""
-        return {
-            "success": self.success,
-            "error": self.error,
-            "duration_ms": self.duration_ms,
-            "entity_count": self.entity_count,
-            "action_count": self.action_count,
-            "enumeration_count": self.enumeration_count,
-            "label_count": self.label_count
-        }

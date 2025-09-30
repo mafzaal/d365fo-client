@@ -30,7 +30,7 @@ class AsyncContextManagerMock:
 def mock_session_manager():
     """Mock session manager"""
     session_manager = Mock()
-    session = AsyncMock()
+    session = Mock()  # Use regular Mock, not AsyncMock for session
     session_manager.get_session = AsyncMock(return_value=session)
     return session_manager, session
 

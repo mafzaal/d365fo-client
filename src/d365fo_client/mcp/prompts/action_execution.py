@@ -75,7 +75,7 @@ Help users discover, understand, and execute D365 Finance & Operations OData act
 
 **Supporting Tools:**
 - `d365fo_search_entities` - Find entities that may have actions
-- `d365fo_query_entities` - Query entity data for context
+- `d365fo_query_entities` - Query entity data with simplified 'eq' filtering
 - `d365fo_get_entity_record` - Get specific entity records for bound actions
 - `d365fo_test_connection` - Test connection to D365FO environment
 - `d365fo_get_environment_info` - Get D365FO version and environment details

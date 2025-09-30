@@ -5,6 +5,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+from d365fo_client.utils import get_default_cache_directory
+
 from .auth import AuthenticationManager
 from .crud import CrudOperations
 from .exceptions import FOClientError
@@ -72,6 +74,7 @@ class FOClient:
         self.metadata_api_ops = MetadataAPIOperations(
             self.session_manager, self.metadata_url, self.label_ops
         )
+     
 
     async def close(self):
         """Close the client session"""
@@ -94,14 +97,15 @@ class FOClient:
         if not self._metadata_initialized and self.config.enable_metadata_cache:
             try:
 
-                cache_dir = Path(self.config.metadata_cache_dir)
+                cache_dir = Path(self.config.metadata_cache_dir or get_default_cache_directory())
 
                 # Initialize metadata cache v2
                 self.metadata_cache = MetadataCacheV2(
                     cache_dir, self.config.base_url, self.metadata_api_ops
                 )
                 # Initialize label operations v2 with cache support
-                self.label_ops.set_label_cache(self.metadata_cache)
+
+                self.label_ops.set_label_cache(self.metadata_cache) 
 
                 await self.metadata_cache.initialize()
 
@@ -349,7 +353,7 @@ class FOClient:
                 return False
 
             # Perform sync using the new sync manager
-            from .models import SyncStrategy
+            from .sync_models import SyncStrategy
 
             strategy = SyncStrategy.FULL if force_refresh else SyncStrategy.INCREMENTAL
 
@@ -922,7 +926,7 @@ class FOClient:
             use_cache_first=use_cache_first,
         )
 
-        return await resolve_labels_generic(entity, self.label_ops)
+        return await resolve_labels_generic(entity, self.label_ops) #type: ignore
 
     async def get_all_public_entities_with_details(
         self, resolve_labels: bool = False, language: str = "en-US"

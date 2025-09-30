@@ -44,13 +44,13 @@ class CrudTools:
         """Get query entities tool definition."""
         return Tool(
             name="d365fo_query_entities",
-            description="Query and retrieve multiple records from D365 Finance & Operations data entities using OData standards. Supports advanced filtering, sorting, field selection, and pagination. Use this tool to search for specific records, generate reports, or perform bulk data analysis. Returns structured JSON data with optional metadata like record counts and pagination links.",
+            description="Query and retrieve multiple records from D365 Finance & Operations data entities using simplified OData filtering. Supports field selection, sorting, and pagination, but uses simplified 'eq' filtering with wildcard patterns only (no complex OData operators). Ideal for basic searches and bulk data retrieval. For complex filtering requirements, retrieve data first and filter programmatically. Returns structured JSON data with optional metadata like record counts and pagination links.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "entityName": {
                         "type": "string",
-                        "description": "The name of the D365FO data entity to query. This should be the public collection name or the entity set name (e.g., 'CustomersV3', 'SalesOrderHeadersV2', 'ItemsV2'). Use metadata discovery tools first to find the correct entity name if unsure.",
+                        "description": "The name of the D365FO data entity to query. This must be the entity's public collection name or entity set name (e.g., 'CustomersV3', 'SalesOrderHeadersV2', 'DataManagementEntities'). Use metadata discovery tools first to find the correct entity name and verify it supports OData operations (data_service_enabled=true).",
                     },
                     "profile": {
                         "type": "string",
@@ -64,7 +64,7 @@ class CrudTools:
                     },
                     "filter": {
                         "type": "string",
-                        "description": 'OData filter expression to restrict which records are returned (OData $filter). Supports standard OData operators: eq (equals), ne (not equals), gt (greater than), ge (greater or equal), lt (less than), le (less or equal), and (), or, not. Examples: "CustomerAccount eq \'CUST001\'", "CreditLimit gt 10000", "Name contains \'Corp\'".',
+                        "description": 'Simplified filter expression using only "eq" (equals) operation with wildcard support. Supported patterns: Basic equality: "FieldName eq \'value\'"; Starts with: "FieldName eq \'value*\'"; Ends with: "FieldName eq \'*value\'"; Contains: "FieldName eq \'*value*\'"; Enum values require full namespace: "StatusField eq Microsoft.Dynamics.DataEntities.EnumType\'EnumValue\'". Examples: "CustomerAccount eq \'CUST001\'", "Name eq \'*Corp*\'", "SalesOrderStatus eq Microsoft.Dynamics.DataEntities.SalesStatus\'OpenOrder\'". Note: Standard OData operators (gt, lt, and, or) are NOT supported.',
                     },
                     "expand": {
                         "type": "array",

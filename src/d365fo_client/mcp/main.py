@@ -3,6 +3,7 @@
 
 import asyncio
 import logging
+import logging.handlers
 import os
 import sys
 from pathlib import Path
@@ -13,32 +14,58 @@ from d365fo_client.mcp import D365FOMCPServer
 
 
 def setup_logging(level: str = "INFO") -> None:
-    """Set up logging for the MCP server.
+    """Set up logging for the MCP server with 24-hour log rotation.
 
     Args:
         level: Logging level
     """
     log_level = getattr(logging, level.upper(), logging.INFO)
 
-    # Create logs directory
-    log_dir = Path.home() / ".d365fo-mcp" / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
+    # Get log file path from environment variable or use default
+    log_file_path = os.getenv("D365FO_LOG_FILE")
+    
+    if log_file_path:
+        # Use custom log file path from environment variable
+        log_file = Path(log_file_path)
+        # Ensure parent directory exists
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        # Use default log file path
+        log_dir = Path.home() / ".d365fo-mcp" / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / "mcp-server.log"
 
     # Clear existing handlers to avoid duplicate logging
     root_logger = logging.getLogger()
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
 
-    # Configure logging
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler(log_dir / "mcp-server.log"),
-            logging.StreamHandler(sys.stderr),
-        ],
-        force=True,  # Force reconfiguration even if logging is already configured
+    # Create rotating file handler - rotates every 24 hours (midnight)
+    file_handler = logging.handlers.TimedRotatingFileHandler(
+        filename=str(log_file),
+        when='midnight',        # Rotate at midnight
+        interval=1,             # Every 1 day
+        backupCount=30,         # Keep 30 days of logs
+        encoding='utf-8',       # Use UTF-8 encoding
+        utc=False              # Use local time for rotation
     )
+    file_handler.setLevel(log_level)
+    
+    # Create console handler
+    console_handler = logging.StreamHandler(sys.stderr)
+    console_handler.setLevel(log_level)
+    
+    # Create formatter
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+
+    # Configure root logger
+    root_logger.setLevel(log_level)
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
 
 
 def load_config() -> Dict[str, Any]:
