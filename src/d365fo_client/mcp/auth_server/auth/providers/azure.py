@@ -311,15 +311,15 @@ class AzureProvider(OAuthProxy):
             return
         
          # Load existing clients from storage if path is provided
-        if self.clients_storage_path:
-            try:
-                client_json_path = Path(self.clients_storage_path) / "clients.json"
-                if client_json_path.exists():
-                    with client_json_path.open("r") as f:
-                        clients_data = json.load(f)
-                        for client_id, client_info in clients_data.items():
-                            # Ensure client_id is a string (it should be from JSON, but type checking requires this)
-                            if isinstance(client_id, str):
-                                self._clients[client_id] = OAuthClientInformationFull.model_validate(client_info)
-            except Exception as e:
-                logger.error(f"Failed to load clients from {client_json_path}: {e}")
+    
+        try:
+            client_json_path = Path(self.clients_storage_path) / "clients.json"
+            if client_json_path.exists():
+                with client_json_path.open("r") as f:
+                    clients_data = json.load(f)
+                    for client_id, client_info in clients_data.items():
+                        # Ensure client_id is a string (it should be from JSON, but type checking requires this)
+                        if isinstance(client_id, str):
+                            self._clients[client_id] = OAuthClientInformationFull.model_validate(client_info)
+        except Exception as e:
+            logger.error(f"Failed to load clients from {client_json_path}: {e}")
