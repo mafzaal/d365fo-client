@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-09-29
+
+### Added
+- **Pydantic Settings Model**: Comprehensive environment variable management with type safety and validation
+  - Added D365FOSettings class with support for 35+ environment variables
+  - Automatic type conversion and validation with pydantic-settings>=2.6.0
+  - Support for .env files and IDE IntelliSense
+  - Utility methods: has_client_credentials(), get_startup_mode()
+- **Custom Log File Support**: D365FO_LOG_FILE environment variable for custom log file paths
+  - Automatic parent directory creation
+  - Backward compatibility with existing logging behavior
+- **Legacy Config Migration**: Automatic detection and migration of legacy configuration files
+  - Field name migration (cache_dir -> metadata_cache_dir, auth_mode -> use_default_credentials)
+  - Backup creation before migration
+  - Comprehensive migration logging
+
+### Changed
+- **Environment Variable Standardization**: Updated all MCP HTTP configuration variables to use D365FO_ prefix
+  - MCP_HTTP_HOST → D365FO_HTTP_HOST
+  - MCP_HTTP_PORT → D365FO_HTTP_PORT
+  - MCP_HTTP_STATELESS → D365FO_HTTP_STATELESS
+  - MCP_HTTP_JSON → D365FO_HTTP_JSON
+  - MCP_MAX_CONCURRENT_REQUESTS → D365FO_MAX_CONCURRENT_REQUESTS
+  - MCP_REQUEST_TIMEOUT → D365FO_REQUEST_TIMEOUT
+  - Maintains backward compatibility through proper fallback handling
+
+### Improved
+- **MCP Return Type Standardization**: Changed all MCP tools to return dictionaries instead of JSON strings
+  - Updated connection tools, CRUD tools, metadata tools, label tools, profile tools, sync tools, and performance tools
+  - Improved type safety and consistency across MCP interface
+- **FastMCP Server Enhancements**: Enhanced server initialization and configuration loading
+  - Comprehensive startup configuration logging with structured output
+  - Improved error handling and graceful shutdown
+  - Better environment variable support and documentation
+- **Parameter Naming Standardization**: Consistent naming conventions across CRUD tools mixin
+- **Profile Management**: Enhanced profile handling and credential source management
+
+### Fixed
+- **Credential Source Serialization**: Resolved authentication failures in Profile.to_client_config()
+  - Fixed 'dict object has no attribute to_dict' error in MCP client manager
+  - Updated ProfileManager methods to handle credential source objects properly
+- **Base URL Formatting**: Corrected authentication scope formatting for proper Azure AD integration
+- **MCP Server Script Path**: Updated d365fo-mcp-server script path to correct module location
+
+### Removed
+- Deprecated example scripts cleanup
+- Legacy credential handling simplification
+
+### Dependencies
+- Bumped `ruff` from 0.13.0 to 0.13.2 (linting tool patch updates: 0.13.0 → 0.13.1 → 0.13.2)
+- Bumped `mypy` from 1.18.1 to 1.18.2 (type checking tool patch update)  
+- Bumped `black` from 25.1.0 to 25.9.0 (code formatter minor update)
+- Bumped `mcp` from 1.14.0 to 1.15.0 (Model Context Protocol SDK updates: 1.14.0 → 1.14.1 → 1.15.0)
+- Bumped `pydantic-settings` from 2.10.1 to 2.11.0 (settings management library minor update)
+- Bumped `pyyaml` from 6.0.2 to 6.0.3 (YAML parser patch update)
+- Bumped `types-pyyaml` from 6.0.12.20250822 to 6.0.12.20250915 (type stubs update)
+- Added `pydantic-settings>=2.6.0` (new dependency for environment variable management)
+- Bumped `docker/login-action` from 3.5.0 to 3.6.0 (CI dependency for Docker workflow)
+
 ## [0.2.4] - 2025-09-21
 
 ### Added

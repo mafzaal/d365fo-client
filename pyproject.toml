@@ -1,6 +1,6 @@
 [project]
 name = "d365fo-client"
-version = "0.2.4"
+version = "0.3.0"
 description = "Microsoft Dynamics 365 Finance & Operations client"
 readme = "README.md"
 license = "MIT"

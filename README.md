@@ -39,6 +39,16 @@ Both servers provide identical functionality but the FastMCP implementation offe
 - **Multi-language support** with label resolution and localization capabilities
 - **Enterprise security** with Azure AD integration, Key Vault support, and audit logging
 
+### New in v0.3.0
+
+- **🔧 Pydantic Settings Model**: Type-safe environment variable management with validation for 35+ configuration options
+- **📂 Custom Log File Support**: `D365FO_LOG_FILE` environment variable for flexible log file paths
+- **🔄 Legacy Config Migration**: Automatic detection and migration of legacy configuration files
+- **🌐 Environment Variable Standardization**: All MCP HTTP variables now use `D365FO_` prefix for consistency
+- **⚡ Enhanced FastMCP Server**: Improved startup configuration, error handling, and graceful shutdown
+- **🔀 MCP Return Type Standardization**: All MCP tools now return dictionaries instead of JSON strings for better type safety
+- **🛠️ Enhanced Configuration**: Support for `.env` files and comprehensive environment variable documentation
+
 ### Quick Start
 
 #### Installation and Setup
@@ -708,19 +718,53 @@ d365fo-mcp-server
 
 #### Advanced Configuration
 
+**New in v0.3.0**: Comprehensive environment variable management with type safety and validation using Pydantic settings.
+
 Create a configuration file or set additional environment variables:
 
 ```bash
-# Optional: Logging configuration
-export D365FO_LOG_LEVEL="DEBUG"
+# === Core D365FO Connection Settings ===
+export D365FO_BASE_URL="https://your-environment.dynamics.com"
+export D365FO_CLIENT_ID="your-client-id"
+export D365FO_CLIENT_SECRET="your-client-secret"
+export D365FO_TENANT_ID="your-tenant-id"
 
-# Optional: Cache settings
-export D365FO_CACHE_DIR="/custom/cache/path"
+# === Logging Configuration ===
+export D365FO_LOG_LEVEL="DEBUG"                        # DEBUG, INFO, WARNING, ERROR, CRITICAL
+export D365FO_LOG_FILE="/custom/path/server.log"       # Custom log file path
 
-# Optional: Performance tuning
-export D365FO_CONNECTION_TIMEOUT="60"
-export D365FO_MAX_CONCURRENT_REQUESTS="10"
+# === MCP Server Transport Settings (v0.3.0+) ===
+export D365FO_MCP_TRANSPORT="stdio"                    # stdio, sse, http, streamable-http
+export D365FO_MCP_HTTP_HOST="0.0.0.0"                 # HTTP host (default: 127.0.0.1)
+export D365FO_MCP_HTTP_PORT="8000"                     # HTTP port (default: 8000)
+export D365FO_MCP_HTTP_STATELESS="true"                # Enable stateless mode
+export D365FO_MCP_HTTP_JSON="true"                     # Enable JSON response mode
+
+# === Cache and Performance Settings ===
+export D365FO_CACHE_DIR="/custom/cache/path"           # General cache directory
+export D365FO_META_CACHE_DIR="/custom/metadata/cache"  # Metadata cache directory
+export D365FO_LABEL_CACHE="true"                       # Enable label caching (default: true)
+export D365FO_LABEL_EXPIRY="1440"                      # Label cache expiry in minutes (24 hours)
+export D365FO_USE_CACHE_FIRST="true"                   # Use cache before API calls
+
+# === Connection and Performance Tuning ===
+export D365FO_TIMEOUT="60"                             # General timeout in seconds
+export D365FO_MCP_MAX_CONCURRENT_REQUESTS="10"         # Max concurrent requests
+export D365FO_MCP_REQUEST_TIMEOUT="30"                 # Request timeout in seconds
+export D365FO_VERIFY_SSL="true"                        # Verify SSL certificates
+
+# === MCP Authentication Settings (Advanced) ===
+export D365FO_MCP_AUTH_CLIENT_ID="your-mcp-client-id"
+export D365FO_MCP_AUTH_CLIENT_SECRET="your-mcp-client-secret"
+export D365FO_MCP_AUTH_TENANT_ID="your-mcp-tenant-id"
+export D365FO_MCP_AUTH_BASE_URL="http://localhost:8000"
+export D365FO_MCP_AUTH_REQUIRED_SCOPES="User.Read,email,openid,profile"
+
+# === Debug Settings ===
+export DEBUG="true"                                     # Enable debug mode
 ```
+
+**Environment File Support**: You can also create a `.env` file in your project directory with these variables for development convenience.
 
 ## Python Client Library
 
@@ -741,6 +785,9 @@ export D365FO_MAX_CONCURRENT_REQUESTS="10"
 - 📋 **Metadata Scripts**: PowerShell and Python utilities for entity, enumeration, and action discovery
 - 🔐 **Enhanced Credential Management**: Support for Azure Key Vault and multiple credential sources
 - 📊 **Advanced Sync Management**: Session-based synchronization with detailed progress tracking
+- **🔧 NEW v0.3.0**: Pydantic settings model with type-safe environment variable validation
+- **📂 NEW v0.3.0**: Custom log file path support and flexible logging configuration
+- **🔄 NEW v0.3.0**: Automatic legacy configuration migration and compatibility layer
 
 ### Installation
 
@@ -944,6 +991,38 @@ async with create_client("https://your-fo-environment.dynamics.com") as client:
 
 ## Configuration
 
+### Environment Variable Management (New in v0.3.0)
+
+The d365fo-client now includes a comprehensive **Pydantic settings model** for type-safe environment variable management:
+
+```python
+from d365fo_client import D365FOSettings, get_settings
+
+# Get type-safe settings instance
+settings = get_settings()
+
+# Access settings with full IntelliSense support
+print(f"Base URL: {settings.base_url}")
+print(f"Log Level: {settings.log_level}")
+print(f"Cache Directory: {settings.cache_dir}")
+
+# Check configuration state
+if settings.has_client_credentials():
+    print("Client credentials configured")
+
+startup_mode = settings.get_startup_mode()  # "profile_only", "default_auth", "client_credentials"
+
+# Convert to environment dictionary for external tools
+env_vars = settings.to_env_dict()
+```
+
+**Key Benefits:**
+- **Type Safety**: Automatic validation and type conversion for all 35+ environment variables
+- **IDE Support**: Full IntelliSense and autocompletion for configuration options
+- **Environment Files**: Support for `.env` files in development
+- **Comprehensive Defaults**: Sensible defaults for all configuration options
+- **Validation**: Built-in validation for URLs, ports, timeouts, and other settings
+
 ### Authentication Options
 
 ```python
@@ -981,6 +1060,20 @@ config = FOClientConfig(
     use_label_cache=True,  # Enable label caching
     label_cache_expiry_minutes=120  # Cache for 2 hours
 )
+```
+
+### Legacy Configuration Migration (New in v0.3.0)
+
+The d365fo-client automatically detects and migrates legacy configuration files:
+
+- **Automatic Detection**: Identifies legacy configuration patterns (missing `verify_ssl`, outdated field names)
+- **Field Migration**: Updates `cache_dir` → `metadata_cache_dir`, `auth_mode` → `use_default_credentials`
+- **Backup Creation**: Creates backup of original configuration before migration
+- **Seamless Upgrade**: Ensures smooth transition from older versions without manual intervention
+
+```python
+# Legacy configurations are automatically migrated when FastMCP server starts
+# No manual intervention required - migration happens transparently
 ```
 
 ## Core Operations
