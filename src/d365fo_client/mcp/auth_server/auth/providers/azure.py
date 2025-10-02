@@ -284,42 +284,110 @@ class AzureProvider(OAuthProxy):
 
     async def register_client(self, client_info: OAuthClientInformationFull) -> None:
         """Register a new MCP client, validating redirect URIs if configured."""
-        result = await super().register_client(client_info)
-        self._save_clients()
-        return result
+        await super().register_client(client_info)
+        try:
+            self._save_clients()
+        except Exception as e:
+            logger.error(f"Failed to persist client registration: {e}")
+            # Don't raise here as the client is already registered in memory
 
-    def _save_clients(self) -> str | None:
+    def _save_clients(self) -> None:
+        """Save client data to persistent storage.
+        
+        Raises:
+            ValueError: If clients_storage_path is not configured
+            OSError: If file operations fail
+        """
         if not self.clients_storage_path:
             logger.warning("No clients storage path configured. Skipping client save.")
-            return None
-        
-        # Store self._clients to clients.json
-        try:
-            client_json_path = Path(self.clients_storage_path) / "clients.json"
-            # Convert OAuthClientInformationFull objects to dictionaries for JSON serialization
-            clients_dict = {
-                client_id: client.model_dump() if hasattr(client, 'model_dump') else client.__dict__
-                for client_id, client in self._clients.items()
-            }
-            with client_json_path.open("w") as f:
-                json.dump(clients_dict, f, indent=2)
-        except Exception as e:
-            logger.error(f"Failed to write client data to {client_json_path}: {e}")
-
-    def _load_clients(self) -> None:
-        if not self.clients_storage_path:
             return
         
-         # Load existing clients from storage if path is provided
-    
+        try:
+            # Ensure the storage directory exists
+            storage_dir = Path(self.clients_storage_path)
+            storage_dir.mkdir(parents=True, exist_ok=True)
+            
+            client_json_path = storage_dir / "clients.json"
+            
+            # Convert OAuthClientInformationFull objects to dictionaries for JSON serialization
+            # Use mode="json" to properly serialize complex types like AnyUrl
+            clients_dict = {}
+            for client_id, client in self._clients.items():
+                try:
+                    if hasattr(client, 'model_dump'):
+                        # Use json mode to ensure proper serialization of complex types (e.g., AnyUrl)
+                        clients_dict[client_id] = client.model_dump(mode="json")
+                    else:
+                        # Fallback for non-Pydantic objects (shouldn't happen with OAuthClientInformationFull)
+                        clients_dict[client_id] = client.__dict__
+                except Exception as client_error:
+                    logger.error(f"Failed to serialize client {client_id}: {client_error}")
+                    continue
+            
+            # Write to temporary file first, then rename for atomic operation
+            temp_path = client_json_path.with_suffix('.tmp')
+            with temp_path.open("w") as f:
+                json.dump(clients_dict, f, indent=2, ensure_ascii=False)
+            
+            # Atomic rename
+            temp_path.replace(client_json_path)
+            
+            logger.debug(f"Successfully saved {len(clients_dict)} clients to {client_json_path}")
+            
+        except Exception as e:
+            logger.error(f"Failed to save client data to {self.clients_storage_path}: {e}")
+            raise
+
+    def _load_clients(self) -> None:
+        """Load client data from persistent storage.
+        
+        Loads clients from the JSON file if it exists and is valid.
+        Invalid client data is logged and skipped.
+        """
+        if not self.clients_storage_path:
+            logger.debug("No clients storage path configured. Skipping client load.")
+            return
+        
         try:
             client_json_path = Path(self.clients_storage_path) / "clients.json"
-            if client_json_path.exists():
-                with client_json_path.open("r") as f:
-                    clients_data = json.load(f)
-                    for client_id, client_info in clients_data.items():
-                        # Ensure client_id is a string (it should be from JSON, but type checking requires this)
-                        if isinstance(client_id, str):
-                            self._clients[client_id] = OAuthClientInformationFull.model_validate(client_info)
+            
+            if not client_json_path.exists():
+                logger.debug(f"Client storage file {client_json_path} does not exist. Starting with empty client registry.")
+                return
+            
+            # Read and parse the JSON file
+            with client_json_path.open("r", encoding="utf-8") as f:
+                clients_data = json.load(f)
+            
+            if not isinstance(clients_data, dict):
+                logger.error(f"Invalid client data format in {client_json_path}: expected dict, got {type(clients_data)}")
+                return
+            
+            loaded_count = 0
+            for client_id, client_info in clients_data.items():
+                try:
+                    # Validate client_id is a string
+                    if not isinstance(client_id, str):
+                        logger.warning(f"Skipping client with non-string ID: {client_id} (type: {type(client_id)})")
+                        continue
+                    
+                    # Validate and restore the client object
+                    if not isinstance(client_info, dict):
+                        logger.warning(f"Skipping client {client_id}: invalid data format (expected dict, got {type(client_info)})")
+                        continue
+                    
+                    # Use Pydantic model_validate to restore the object with proper validation
+                    client_obj = OAuthClientInformationFull.model_validate(client_info)
+                    self._clients[client_id] = client_obj
+                    loaded_count += 1
+                    
+                except Exception as client_error:
+                    logger.error(f"Failed to load client {client_id}: {client_error}")
+                    continue
+            
+            logger.info(f"Successfully loaded {loaded_count} clients from {client_json_path}")
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in client storage file {client_json_path}: {e}")
         except Exception as e:
             logger.error(f"Failed to load clients from {client_json_path}: {e}")

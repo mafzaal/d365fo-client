@@ -5,7 +5,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Literal, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .utils import get_default_cache_directory
@@ -104,7 +104,15 @@ class D365FOSettings(BaseSettings):
         description="MCP authentication required scopes (comma-separated)",
         alias="D365FO_MCP_AUTH_REQUIRED_SCOPES"
     )
-    
+
+    # === MCP API Key Authentication Settings ===
+
+    mcp_api_key_value: Optional[SecretStr] = Field(
+        default=None,
+        description="API key value for authentication (send as Authorization: Bearer <key>)",
+        alias="D365FO_MCP_API_KEY_VALUE"
+    )
+
     # === MCP Server Transport Settings ===
     
     mcp_transport: TransportProtocol = Field(
@@ -285,6 +293,10 @@ class D365FOSettings(BaseSettings):
     def has_mcp_auth_credentials(self) -> bool:
         """Check if MCP authentication credentials are configured."""
         return all([self.mcp_auth_client_id, self.mcp_auth_client_secret, self.mcp_auth_tenant_id])
+
+    def has_mcp_api_key_auth(self) -> bool:
+        """Check if API key authentication is configured."""
+        return self.mcp_api_key_value is not None
     
     def get_startup_mode(self) -> Literal["profile_only", "default_auth", "client_credentials"]:
         """Determine startup mode based on configuration."""

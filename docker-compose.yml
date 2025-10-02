@@ -1,0 +1,30 @@
+services:
+  d365fo-mcp-server:
+    build: .
+    container_name: d365fo-mcp-server
+    env_file:
+      - .env
+    environment:
+      - D365FO_LOG_LEVEL=${D365FO_LOG_LEVEL:-DEBUG}
+      - D365FO_MCP_TRANSPORT=${D365FO_MCP_TRANSPORT:-http}
+      - D365FO_MCP_HTTP_HOST=${D365FO_MCP_HTTP_HOST:-0.0.0.0}
+      - D365FO_MCP_HTTP_PORT=${D365FO_MCP_HTTP_PORT:-8000}
+      - D365FO_CLIENT_ID=${D365FO_CLIENT_ID:-}
+      - D365FO_CLIENT_SECRET=${D365FO_CLIENT_SECRET:-}
+      - D365FO_TENANT_ID=${D365FO_TENANT_ID:-}
+      - D365FO_MCP_AUTH_CLIENT_ID=${D365FO_MCP_AUTH_CLIENT_ID:-}
+      - D365FO_MCP_AUTH_CLIENT_SECRET=${D365FO_MCP_AUTH_CLIENT_SECRET:-}
+      - D365FO_MCP_AUTH_TENANT_ID=${D365FO_MCP_AUTH_TENANT_ID:-}
+      - D365FO_MCP_AUTH_BASE_URL=${D365FO_MCP_AUTH_BASE_URL:-http://localhost:8806}
+      - D365FO_MCP_AUTH_REQUIRED_SCOPES=${D365FO_MCP_AUTH_REQUIRED_SCOPES:-User.Read,email,openid,profile}
+      # - D365FO_MCP_API_KEY_VALUE=${D365FO_MCP_API_KEY_VALUE:-your-super-secret-key-here}
+      # - D365FO_MCP_API_KEY_HEADER_NAME=${D365FO_MCP_API_KEY_HEADER_NAME:-X-API-Key}
+    ports:
+      - "8806:8000"
+    volumes:
+      - d365fo-mcp:/home/mcp_user/
+    restart: unless-stopped
+
+volumes:
+  d365fo-mcp:
+    external: true

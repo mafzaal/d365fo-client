@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2025-10-01
+
+### Added
+- **API Key Authentication Provider**: New authentication provider for MCP server
+  - Added auth/providers/apikey.py for secure API key validation
+  - Enhanced fastmcp_main.py with API key authentication support
+  - Comprehensive test suite for API key functionality
+  - Integration and unit tests for secure authentication flow
+
+### Fixed
+- **Azure OAuth Provider Client Persistence**: Resolved serialization and reliability issues
+  - Fixed OAuthClientInformationFull serialization using Pydantic mode="json"
+  - Implemented atomic write operations for client data persistence
+  - Enhanced error handling and recovery for individual client failures
+  - Improved _save_clients with directory creation and UTF-8 encoding
+  - Enhanced _load_clients with robust validation and error recovery
+  - Added graceful degradation when storage is unavailable
+  - Support for Unicode characters in client data (18 comprehensive test cases added)
+
+### Improved
+- **Docker Configuration**: Enhanced container setup with environment variables
+- **Test Coverage**: Added comprehensive test suites for authentication providers
+
 ## [0.3.0] - 2025-09-29
 
 ### Added
