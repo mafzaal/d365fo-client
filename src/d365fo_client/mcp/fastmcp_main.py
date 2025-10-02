@@ -19,6 +19,7 @@ from d365fo_client.mcp.fastmcp_utils import create_default_profile_if_needed, lo
 from d365fo_client.profile_manager import ProfileManager
 from d365fo_client.settings import get_settings
 from mcp.server.auth.settings import  AuthSettings,ClientRegistrationOptions
+from d365fo_client.mcp.auth_server.auth.providers.apikey import APIKeyVerifier
 
 
 
@@ -120,6 +121,7 @@ Environment Variables:
   D365FO_MCP_AUTH_TENANT_ID    Azure AD tenant ID for authentication
   D365FO_MCP_AUTH_BASE_URL     http://localhost:8000
   D365FO_MCP_AUTH_REQUIRED_SCOPES  User.Read,email,openid,profile
+  D365FO_MCP_API_KEY_VALUE      API key for authentication (send as: Authorization: Bearer <key>)
   D365FO_LOG_LEVEL               Logging level (DEBUG, INFO, WARNING, ERROR)
   D365FO_LOG_FILE                Custom log file path (default: ~/.d365fo-mcp/logs/fastmcp-server.log)
   D365FO_META_CACHE_DIR          Metadata cache directory (default: ~/.d365fo-mcp/cache)
@@ -254,63 +256,93 @@ logger.info(f"Startup Mode: {settings.get_startup_mode()}")
 logger.info(f"Client Credentials: {'Configured' if settings.has_client_credentials() else 'Not configured'}")
 logger.info("====================================")
 
-if is_remote_transport and not settings.has_mcp_auth_credentials():
+# Validate authentication for remote transports
+if is_remote_transport:
+    has_oauth = settings.has_mcp_auth_credentials()
+    has_api_key = settings.has_mcp_api_key_auth()
 
-    logger.error("Warning: Client credentials (D365FO_MCP_AUTH_CLIENT_ID and D365FO_MCP_AUTH_CLIENT_SECRET, D365FO_MCP_AUTH_TENANT_ID,D365FO_MCP_AUTH_BASE_URL and D365FO_MCP_AUTH_REQUIRED_SCOPES) are not set. " +
-                   "Remote transports require authentication to the D365FO environment.")
-    sys.exit(1)    
+    # Must have either OAuth or API key
+    if not has_oauth and not has_api_key:
+        logger.error(
+            "Error: Remote transports (SSE/HTTP) require authentication. "
+            "Please configure either:\n"
+            "  OAuth: D365FO_MCP_AUTH_CLIENT_ID, D365FO_MCP_AUTH_CLIENT_SECRET, "
+            "D365FO_MCP_AUTH_TENANT_ID, D365FO_MCP_AUTH_BASE_URL, D365FO_MCP_AUTH_REQUIRED_SCOPES\n"
+            "  OR\n"
+            "  API Key: D365FO_MCP_API_KEY_VALUE, D365FO_MCP_API_KEY_HEADER_NAME (optional)"
+        )
+        sys.exit(1)
 
-auth_provider: AzureProvider | None = None
+    # OAuth takes precedence if both are configured
+    if has_oauth and has_api_key:
+        logger.warning(
+            "Both OAuth and API Key authentication configured. "
+            "Using OAuth (takes precedence)."
+        )    
+
+# Initialize authentication provider
+auth_provider: AzureProvider | APIKeyVerifier | None = None  # type: ignore
 auth: AuthSettings | None = None
 
 if is_remote_transport:
-    assert settings.mcp_auth_client_id is not None
-    assert settings.mcp_auth_client_secret is not None
-    assert settings.mcp_auth_tenant_id is not None
-    assert settings.mcp_auth_base_url is not None
-    assert settings.mcp_auth_required_scopes is not None
-    required_scopes=settings.mcp_auth_required_scopes_list()
+    has_oauth = settings.has_mcp_auth_credentials()
+    has_api_key = settings.has_mcp_api_key_auth()
 
-    # if "AX.FullAccess" not in required_scopes:
-    #     logger.warning("Warning: 'AX.FullAccess' scope is not supported. Adding it automatically.")
-    #     required_scopes.append("https://erp.dynamics.com/AX.FullAccess")
+    if has_oauth:
+        # OAuth authentication setup
+        logger.info("Initializing OAuth authentication with Azure AD")
 
-    # Initialize authorization settings
-    auth_provider = AzureProvider(
-        client_id=settings.mcp_auth_client_id,  # Your Azure App Client ID
-        client_secret=settings.mcp_auth_client_secret,                 # Your Azure App Client Secret
-        tenant_id=settings.mcp_auth_tenant_id, # Your Azure Tenant ID (REQUIRED)
-        base_url=settings.mcp_auth_base_url,                   # Must match your App registration
-        required_scopes=required_scopes or ["User.Read"],  # type: ignore # Scopes your app needs
-        redirect_path="/auth/callback",  # Ensure callback path is explicit
-        clients_storage_path=config_path or ...
-    )
-    from mcp.shared.auth import OAuthClientInformationFull
+        assert settings.mcp_auth_client_id is not None
+        assert settings.mcp_auth_client_secret is not None
+        assert settings.mcp_auth_tenant_id is not None
+        assert settings.mcp_auth_base_url is not None
+        assert settings.mcp_auth_required_scopes is not None
+        required_scopes = settings.mcp_auth_required_scopes_list()
 
-    # auth_provider._clients["eae68fdd-610b-47c5-9907-709c7452f1b3"] = OAuthClientInformationFull(
-    #     client_id="5eae68fdd-610b-47c5-9907-709c7452f1b3",
-    #     client_name="Test Client",
-    #     redirect_uris=[AnyUrl("http://127.0.0.1:33418")],
-    #     scope=",".join(required_scopes)
-    # )
+        # Initialize authorization settings
+        auth_provider = AzureProvider(
+            client_id=settings.mcp_auth_client_id,
+            client_secret=settings.mcp_auth_client_secret,
+            tenant_id=settings.mcp_auth_tenant_id,
+            base_url=settings.mcp_auth_base_url,
+            required_scopes=required_scopes or ["User.Read"],  # type: ignore
+            redirect_path="/auth/callback",
+            clients_storage_path=config_path or ...
+        )
 
-
-    auth=AuthSettings(
+        auth = AuthSettings(
             issuer_url=AnyHttpUrl(settings.mcp_auth_base_url),
             client_registration_options=ClientRegistrationOptions(
                 enabled=True,
-                valid_scopes=required_scopes or ["User.Read"], # type: ignore
-                default_scopes=required_scopes or ["User.Read"], # type: ignore
+                valid_scopes=required_scopes or ["User.Read"],  # type: ignore
+                default_scopes=required_scopes or ["User.Read"],  # type: ignore
             ),
-            required_scopes=required_scopes or ["User.Read"], # type: ignore
+            required_scopes=required_scopes or ["User.Read"],  # type: ignore
             resource_server_url=AnyHttpUrl(settings.mcp_auth_base_url),
-            
+        )
+
+    elif has_api_key:
+        # API Key authentication setup
+        logger.info("Initializing API Key authentication")
+
+        from d365fo_client.mcp.auth_server.auth.providers.apikey import APIKeyVerifier
+
+        auth_provider = APIKeyVerifier(  # type: ignore
+            api_key=settings.mcp_api_key_value,  # type: ignore
+            base_url=settings.mcp_auth_base_url,
+        )
+
+        # For API Key authentication
+        auth = AuthSettings(
+            issuer_url=AnyHttpUrl(settings.mcp_auth_base_url) if settings.mcp_auth_base_url else AnyHttpUrl("http://localhost"),
+            resource_server_url=None
         )
 
 # Initialize FastMCP server with configuration
 mcp = FastMCP(
     name=server_config.get("name", "d365fo-mcp-server"),
-    auth_server_provider=auth_provider,
+    auth_server_provider=auth_provider if isinstance(auth_provider, AzureProvider) else None,
+    token_verifier=auth_provider if isinstance(auth_provider, APIKeyVerifier) else None,
     auth=auth,
     instructions=server_config.get(
         "instructions",
@@ -326,15 +358,32 @@ mcp = FastMCP(
 
 )
 
-if is_remote_transport:
+# Add OAuth callback route only for Azure OAuth provider
+if is_remote_transport and isinstance(auth_provider, AzureProvider):
     from starlette.requests import Request
     from starlette.responses import RedirectResponse
-    
+
     @mcp.custom_route(path=auth_provider._redirect_path, methods=["GET"]) # type: ignore
     async def handle_idp_callback(request: Request) -> RedirectResponse:
         return await auth_provider._handle_idp_callback(request) # type: ignore
 
+# Initialize FastD365FOMCPServer
 server = FastD365FOMCPServer(mcp, config, profile_manager=profile_manager)
+
+# Configure API Key authentication if enabled
+if is_remote_transport:
+    from d365fo_client.mcp.auth_server.auth.providers.apikey import APIKeyVerifier
+
+    if isinstance(auth_provider, APIKeyVerifier):
+
+        logger.info("API Key authentication configured successfully")
+        logger.info("=" * 60)
+        logger.info("IMPORTANT: Clients must authenticate using:")
+        logger.info("  Authorization: Bearer <your-api-key>")
+        logger.info("")
+        logger.info("Example:")
+        logger.info(f"  curl -H 'Authorization: Bearer YOUR_KEY' http://localhost:{transport_config.get('http', {}).get('port', 8000)}/")
+        logger.info("=" * 60)
 
 logger.info("FastD365FOMCPServer initialized successfully")
 

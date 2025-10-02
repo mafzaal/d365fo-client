@@ -17,6 +17,8 @@ services:
       - D365FO_MCP_AUTH_TENANT_ID=${D365FO_MCP_AUTH_TENANT_ID:-}
       - D365FO_MCP_AUTH_BASE_URL=${D365FO_MCP_AUTH_BASE_URL:-http://localhost:8806}
       - D365FO_MCP_AUTH_REQUIRED_SCOPES=${D365FO_MCP_AUTH_REQUIRED_SCOPES:-User.Read,email,openid,profile}
+      # - D365FO_MCP_API_KEY_VALUE=${D365FO_MCP_API_KEY_VALUE:-your-super-secret-key-here}
+      # - D365FO_MCP_API_KEY_HEADER_NAME=${D365FO_MCP_API_KEY_HEADER_NAME:-X-API-Key}
     ports:
       - "8806:8000"
     volumes:

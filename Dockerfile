@@ -68,7 +68,7 @@ WORKDIR /app
 COPY --from=uv /app/.venv /app/.venv
 
 # Change ownership of the virtual environment and app to mcp_user
-RUN chown -R mcp_user:mcp_user /app /app/.venv 
+# RUN chown -R mcp_user:mcp_user /app /app/.venv 
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
