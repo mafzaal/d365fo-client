@@ -14,9 +14,31 @@
 
 **☁️ Deploy to Azure Container Apps:**
 
-[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fmafzaal%2Fd365fo-client%2Fmain%2Fazure-deploy.json)
-
 Deploy the MCP server as a secure, internet-accessible HTTP endpoint with OAuth or API Key authentication. Perfect for web integrations and remote AI assistant access.
+
+**Option 1: Using Bash Script (Recommended)**
+```bash
+# Download and run the deployment script
+curl -O https://raw.githubusercontent.com/mafzaal/d365fo-client/main/deploy-aca.sh
+chmod +x deploy-aca.sh
+
+# Set authentication (choose OAuth or API Key)
+export D365FO_MCP_AUTH_CLIENT_ID="your-client-id"
+export D365FO_MCP_AUTH_CLIENT_SECRET="your-client-secret"
+export D365FO_MCP_AUTH_TENANT_ID="your-tenant-id"
+# OR
+export D365FO_MCP_API_KEY_VALUE="your-secret-key"
+
+# Deploy
+./deploy-aca.sh
+```
+
+**Option 2: Using ARM Template**
+1. Download [azure-deploy.json](https://raw.githubusercontent.com/mafzaal/d365fo-client/main/azure-deploy.json)
+2. Go to [Azure Portal → Deploy a custom template](https://portal.azure.com/#create/Microsoft.Template)
+3. Click "Build your own template in the editor"
+4. Paste the contents of `azure-deploy.json`
+5. Fill in the parameters and deploy
 
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/d365fo-client?label=Downloads)](https://pypi.org/project/d365fo-client/)
 
