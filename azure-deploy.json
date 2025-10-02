@@ -1,0 +1,272 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "containerAppName": {
+      "type": "string",
+      "defaultValue": "d365fo-mcp-server",
+      "metadata": {
+        "description": "Name of the Container App"
+      }
+    },
+    "containerAppEnvName": {
+      "type": "string",
+      "defaultValue": "d365fo-mcp-env",
+      "metadata": {
+        "description": "Name of the Container App Environment"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources"
+      }
+    },
+    "containerImage": {
+      "type": "string",
+      "defaultValue": "ghcr.io/mafzaal/d365fo-client:v0.3.1",
+      "metadata": {
+        "description": "Docker image to deploy"
+      }
+    },
+    "authMethod": {
+      "type": "string",
+      "defaultValue": "oauth",
+      "allowedValues": [
+        "oauth",
+        "apikey",
+        "none"
+      ],
+      "metadata": {
+        "description": "Authentication method for MCP server"
+      }
+    },
+    "mcpAuthClientId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Azure AD Client ID for OAuth authentication (required if authMethod=oauth)"
+      }
+    },
+    "mcpAuthClientSecret": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Azure AD Client Secret for OAuth authentication (required if authMethod=oauth)"
+      }
+    },
+    "mcpAuthTenantId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Azure AD Tenant ID for OAuth authentication (required if authMethod=oauth)"
+      }
+    },
+    "mcpApiKey": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "API Key for authentication (required if authMethod=apikey)"
+      }
+    },
+    "d365foBaseUrl": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "D365 F&O Base URL (optional, can be configured later)"
+      }
+    },
+    "d365foClientId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "D365 F&O Client ID (optional)"
+      }
+    },
+    "d365foClientSecret": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "D365 F&O Client Secret (optional)"
+      }
+    },
+    "d365foTenantId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "D365 F&O Tenant ID (optional)"
+      }
+    },
+    "minReplicas": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 0,
+      "maxValue": 30,
+      "metadata": {
+        "description": "Minimum number of replicas"
+      }
+    },
+    "maxReplicas": {
+      "type": "int",
+      "defaultValue": 3,
+      "minValue": 1,
+      "maxValue": 30,
+      "metadata": {
+        "description": "Maximum number of replicas"
+      }
+    },
+    "cpuCores": {
+      "type": "string",
+      "defaultValue": "0.5",
+      "metadata": {
+        "description": "CPU cores per replica"
+      }
+    },
+    "memorySize": {
+      "type": "string",
+      "defaultValue": "1.0Gi",
+      "metadata": {
+        "description": "Memory size per replica"
+      }
+    }
+  },
+  "variables": {
+    "containerPort": 8000,
+    "hasOAuthAuth": "[equals(parameters('authMethod'), 'oauth')]",
+    "hasApiKeyAuth": "[equals(parameters('authMethod'), 'apikey')]",
+    "baseUrl": "[concat('https://', parameters('containerAppName'), '.', reference(resourceId('Microsoft.App/managedEnvironments', parameters('containerAppEnvName'))).defaultDomain)]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.App/managedEnvironments",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('containerAppEnvName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "appLogsConfiguration": {
+          "destination": "azure-monitor"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('containerAppName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.App/managedEnvironments', parameters('containerAppEnvName'))]"
+      ],
+      "properties": {
+        "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', parameters('containerAppEnvName'))]",
+        "configuration": {
+          "ingress": {
+            "external": true,
+            "targetPort": "[variables('containerPort')]",
+            "allowInsecure": false,
+            "traffic": [
+              {
+                "latestRevision": true,
+                "weight": 100
+              }
+            ]
+          },
+          "secrets": [
+            {
+              "name": "mcp-auth-client-secret",
+              "value": "[parameters('mcpAuthClientSecret')]"
+            },
+            {
+              "name": "mcp-api-key",
+              "value": "[parameters('mcpApiKey')]"
+            },
+            {
+              "name": "d365fo-client-secret",
+              "value": "[parameters('d365foClientSecret')]"
+            }
+          ]
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "d365fo-mcp-server",
+              "image": "[parameters('containerImage')]",
+              "resources": {
+                "cpu": "[json(parameters('cpuCores'))]",
+                "memory": "[parameters('memorySize')]"
+              },
+              "env": [
+                {
+                  "name": "D365FO_MCP_TRANSPORT",
+                  "value": "http"
+                },
+                {
+                  "name": "D365FO_MCP_HTTP_HOST",
+                  "value": "0.0.0.0"
+                },
+                {
+                  "name": "D365FO_MCP_HTTP_PORT",
+                  "value": "[string(variables('containerPort'))]"
+                },
+                {
+                  "name": "D365FO_MCP_AUTH_CLIENT_ID",
+                  "value": "[if(variables('hasOAuthAuth'), parameters('mcpAuthClientId'), '')]"
+                },
+                {
+                  "name": "D365FO_MCP_AUTH_CLIENT_SECRET",
+                  "secretRef": "mcp-auth-client-secret"
+                },
+                {
+                  "name": "D365FO_MCP_AUTH_TENANT_ID",
+                  "value": "[if(variables('hasOAuthAuth'), parameters('mcpAuthTenantId'), '')]"
+                },
+                {
+                  "name": "D365FO_MCP_AUTH_BASE_URL",
+                  "value": "[if(variables('hasOAuthAuth'), variables('baseUrl'), '')]"
+                },
+                {
+                  "name": "D365FO_MCP_API_KEY_VALUE",
+                  "secretRef": "mcp-api-key"
+                },
+                {
+                  "name": "D365FO_BASE_URL",
+                  "value": "[parameters('d365foBaseUrl')]"
+                },
+                {
+                  "name": "D365FO_CLIENT_ID",
+                  "value": "[parameters('d365foClientId')]"
+                },
+                {
+                  "name": "D365FO_CLIENT_SECRET",
+                  "secretRef": "d365fo-client-secret"
+                },
+                {
+                  "name": "D365FO_TENANT_ID",
+                  "value": "[parameters('d365foTenantId')]"
+                }
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": "[parameters('minReplicas')]",
+            "maxReplicas": "[parameters('maxReplicas')]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "containerAppFQDN": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.App/containerApps', parameters('containerAppName'))).configuration.ingress.fqdn]"
+    },
+    "containerAppUrl": {
+      "type": "string",
+      "value": "[concat('https://', reference(resourceId('Microsoft.App/containerApps', parameters('containerAppName'))).configuration.ingress.fqdn)]"
+    },
+    "authCallbackUrl": {
+      "type": "string",
+      "value": "[if(variables('hasOAuthAuth'), concat('https://', reference(resourceId('Microsoft.App/containerApps', parameters('containerAppName'))).configuration.ingress.fqdn, '/auth/callback'), 'N/A - OAuth not configured')]"
+    }
+  }
+}
