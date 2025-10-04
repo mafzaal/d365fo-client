@@ -341,7 +341,7 @@ if is_remote_transport:
 # Initialize FastMCP server with configuration
 mcp = FastMCP(
     name=server_config.get("name", "d365fo-mcp-server"),
-    auth_server_provider=auth_provider if isinstance(auth_provider, AzureProvider) else None,
+    auth_server_provider=auth_provider if isinstance(auth_provider, AzureProvider) else None,# type: ignore
     token_verifier=auth_provider if isinstance(auth_provider, APIKeyVerifier) else None,
     auth=auth,
     instructions=server_config.get(
