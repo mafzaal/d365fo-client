@@ -144,6 +144,10 @@ def create_default_profile_if_needed(profile_manager:"ProfileManager", config:Di
         if not base_url:
             logger.warning("Cannot create default profile - D365FO_BASE_URL not set")
             return False
+        
+        if base_url.startswith("https://usnconeboxax1aos.cloud.onebox.dynamics.com"):
+            logger.warning("D365FO_BASE_URL is set to the default onebox URL - please set it to your actual environment URL")
+            return False
 
         # Determine authentication mode based on startup mode
         startup_mode = config.get("startup_mode", "profile_only")
