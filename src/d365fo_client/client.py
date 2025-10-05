@@ -9,6 +9,7 @@ from d365fo_client.utils import get_default_cache_directory
 
 from .auth import AuthenticationManager
 from .crud import CrudOperations
+from .dmf_operations import DmfOperations
 from .exceptions import FOClientError
 from .labels import LabelOperations, resolve_labels_generic
 from .metadata_api import MetadataAPIOperations
@@ -68,13 +69,13 @@ class FOClient:
         # Initialize operations
         self.metadata_url = f"{config.base_url.rstrip('/')}/Metadata"
         self.crud_ops = CrudOperations(self.session_manager, config.base_url)
+        self.dmf_ops = DmfOperations(self.session_manager, config.base_url)
 
         # Initialize label operations - will be updated when metadata cache v2 is initialized
         self.label_ops = LabelOperations(self.session_manager, self.metadata_url, None)
         self.metadata_api_ops = MetadataAPIOperations(
             self.session_manager, self.metadata_url, self.label_ops
         )
-     
 
     async def close(self):
         """Close the client session"""
@@ -88,7 +89,6 @@ class FOClient:
 
         await self.session_manager.close()
 
-    
     async def initialize_metadata(self):
         await self._ensure_metadata_initialized()
 
@@ -97,7 +97,9 @@ class FOClient:
         if not self._metadata_initialized and self.config.enable_metadata_cache:
             try:
 
-                cache_dir = Path(self.config.metadata_cache_dir or get_default_cache_directory())
+                cache_dir = Path(
+                    self.config.metadata_cache_dir or get_default_cache_directory()
+                )
 
                 # Initialize metadata cache v2
                 self.metadata_cache = MetadataCacheV2(
@@ -105,7 +107,7 @@ class FOClient:
                 )
                 # Initialize label operations v2 with cache support
 
-                self.label_ops.set_label_cache(self.metadata_cache) 
+                self.label_ops.set_label_cache(self.metadata_cache)
 
                 await self.metadata_cache.initialize()
 
@@ -115,7 +117,9 @@ class FOClient:
                 )
 
                 # Initialize sync message with session
-                self._sync_session_manager = SyncSessionManager(self.metadata_cache, self.metadata_api_ops)
+                self._sync_session_manager = SyncSessionManager(
+                    self.metadata_cache, self.metadata_api_ops
+                )
 
                 self._metadata_initialized = True
                 self.logger.debug("Metadata cache v2 with label caching initialized")
@@ -157,9 +161,9 @@ class FOClient:
                 f"Starting background metadata sync for version {global_version_id}"
             )
 
- 
-            self.sync_session_manager.start_sync_session(global_version_id=global_version_id,initiated_by="background_task")
-            
+            self.sync_session_manager.start_sync_session(
+                global_version_id=global_version_id, initiated_by="background_task"
+            )
 
         except Exception as e:
             self.logger.error(f"Background sync error: {e}")
@@ -179,22 +183,23 @@ class FOClient:
     @property
     def sync_session_manager(self) -> SyncSessionManager:
         """Get sync session manager (lazy initialization).
-        
+
         Returns:
             SyncSessionManager instance for enhanced sync progress tracking
-            
+
         Raises:
             RuntimeError: If metadata cache is not initialized
         """
         if self._sync_session_manager is None:
             if not self.metadata_cache:
-                raise RuntimeError("Metadata cache must be initialized before accessing sync session manager")
-            
+                raise RuntimeError(
+                    "Metadata cache must be initialized before accessing sync session manager"
+                )
+
             self._sync_session_manager = SyncSessionManager(
-                cache=self.metadata_cache,
-                metadata_api=self.metadata_api_ops
+                cache=self.metadata_cache, metadata_api=self.metadata_api_ops
             )
-        
+
         return self._sync_session_manager
 
     async def _get_from_cache_first(
@@ -468,7 +473,9 @@ class FOClient:
             if pattern:
                 # Convert simple regex to SQL LIKE pattern
                 cache_pattern = pattern.replace(".*", "%").replace(".", "_")
-                if not cache_pattern.startswith("%") and not cache_pattern.endswith("%"):
+                if not cache_pattern.startswith("%") and not cache_pattern.endswith(
+                    "%"
+                ):
                     cache_pattern = f"%{cache_pattern}%"
 
             return await self.metadata_cache.search_actions(
@@ -926,7 +933,7 @@ class FOClient:
             use_cache_first=use_cache_first,
         )
 
-        return await resolve_labels_generic(entity, self.label_ops) #type: ignore
+        return await resolve_labels_generic(entity, self.label_ops)  # type: ignore
 
     async def get_all_public_entities_with_details(
         self, resolve_labels: bool = False, language: str = "en-US"
@@ -1212,7 +1219,8 @@ class FOClient:
                     "advanced_cache_enabled": True,
                     "cache_v2_enabled": True,
                     "cache_initialized": self._metadata_initialized,
-                    "sync_manager_available": self.sync_manager is not None or self._sync_session_manager is not None,
+                    "sync_manager_available": self.sync_manager is not None
+                    or self._sync_session_manager is not None,
                     "background_sync_running": self._is_background_sync_running(),
                     "statistics": stats,
                 }
@@ -1507,6 +1515,322 @@ class FOClient:
             is_shared_filters=is_shared_filters,
             module_filters=modules,
         )
+
+    # ========================================================================
+    # DATA MANAGEMENT FRAMEWORK (DMF) OPERATIONS
+    # ========================================================================
+
+    async def export_to_package(
+        self,
+        definition_group_id: str,
+        package_name: str,
+        execution_id: str = "",
+        re_execute: bool = False,
+        legal_entity_id: str = "",
+    ) -> str:
+        """Export data to package (synchronous).
+
+        See DmfOperations.export_to_package for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.export_to_package(
+            definition_group_id, package_name, execution_id, re_execute, legal_entity_id
+        )
+
+    async def export_to_package_async(
+        self,
+        definition_group_id: str,
+        package_name: str,
+        execution_id: str = "",
+        re_execute: bool = False,
+        legal_entity_id: str = "",
+        entity_list: str = "",
+    ) -> str:
+        """Export data to package (asynchronous).
+
+        See DmfOperations.export_to_package_async for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.export_to_package_async(
+            definition_group_id,
+            package_name,
+            execution_id,
+            re_execute,
+            legal_entity_id,
+            entity_list,
+        )
+
+    async def export_to_package_preview(
+        self,
+        definition_group_id: str,
+        package_name: str,
+        execution_id: str = "",
+        re_execute: bool = False,
+        legal_entity_id: str = "",
+        export_preview_count: int = 100,
+    ) -> str:
+        """Export data to package with preview/sampling.
+
+        See DmfOperations.export_to_package_preview for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.export_to_package_preview(
+            definition_group_id,
+            package_name,
+            execution_id,
+            re_execute,
+            legal_entity_id,
+            export_preview_count,
+        )
+
+    async def export_to_package_preview_async(
+        self,
+        definition_group_id: str,
+        package_name: str,
+        execution_id: str = "",
+        re_execute: bool = False,
+        legal_entity_id: str = "",
+        export_preview_count: int = 100,
+    ) -> str:
+        """Export data to package with preview (asynchronous).
+
+        See DmfOperations.export_to_package_preview_async for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.export_to_package_preview_async(
+            definition_group_id,
+            package_name,
+            execution_id,
+            re_execute,
+            legal_entity_id,
+            export_preview_count,
+        )
+
+    async def export_to_package_delta(
+        self,
+        definition_group_id: str,
+        package_name: str,
+        execution_id: str = "",
+        re_execute: bool = False,
+        legal_entity_id: str = "",
+        entity_list: str = "",
+    ) -> str:
+        """Export only changed data (delta export).
+
+        See DmfOperations.export_to_package_delta for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.export_to_package_delta(
+            definition_group_id,
+            package_name,
+            execution_id,
+            re_execute,
+            legal_entity_id,
+            entity_list,
+        )
+
+    async def export_from_package(
+        self,
+        package_url: str,
+        definition_group_id: str,
+        execution_id: str = "",
+        execute: bool = True,
+        overwrite: bool = False,
+        legal_entity_id: str = "",
+    ) -> str:
+        """Export using package template.
+
+        See DmfOperations.export_from_package for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.export_from_package(
+            package_url,
+            definition_group_id,
+            execution_id,
+            execute,
+            overwrite,
+            legal_entity_id,
+        )
+
+    async def get_exported_package_url(self, execution_id: str) -> str:
+        """Get download URL for exported package.
+
+        See DmfOperations.get_exported_package_url for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.get_exported_package_url(execution_id)
+
+    async def import_from_package(
+        self,
+        package_url: str,
+        definition_group_id: str,
+        execution_id: str = "",
+        execute: bool = True,
+        overwrite: bool = False,
+        legal_entity_id: str = "",
+    ) -> str:
+        """Import data from package.
+
+        See DmfOperations.import_from_package for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.import_from_package(
+            package_url,
+            definition_group_id,
+            execution_id,
+            execute,
+            overwrite,
+            legal_entity_id,
+        )
+
+    async def import_from_dmt_package(
+        self,
+        package_url: str,
+        definition_group_id: str,
+        execution_id: str = "",
+        execute: bool = True,
+        overwrite: bool = False,
+        legal_entity_id: str = "",
+        import_batch_group_id: str = "",
+        fail_on_error: bool = False,
+    ) -> str:
+        """Import from Data Migration Toolkit (DMT) package.
+
+        See DmfOperations.import_from_dmt_package for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.import_from_dmt_package(
+            package_url,
+            definition_group_id,
+            execution_id,
+            execute,
+            overwrite,
+            legal_entity_id,
+            import_batch_group_id,
+            fail_on_error,
+        )
+
+    async def initialize_data_management(self) -> None:
+        """Initialize Data Management Framework (synchronous).
+
+        See DmfOperations.initialize_data_management for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.initialize_data_management()
+
+    async def initialize_data_management_async(self) -> None:
+        """Initialize Data Management Framework (asynchronous).
+
+        See DmfOperations.initialize_data_management_async for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.initialize_data_management_async()
+
+    async def get_execution_summary_status(self, execution_id: str) -> Dict[str, Any]:
+        """Get overall execution status.
+
+        See DmfOperations.get_execution_summary_status for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.get_execution_summary_status(execution_id)
+
+    async def get_entity_execution_summary_status_list(
+        self, execution_id: str
+    ) -> List[str]:
+        """Get per-entity status list.
+
+        See DmfOperations.get_entity_execution_summary_status_list for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.get_entity_execution_summary_status_list(execution_id)
+
+    async def get_message_status(self, message_id: str) -> Dict[str, Any]:
+        """Get message queue status.
+
+        See DmfOperations.get_message_status for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.get_message_status(message_id)
+
+    async def get_execution_errors(self, execution_id: str) -> str:
+        """Get execution error details.
+
+        See DmfOperations.get_execution_errors for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.get_execution_errors(execution_id)
+
+    async def get_import_target_error_keys_file_url(
+        self, execution_id: str, entity_name: str
+    ) -> str:
+        """Get target error keys file URL.
+
+        See DmfOperations.get_import_target_error_keys_file_url for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.get_import_target_error_keys_file_url(
+            execution_id, entity_name
+        )
+
+    async def get_import_staging_error_file_url(
+        self, execution_id: str, entity_name: str
+    ) -> str:
+        """Get staging error file URL.
+
+        See DmfOperations.get_import_staging_error_file_url for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.get_import_staging_error_file_url(
+            execution_id, entity_name
+        )
+
+    async def generate_import_target_error_keys_file(
+        self, execution_id: str, entity_name: str
+    ) -> bool:
+        """Generate error keys file for failed records.
+
+        See DmfOperations.generate_import_target_error_keys_file for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.generate_import_target_error_keys_file(
+            execution_id, entity_name
+        )
+
+    async def get_azure_write_url(self, unique_file_name: str) -> str:
+        """Get Azure Blob Storage write URL.
+
+        See DmfOperations.get_azure_write_url for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.get_azure_write_url(unique_file_name)
+
+    async def get_entity_sequence(self, list_of_data_entities: str) -> str:
+        """Get recommended entity execution sequence.
+
+        See DmfOperations.get_entity_sequence for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.get_entity_sequence(list_of_data_entities)
+
+    async def reset_version_token(
+        self, definition_group_id: str, entity_name: str, source_name: str
+    ) -> bool:
+        """Reset change tracking version token.
+
+        See DmfOperations.reset_version_token for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.reset_version_token(
+            definition_group_id, entity_name, source_name
+        )
+
+    async def get_execution_id_by_message_id(self, message_id: str) -> str:
+        """Map message ID to execution ID.
+
+        See DmfOperations.get_execution_id_by_message_id for full documentation.
+        """
+        await self._ensure_metadata_initialized()
+        return await self.dmf_ops.get_execution_id_by_message_id(message_id)
 
 
 # Convenience function for creating client

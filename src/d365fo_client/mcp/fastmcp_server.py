@@ -28,6 +28,7 @@ from .mixins import (
     ConnectionToolsMixin,
     CrudToolsMixin,
     DatabaseToolsMixin,
+    DmfToolsMixin,
     LabelToolsMixin,
     MetadataToolsMixin,
     PerformanceToolsMixin,
@@ -71,6 +72,7 @@ class FastD365FOMCPServer(
     DatabaseToolsMixin,
     MetadataToolsMixin,
     CrudToolsMixin,
+    DmfToolsMixin,
     ProfileToolsMixin,
     SyncToolsMixin,
     LabelToolsMixin,
@@ -175,17 +177,18 @@ class FastD365FOMCPServer(
     def _register_tools(self):
         """Register all tools using mixins."""
         logger.info("Registering tools from mixins...")
-        
+
         # Register tools from each mixin
         self.register_database_tools()
         self.register_metadata_tools()
         self.register_crud_tools()
+        self.register_dmf_tools()
         self.register_profile_tools()
         self.register_sync_tools()
         self.register_label_tools()
         self.register_connection_tools()
         self.register_performance_tools()
-        
+
         logger.info("All tools registered successfully")
 
     def _performance_monitor(self, func):
