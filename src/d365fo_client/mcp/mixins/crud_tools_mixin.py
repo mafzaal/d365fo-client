@@ -1,7 +1,7 @@
 """CRUD tools mixin for FastMCP server."""
 
 import logging
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from .base_tools_mixin import BaseToolsMixin
 
@@ -132,6 +132,11 @@ class CrudToolsMixin(BaseToolsMixin):
 
             except Exception as e:
                 logger.error(f"Get entity record failed: {e}")
+                # Build key dict for error response if possible
+                try:
+                    key = {k: v for k, v in zip(key_fields, key_values)} if len(key_fields) == len(key_values) else None
+                except Exception:
+                    key = None
                 return {"error": str(e), "entityName": entity_name, "key_fields": key_fields, "key_values": key_values, "key": key}
 
         @self.mcp.tool()
@@ -309,3 +314,80 @@ class CrudToolsMixin(BaseToolsMixin):
             except Exception as e:
                 logger.error(f"Call action failed: {e}")
                 return {"error": str(e), "actionName": action_name, "success": False}
+
+        @self.mcp.tool()
+        async def d365fo_call_json_service(
+            service_group: str,
+            service_name: str,
+            operation_name: str,
+            parameters: Optional[dict] = None,
+            profile: str = "default",
+        ) -> dict:
+            """Call a D365 F&O JSON service endpoint using the /api/services pattern.
+
+            This provides a generic way to invoke any JSON service operation in D365 F&O.
+
+            Args:
+                service_group: Service group name (e.g., 'SysSqlDiagnosticService')
+                service_name: Service name (e.g., 'SysSqlDiagnosticServiceOperations')
+                operation_name: Operation name (e.g., 'GetAxSqlExecuting')
+                parameters: Optional parameters to send in the POST body
+                profile: Configuration profile to use
+
+            Returns:
+                Dictionary with service response data and metadata
+
+            Example:
+                Call a service without parameters:
+                {
+                    "service_group": "SysSqlDiagnosticService",
+                    "service_name": "SysSqlDiagnosticServiceOperations",
+                    "operation_name": "GetAxSqlExecuting"
+                }
+
+                Call a service with parameters:
+                {
+                    "service_group": "SysSqlDiagnosticService",
+                    "service_name": "SysSqlDiagnosticServiceOperations",
+                    "operation_name": "GetAxSqlResourceStats",
+                    "parameters": {
+                        "start": "2023-01-01T00:00:00Z",
+                        "end": "2023-01-02T00:00:00Z"
+                    }
+                }
+            """
+            try:
+                client = await self._get_client(profile)
+
+                # Call the JSON service
+                response = await client.post_json_service(
+                    service_group=service_group,
+                    service_name=service_name,
+                    operation_name=operation_name,
+                    parameters=parameters,
+                )
+
+                # Format response
+                result = {
+                    "success": response.success,
+                    "statusCode": response.status_code,
+                    "data": response.data,
+                    "serviceGroup": service_group,
+                    "serviceName": service_name,
+                    "operationName": operation_name,
+                }
+
+                if response.error_message:
+                    result["errorMessage"] = response.error_message
+
+                return result
+
+            except Exception as e:
+                logger.error(f"JSON service call failed: {e}")
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "serviceGroup": service_group,
+                    "serviceName": service_name,
+                    "operationName": operation_name,
+                }

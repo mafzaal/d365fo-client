@@ -19,6 +19,8 @@ from .models import (
     DataEntityInfo,
     EnumerationInfo,
     FOClientConfig,
+    JsonServiceRequest,
+    JsonServiceResponse,
     PublicEntityInfo,
     QueryOptions,
 )
@@ -1243,6 +1245,146 @@ class FOClient:
         return info
 
     # Application Version Operations
+
+    async def post_json_service(
+        self,
+        service_group: str,
+        service_name: str,
+        operation_name: str,
+        parameters: Optional[Dict[str, Any]] = None,
+    ) -> JsonServiceResponse:
+        """Call D365 F&O JSON service endpoint using POST method
+
+        This method provides a generic way to call D365 F&O JSON services that use the
+        /api/services/{ServiceGroup}/{ServiceName}/{OperationName} endpoint pattern.
+
+        Args:
+            service_group: Service group name (e.g., "SysSqlDiagnosticService")
+            service_name: Service name (e.g., "SysSqlDiagnosticServiceOperations") 
+            operation_name: Operation name (e.g., "GetAxSqlExecuting")
+            parameters: Optional parameters to send in the POST body
+
+        Returns:
+            JsonServiceResponse containing the result data and metadata
+
+        Raises:
+            FOClientError: If the service call fails
+
+        Example:
+            # Call a service without parameters
+            response = await client.post_json_service(
+                "SysSqlDiagnosticService",
+                "SysSqlDiagnosticServiceOperations", 
+                "GetAxSqlExecuting"
+            )
+
+            # Call a service with parameters
+            response = await client.post_json_service(
+                "SysSqlDiagnosticService",
+                "SysSqlDiagnosticServiceOperations",
+                "GetAxSqlResourceStats",
+                {
+                    "start": "2023-01-01T00:00:00Z",
+                    "end": "2023-01-02T00:00:00Z"
+                }
+            )
+        """
+        try:
+            # Create service request
+            request = JsonServiceRequest(
+                service_group=service_group,
+                service_name=service_name,
+                operation_name=operation_name,
+                parameters=parameters,
+            )
+
+            # Get the endpoint path
+            endpoint_path = request.get_endpoint_path()
+            url = f"{self.config.base_url.rstrip('/')}{endpoint_path}"
+
+            # Get session and make request
+            session = await self.session_manager.get_session()
+
+            # Prepare headers
+            headers = {"Content-Type": "application/json"}
+
+            # Prepare request body
+            body = parameters or {}
+
+            async with session.post(url, json=body, headers=headers) as response:
+                status_code = response.status
+                
+                # Handle success cases
+                if status_code in [200, 201]:
+                    try:
+                        content_type = response.headers.get("content-type", "")
+                        if "application/json" in content_type:
+                            data = await response.json()
+                        else:
+                            data = await response.text()
+                        
+                        return JsonServiceResponse(
+                            success=True,
+                            data=data,
+                            status_code=status_code,
+                        )
+                    except Exception as parse_error:
+                        # If we can't parse the response, still return success with raw text
+                        text_data = await response.text()
+                        return JsonServiceResponse(
+                            success=True,
+                            data=text_data,
+                            status_code=status_code,
+                            error_message=f"Response parsing warning: {parse_error}",
+                        )
+                
+                # Handle error cases
+                else:
+                    error_text = await response.text()
+                    return JsonServiceResponse(
+                        success=False,
+                        data=None,
+                        status_code=status_code,
+                        error_message=f"HTTP {status_code}: {error_text}",
+                    )
+
+        except Exception as e:
+            # Handle network errors and other exceptions
+            return JsonServiceResponse(
+                success=False,
+                data=None,
+                status_code=0,
+                error_message=f"Request failed: {e}",
+            )
+
+    async def call_json_service(
+        self,
+        request: JsonServiceRequest,
+    ) -> JsonServiceResponse:
+        """Call D365 F&O JSON service using a JsonServiceRequest object
+
+        This is an alternative interface to post_json_service that accepts a request object.
+
+        Args:
+            request: JsonServiceRequest containing service details and parameters
+
+        Returns:
+            JsonServiceResponse containing the result data and metadata
+
+        Example:
+            request = JsonServiceRequest(
+                service_group="SysSqlDiagnosticService",
+                service_name="SysSqlDiagnosticServiceOperations",
+                operation_name="GetAxSqlExecuting"
+            )
+            response = await client.call_json_service(request)
+        """
+        return await self.post_json_service(
+            request.service_group,
+            request.service_name,
+            request.operation_name,
+            request.parameters,
+        )
 
     async def get_entity_schema(self, entity_name: str) -> Optional[PublicEntityInfo]:
         """Get entity schema - compatibility method for SmartSyncManagerV2

@@ -694,6 +694,51 @@ class SearchResults:
 
 
 # ============================================================================
+# JSON Service Models
+# ============================================================================
+
+
+@dataclass
+class JsonServiceRequest:
+    """Request for D365 F&O JSON service endpoint"""
+    
+    service_group: str
+    service_name: str
+    operation_name: str
+    parameters: Optional[Dict[str, Any]] = None
+    
+    def get_endpoint_path(self) -> str:
+        """Get the endpoint path for the service"""
+        return f"/api/services/{self.service_group}/{self.service_name}/{self.operation_name}"
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "service_group": self.service_group,
+            "service_name": self.service_name,
+            "operation_name": self.operation_name,
+            "parameters": self.parameters
+        }
+
+
+@dataclass 
+class JsonServiceResponse:
+    """Response from D365 F&O JSON service endpoint"""
+    
+    success: bool
+    data: Any
+    status_code: int
+    error_message: Optional[str] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "success": self.success,
+            "data": self.data,
+            "status_code": self.status_code,
+            "error_message": self.error_message
+        }
+
+
+# ============================================================================
 # Enhanced V2 Models for Advanced Metadata Caching
 # ============================================================================
 
