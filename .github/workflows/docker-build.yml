@@ -40,12 +40,10 @@ jobs:
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
-          # Tag with branch name for branch builds (develop, feature-xyz, etc)
+          # Tag with branch name for branch builds (main, develop, feature-xyz, etc)
           type=ref,event=branch
-          # Tag with PR number for pull request builds
+          # Tag with PR number for pull request builds (pr-123)
           type=ref,event=pr
-          # Tag with git short SHA for all builds
-          type=sha,prefix={{branch}}-
         labels: |
           org.opencontainers.image.title=${{ env.IMAGE_NAME }}
           org.opencontainers.image.description="This is a Docker image for the ${{ env.IMAGE_NAME }} project"
