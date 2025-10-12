@@ -25,7 +25,7 @@ from .resources import (
     MetadataResourceHandler,
     QueryResourceHandler,
 )
-from .tools import ConnectionTools, CrudTools, DatabaseTools, LabelTools, MetadataTools, ProfileTools, SyncTools
+from .tools import ConnectionTools, CrudTools, DatabaseTools, JsonServiceTools, LabelTools, MetadataTools, ProfileTools, SyncTools
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,7 @@ class D365FOMCPServer:
         self.profile_tools = ProfileTools(self.client_manager)
         self.database_tools = DatabaseTools(self.client_manager)
         self.sync_tools = SyncTools(self.client_manager)
+        self.json_service_tools = JsonServiceTools(self.client_manager)
 
         # Tool registry for execution
         self.tool_registry = {}
@@ -222,6 +223,10 @@ class D365FOMCPServer:
                 sync_tools = self.sync_tools.get_tools()
                 tools.extend(sync_tools)
 
+                # Add JSON service tools
+                json_service_tools = self.json_service_tools.get_tools()
+                tools.extend(json_service_tools)
+
                 # Register tools for execution
                 for tool in tools:
                     self.tool_registry[tool.name] = tool
@@ -327,6 +332,10 @@ class D365FOMCPServer:
                     return await self.sync_tools.execute_list_sync_sessions(arguments)
                 elif name == "d365fo_get_sync_history":
                     return await self.sync_tools.execute_get_sync_history(arguments)
+                elif name == "d365fo_call_json_service":
+                    return await self.json_service_tools.execute_call_json_service(arguments)
+                elif name == "d365fo_call_sql_diagnostic_service":
+                    return await self.json_service_tools.execute_call_sql_diagnostic_service(arguments)
                 else:
                     raise ValueError(f"Unknown tool: {name}")
 

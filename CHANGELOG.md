@@ -7,6 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2025-10-12
+
+### Added
+- **JSON Service Tools**: New MCP tools for calling D365 F&O JSON services
+  - `d365fo_call_json_service` tool for generic JSON service operations
+  - `d365fo_call_sql_diagnostic_service` tool for SQL diagnostic operations
+  - JsonServiceRequest and JsonServiceResponse models for structured requests
+  - Comprehensive examples in `examples/json_service_examples.py`
+- **Enhanced QueryBuilder**: Advanced OData query building with schema awareness
+  - Automatic type detection and serialization for entity properties
+  - Support for datetime, enum, boolean, and numeric types
+  - Special character handling and proper encoding
+  - Composite key discovery and validation
+- **Azure Container Apps Deployment**: Production-ready deployment templates
+  - Azure Container Apps deployment script (`deploy-aca.sh`)
+  - ARM template for infrastructure as code (`azure-deploy.json`)
+  - Support for multiple authentication modes (API key, client credentials, default Azure credentials)
+  - Comprehensive deployment documentation in README
+- **CLI JSON Service Support**: New CLI commands for JSON service operations
+  - `d365fo-client json-service call` command
+  - `d365fo-client json-service sql-diagnostic` command
+
+### Improved
+- **OData Serialization**: Enhanced entity validation and serialization
+  - New `ODataSerializer` class for type-safe serialization
+  - Better handling of datetime, enum, and special data types
+  - Improved error messages for validation failures
+- **CRUD Operations**: Enhanced MCP CRUD tools with better error handling
+  - Improved query validation and execution
+  - Better support for composite keys
+  - Enhanced error messages and diagnostics
+- **Docker Workflow**: Intelligent Docker tagging strategy
+  - Branch-based tags for on-demand builds (develop, feature branches)
+  - SHA-based tags with branch prefix
+  - Conditional `:latest` tag (only applied to main branch)
+  - Semantic versioning support (v1.2.3 → :1.2.3, :1.2, :1)
+
+### Fixed
+- **Docker Build Workflow**: Removed duplicate push and tags entries
+- **Profile Creation**: Enhanced warnings for profile creation in FastMCP server
+
+### Dependencies
+- Bumped `ruff` from 0.13.2 to 0.13.3
+- Bumped `authlib` from 1.6.4 to 1.6.5
+- Bumped `isort` from 6.0.1 to 6.1.0
+- Bumped `mcp` from 1.15.0 to 1.16.0
+
+### Documentation
+- Added comprehensive Docker build workflow guide
+- Enhanced Azure deployment instructions with Bash script and ARM template options
+- Added entity validation test documentation (`tests/integration/ENTITY_VALIDATION_TESTS.md`)
+- New QueryBuilder enhancement summary (`docs/QUERYBUILDER_ENHANCEMENT_SUMMARY.md`)
+- New JSON service implementation documentation (`docs/FASTMCP_JSON_SERVICE_IMPLEMENTATION_COMPLETE.md`)
+
+### Testing
+- Added integration tests for entity validation and OData serialization
+- Added integration tests for MCP CRUD tools
+- Added unit tests for enhanced QueryBuilder with schema awareness
+- Added comprehensive JSON service unit tests
+- Expanded sandbox integration tests
+
 ## [0.3.1] - 2025-10-01
 
 ### Added

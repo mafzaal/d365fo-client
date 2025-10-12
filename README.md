@@ -803,7 +803,8 @@ export DEBUG="true"                                     # Enable debug mode
 - 🏷️ **Label Operations V2**: Multilingual label caching with performance improvements and async support
 - 🔍 **Advanced Querying**: Support for all OData query parameters ($select, $filter, $expand, etc.)
 - ⚡ **Action Execution**: Execute bound and unbound OData actions with comprehensive parameter handling
-- 🔒 **Authentication**: Azure AD integration with default credentials, service principal, and Azure Key Vault support
+- �️ **JSON Services**: Generic access to D365 F&O JSON service endpoints (/api/services pattern)
+- �🔒 **Authentication**: Azure AD integration with default credentials, service principal, and Azure Key Vault support
 - 💾 **Intelligent Caching**: Cross-environment cache sharing with module-based version detection
 - 🌐 **Async/Await**: Modern async/await patterns with optimized session management
 - 📝 **Type Hints**: Full type annotation support with enhanced data models
@@ -912,6 +913,18 @@ d365fo-client labels resolve "@SYS13342"
 
 # Search labels by pattern
 d365fo-client labels search "customer" --language "en-US"
+```
+
+#### JSON Service Operations
+```bash
+# Call SQL diagnostic services  
+d365fo-client service sql-diagnostic GetAxSqlExecuting
+d365fo-client service sql-diagnostic GetAxSqlResourceStats --since-minutes 5
+d365fo-client service sql-diagnostic GetAxSqlBlocking --output json
+
+# Generic JSON service calls
+d365fo-client service call SysSqlDiagnosticService SysSqlDiagnosticServiceOperations GetAxSqlExecuting
+d365fo-client service call YourServiceGroup YourServiceName YourOperation --parameters '{"param1":"value1"}'
 ```
 
 ### Global Options
@@ -1168,6 +1181,76 @@ result = await client.post_data("/data/CustomersV3/calculateBalances", {
 result = await client.post_data("/data/CustomersV3('US-001')/calculateBalance", {
     "asOfDate": "2024-12-31"
 })
+```
+
+### JSON Service Operations
+
+```python
+# Basic JSON service call (no parameters)
+response = await client.post_json_service(
+    service_group="SysSqlDiagnosticService",
+    service_name="SysSqlDiagnosticServiceOperations",
+    operation_name="GetAxSqlExecuting"
+)
+
+if response.success:
+    print(f"Found {len(response.data)} executing SQL statements")
+    print(f"Status: HTTP {response.status_code}")
+else:
+    print(f"Error: {response.error_message}")
+
+# JSON service call with parameters
+from datetime import datetime, timezone, timedelta
+
+end_time = datetime.now(timezone.utc)
+start_time = end_time - timedelta(minutes=10)
+
+response = await client.post_json_service(
+    service_group="SysSqlDiagnosticService",
+    service_name="SysSqlDiagnosticServiceOperations",
+    operation_name="GetAxSqlResourceStats",
+    parameters={
+        "start": start_time.isoformat(),
+        "end": end_time.isoformat()
+    }
+)
+
+# Using JsonServiceRequest object for better structure
+from d365fo_client.models import JsonServiceRequest
+
+request = JsonServiceRequest(
+    service_group="SysSqlDiagnosticService",
+    service_name="SysSqlDiagnosticServiceOperations",
+    operation_name="GetAxSqlBlocking"
+)
+
+response = await client.call_json_service(request)
+print(f"Service endpoint: {request.get_endpoint_path()}")
+
+# Multiple SQL diagnostic operations
+operations = ["GetAxSqlExecuting", "GetAxSqlBlocking", "GetAxSqlLockInfo"]
+for operation in operations:
+    response = await client.post_json_service(
+        service_group="SysSqlDiagnosticService",
+        service_name="SysSqlDiagnosticServiceOperations",
+        operation_name=operation
+    )
+    
+    if response.success:
+        count = len(response.data) if isinstance(response.data, list) else 1
+        print(f"{operation}: {count} records")
+
+# Custom service call template
+response = await client.post_json_service(
+    service_group="YourServiceGroup",
+    service_name="YourServiceName",
+    operation_name="YourOperation",
+    parameters={
+        "parameter1": "value1",
+        "parameter2": 123,
+        "parameter3": True
+    }
+)
 ```
 
 ### Metadata Operations

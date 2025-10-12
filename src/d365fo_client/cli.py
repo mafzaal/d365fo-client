@@ -99,6 +99,7 @@ class CLIManager:
             "metadata": self._handle_metadata_commands,
             "entity": self._handle_entity_commands,
             "action": self._handle_action_commands,
+            "service": self._handle_service_commands,
         }
 
         command = getattr(args, "command", None)
@@ -692,6 +693,140 @@ class CLIManager:
 
         except Exception as e:
             print(format_error_message(f"Error setting default profile: {e}"))
+            return 1
+
+    async def _handle_service_commands(self, args: argparse.Namespace) -> int:
+        """Handle JSON service commands."""
+        subcommand = getattr(args, "service_subcommand", None)
+
+        if subcommand == "call":
+            return await self._handle_service_call(args)
+        elif subcommand == "sql-diagnostic":
+            return await self._handle_service_sql_diagnostic(args)
+        else:
+            print(format_error_message(f"Unknown service subcommand: {subcommand}"))
+            return 1
+
+    async def _handle_service_call(self, args: argparse.Namespace) -> int:
+        """Handle generic JSON service call command."""
+        try:
+            service_group = getattr(args, "service_group", "")
+            service_name = getattr(args, "service_name", "")
+            operation_name = getattr(args, "operation_name", "")
+            
+            # Parse parameters from JSON string if provided
+            parameters = None
+            parameters_str = getattr(args, "parameters", None)
+            if parameters_str:
+                try:
+                    parameters = json.loads(parameters_str)
+                except json.JSONDecodeError as e:
+                    print(format_error_message(f"Invalid JSON in parameters: {e}"))
+                    return 1
+
+            # Call the service
+            response = await self.client.post_json_service(
+                service_group=service_group,
+                service_name=service_name,
+                operation_name=operation_name,
+                parameters=parameters,
+            )
+
+            # Format and display response
+            if response.success:
+                result = {
+                    "success": True,
+                    "statusCode": response.status_code,
+                    "data": response.data,
+                    "serviceGroup": service_group,
+                    "serviceName": service_name,
+                    "operationName": operation_name,
+                }
+                output = self.output_formatter.format_output(result)
+                print(output)
+                return 0
+            else:
+                error_result = {
+                    "success": False,
+                    "statusCode": response.status_code,
+                    "error": response.error_message,
+                    "serviceGroup": service_group,
+                    "serviceName": service_name,
+                    "operationName": operation_name,
+                }
+                output = self.output_formatter.format_output(error_result)
+                print(output)
+                return 1
+
+        except Exception as e:
+            print(format_error_message(f"Error calling service: {e}"))
+            return 1
+
+    async def _handle_service_sql_diagnostic(self, args: argparse.Namespace) -> int:
+        """Handle SQL diagnostic service call command."""
+        try:
+            operation = getattr(args, "operation", "")
+            
+            # Prepare parameters based on operation
+            parameters = {}
+            
+            if operation == "GetAxSqlResourceStats":
+                since_minutes = getattr(args, "since_minutes", 10)
+                start_time = getattr(args, "start_time", None)
+                end_time = getattr(args, "end_time", None)
+                
+                if start_time and end_time:
+                    parameters = {
+                        "start": start_time,
+                        "end": end_time,
+                    }
+                else:
+                    # Use since_minutes to calculate start/end
+                    from datetime import datetime, timezone, timedelta
+                    end = datetime.now(timezone.utc)
+                    start = end - timedelta(minutes=since_minutes)
+                    parameters = {
+                        "start": start.isoformat(),
+                        "end": end.isoformat(),
+                    }
+
+            # Call the SQL diagnostic service
+            response = await self.client.post_json_service(
+                service_group="SysSqlDiagnosticService",
+                service_name="SysSqlDiagnosticServiceOperations",
+                operation_name=operation,
+                parameters=parameters if parameters else None,
+            )
+
+            # Format and display response
+            if response.success:
+                result = {
+                    "success": True,
+                    "statusCode": response.status_code,
+                    "operation": operation,
+                    "data": response.data,
+                }
+                
+                # Add summary information
+                if isinstance(response.data, list):
+                    result["recordCount"] = len(response.data)
+                    
+                output = self.output_formatter.format_output(result)
+                print(output)
+                return 0
+            else:
+                error_result = {
+                    "success": False,
+                    "statusCode": response.status_code,
+                    "operation": operation,
+                    "error": response.error_message,
+                }
+                output = self.output_formatter.format_output(error_result)
+                print(output)
+                return 1
+
+        except Exception as e:
+            print(format_error_message(f"Error calling SQL diagnostic service: {e}"))
             return 1
 
     def _handle_error(self, error: Exception, verbose: bool = False) -> None:

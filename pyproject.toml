@@ -1,6 +1,6 @@
 [project]
 name = "d365fo-client"
-version = "0.3.1"
+version = "0.3.2"
 description = "Microsoft Dynamics 365 Finance & Operations client"
 readme = "README.md"
 license = "MIT"
@@ -18,7 +18,7 @@ dependencies = [
     "tabulate>=0.9.0",
     "pyyaml>=6.0",
     "mcp>=1.13.0",
-    "uvicorn[standard]>=0.32.0",
+    "uvicorn>=0.32.0",
     "pydantic-settings>=2.6.0",
     "authlib>=1.6.4",
     "httpx>=0.28.1",

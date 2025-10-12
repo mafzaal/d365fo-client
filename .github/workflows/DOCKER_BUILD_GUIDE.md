@@ -125,8 +125,8 @@ docker pull ghcr.io/yourusername/d365fo-client:develop-a1b2c3d
 ### Metadata Action Configuration
 ```yaml
 tags: |
-  # Latest only for main branch
-  type=raw,value=latest,enable={{is_default_branch}}
+  # Latest only for main branch (explicit check)
+  type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
   # Version tags
   type=semver,pattern={{version}}
   type=semver,pattern={{major}}.{{minor}}
@@ -138,6 +138,8 @@ tags: |
   # Git SHA
   type=sha,prefix={{branch}}-
 ```
+
+**Important**: We use explicit `github.ref == 'refs/heads/main'` check instead of `{{is_default_branch}}` to ensure `:latest` is ONLY applied to the main branch, regardless of GitHub's default branch setting.
 
 ## Testing the Workflow
 
