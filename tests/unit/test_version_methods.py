@@ -4,7 +4,7 @@ These tests validate the platform and application build version methods using mo
 ensuring proper response handling and error management without external dependencies.
 """
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -20,7 +20,15 @@ class TestGetPlatformBuildVersion:
         """Test successful GetPlatformBuildVersion action call"""
         config = FOClientConfig(base_url="https://test.dynamics.com")
 
-        with patch.object(FOClient, "call_action") as mock_call:
+        with (
+            patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
+            patch.object(FOClient, "call_action") as mock_call,
+        ):
+            # Mock the session manager
+            mock_session_manager = AsyncMock()
+            mock_session_manager_class.return_value = mock_session_manager
+
             mock_call.return_value = "10.0.1985.137"
 
             async with FOClient(config) as client:
@@ -39,7 +47,15 @@ class TestGetPlatformBuildVersion:
         """Test GetPlatformBuildVersion action call with dict response containing value"""
         config = FOClientConfig(base_url="https://test.dynamics.com")
 
-        with patch.object(FOClient, "call_action") as mock_call:
+        with (
+            patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
+            patch.object(FOClient, "call_action") as mock_call,
+        ):
+            # Mock the session manager
+            mock_session_manager = AsyncMock()
+            mock_session_manager_class.return_value = mock_session_manager
+
             mock_call.return_value = {"value": "10.0.1985.137"}
 
             async with FOClient(config) as client:
@@ -53,7 +69,15 @@ class TestGetPlatformBuildVersion:
         config = FOClientConfig(base_url="https://test.dynamics.com")
 
         # Test with number response
-        with patch.object(FOClient, "call_action") as mock_call:
+        with (
+            patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
+            patch.object(FOClient, "call_action") as mock_call,
+        ):
+            # Mock the session manager
+            mock_session_manager = AsyncMock()
+            mock_session_manager_class.return_value = mock_session_manager
+
             mock_call.return_value = 123
 
             async with FOClient(config) as client:
@@ -62,7 +86,15 @@ class TestGetPlatformBuildVersion:
                 assert result == "123"
 
         # Test with None response
-        with patch.object(FOClient, "call_action") as mock_call:
+        with (
+            patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
+            patch.object(FOClient, "call_action") as mock_call,
+        ):
+            # Mock the session manager
+            mock_session_manager = AsyncMock()
+            mock_session_manager_class.return_value = mock_session_manager
+
             mock_call.return_value = None
 
             async with FOClient(config) as client:
@@ -75,7 +107,15 @@ class TestGetPlatformBuildVersion:
         """Test GetPlatformBuildVersion action call error handling"""
         config = FOClientConfig(base_url="https://test.dynamics.com")
 
-        with patch.object(FOClient, "call_action") as mock_call:
+        with (
+            patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
+            patch.object(FOClient, "call_action") as mock_call,
+        ):
+            # Mock the session manager
+            mock_session_manager = AsyncMock()
+            mock_session_manager_class.return_value = mock_session_manager
+
             mock_call.side_effect = Exception("Action failed")
 
             async with FOClient(config) as client:
@@ -93,7 +133,15 @@ class TestGetApplicationBuildVersion:
         """Test successful GetApplicationBuildVersion action call"""
         config = FOClientConfig(base_url="https://test.dynamics.com")
 
-        with patch.object(FOClient, "call_action") as mock_call:
+        with (
+            patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
+            patch.object(FOClient, "call_action") as mock_call,
+        ):
+            # Mock the session manager
+            mock_session_manager = AsyncMock()
+            mock_session_manager_class.return_value = mock_session_manager
+
             mock_call.return_value = "10.0.1985.137"
 
             async with FOClient(config) as client:
@@ -112,7 +160,15 @@ class TestGetApplicationBuildVersion:
         """Test GetApplicationBuildVersion action call with dict response containing value"""
         config = FOClientConfig(base_url="https://test.dynamics.com")
 
-        with patch.object(FOClient, "call_action") as mock_call:
+        with (
+            patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
+            patch.object(FOClient, "call_action") as mock_call,
+        ):
+            # Mock the session manager
+            mock_session_manager = AsyncMock()
+            mock_session_manager_class.return_value = mock_session_manager
+
             mock_call.return_value = {"value": "10.0.1985.137"}
 
             async with FOClient(config) as client:
@@ -126,7 +182,15 @@ class TestGetApplicationBuildVersion:
         config = FOClientConfig(base_url="https://test.dynamics.com")
 
         # Test with number response
-        with patch.object(FOClient, "call_action") as mock_call:
+        with (
+            patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
+            patch.object(FOClient, "call_action") as mock_call,
+        ):
+            # Mock the session manager
+            mock_session_manager = AsyncMock()
+            mock_session_manager_class.return_value = mock_session_manager
+
             mock_call.return_value = 123
 
             async with FOClient(config) as client:
@@ -135,7 +199,15 @@ class TestGetApplicationBuildVersion:
                 assert result == "123"
 
         # Test with None response
-        with patch.object(FOClient, "call_action") as mock_call:
+        with (
+            patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
+            patch.object(FOClient, "call_action") as mock_call,
+        ):
+            # Mock the session manager
+            mock_session_manager = AsyncMock()
+            mock_session_manager_class.return_value = mock_session_manager
+
             mock_call.return_value = None
 
             async with FOClient(config) as client:
@@ -148,7 +220,15 @@ class TestGetApplicationBuildVersion:
         """Test GetApplicationBuildVersion action call error handling"""
         config = FOClientConfig(base_url="https://test.dynamics.com")
 
-        with patch.object(FOClient, "call_action") as mock_call:
+        with (
+            patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
+            patch.object(FOClient, "call_action") as mock_call,
+        ):
+            # Mock the session manager
+            mock_session_manager = AsyncMock()
+            mock_session_manager_class.return_value = mock_session_manager
+
             mock_call.side_effect = Exception("Action failed")
 
             async with FOClient(config) as client:
@@ -166,25 +246,41 @@ class TestVersionMethodsIntegration:
         """Test that all version methods are available on client"""
         config = FOClientConfig(base_url="https://test.dynamics.com")
 
-        async with FOClient(config) as client:
-            # Check methods exist
-            assert hasattr(client, "get_application_version")
-            assert hasattr(client, "get_platform_build_version")
-            assert hasattr(client, "get_application_build_version")
+        with (
+            patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
+        ):
+            # Mock the session manager
+            mock_session_manager = AsyncMock()
+            mock_session_manager_class.return_value = mock_session_manager
 
-            # Check they are coroutine functions
-            import inspect
+            async with FOClient(config) as client:
+                # Check methods exist
+                assert hasattr(client, "get_application_version")
+                assert hasattr(client, "get_platform_build_version")
+                assert hasattr(client, "get_application_build_version")
 
-            assert inspect.iscoroutinefunction(client.get_application_version)
-            assert inspect.iscoroutinefunction(client.get_platform_build_version)
-            assert inspect.iscoroutinefunction(client.get_application_build_version)
+                # Check they are coroutine functions
+                import inspect
+
+                assert inspect.iscoroutinefunction(client.get_application_version)
+                assert inspect.iscoroutinefunction(client.get_platform_build_version)
+                assert inspect.iscoroutinefunction(client.get_application_build_version)
 
     @pytest.mark.asyncio
     async def test_all_version_methods_parallel(self):
         """Test calling all version methods in parallel"""
         config = FOClientConfig(base_url="https://test.dynamics.com")
 
-        with patch.object(FOClient, "call_action") as mock_call:
+        with (
+            patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
+            patch.object(FOClient, "call_action") as mock_call,
+        ):
+            # Mock the session manager
+            mock_session_manager = AsyncMock()
+            mock_session_manager_class.return_value = mock_session_manager
+
             # Set up different return values for each call
             mock_call.side_effect = [
                 "10.0.1985.137",  # Application version

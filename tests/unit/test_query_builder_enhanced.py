@@ -104,20 +104,23 @@ class TestQueryBuilderEnhancedEncoding:
         }
 
         result = QueryBuilder.encode_key(key_dict, mock_entity_schema)
-        
+
         # With schema, different data types should be formatted correctly
-        # String and date types should have quotes
+        # String types should have quotes
         assert "StringKey='test-value'" in result
-        assert "DateKey='2024-01-15'" in result
+        # Enum types should have quotes
         assert "StatusKey='Microsoft.Dynamics.DataEntities.EntityStatus%27Active%27'" in result
-        
+
+        # Date types should NOT have quotes (F&O OData specific)
+        assert "DateKey=2024-01-15" in result
+
         # Numeric types should not have quotes
         assert "RecordId=123" in result
         assert "CompanyId=456" in result
-        
+
         # Boolean should not have quotes and be lowercase
         assert "IsActive=true" in result
-        
+
         # Check proper comma separation
         assert result.count(",") == 5
 

@@ -316,23 +316,19 @@ def test_integration_with_fo_client_config():
     """Test integration with FOClientConfig."""
     from d365fo_client.models import FOClientConfig
 
-    # Test environment-specific cache directory is set automatically
+    # Test default cache directory is set automatically
     config = FOClientConfig(base_url="https://test.dynamics.com")
     assert config.metadata_cache_dir is not None
     assert "d365fo-client" in config.metadata_cache_dir
-    # Check that test.dynamics.com is in the path (normalize path separators)
-    cache_dir_str = str(config.metadata_cache_dir).replace("\\", "/")
-    assert "test.dynamics.com" in cache_dir_str
 
-    # Test different environments get different cache directories
+    # The default cache directory is shared across environments
+    # (environment-specific subdirectories are created by the cache implementation)
     config1 = FOClientConfig(base_url="https://prod.dynamics.com")
     config2 = FOClientConfig(base_url="https://test.dynamics.com")
-    assert config1.metadata_cache_dir != config2.metadata_cache_dir
-    # Normalize path separators for comparison
-    config1_str = str(config1.metadata_cache_dir).replace("\\", "/")
-    config2_str = str(config2.metadata_cache_dir).replace("\\", "/")
-    assert "prod.dynamics.com" in config1_str
-    assert "test.dynamics.com" in config2_str
+    # Both use the same base cache directory
+    assert config1.metadata_cache_dir == config2.metadata_cache_dir
+    assert "d365fo-client" in config1.metadata_cache_dir
+    assert "d365fo-client" in config2.metadata_cache_dir
 
     # Test custom cache directory is still preserved
     custom_dir = "/custom/cache/dir"

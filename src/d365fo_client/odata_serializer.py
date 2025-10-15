@@ -284,17 +284,14 @@ class ODataSerializer:
         Returns:
             True if the data type needs quotes, False otherwise
         """
-        # String-like types need quotes
-        string_types = {
-            "String", "Guid", "Binary", "Memo", "Container", "VarString", 
-            "Record", "Enum", "Text", "Char", "Character", "Varchar", 
-            "NVarchar", "LongText", "ShortText", "Description", "Name", 
+        # Types that need quotes in OData keys (D365 F&O specific)
+        # Note: Date/Time types do NOT need quotes in D365 F&O OData
+        quoted_types = {
+            # String-like types
+            "String", "Guid", "Binary", "Memo", "Container", "VarString",
+            "Record", "Enum", "Text", "Char", "Character", "Varchar",
+            "NVarchar", "LongText", "ShortText", "Description", "Name",
             "Code", "Id", "Key"
         }
-        
-        # Date/time types need quotes for URL encoding
-        datetime_types = {
-            "DateTime", "DateTimeOffset", "Date", "Time", "UtcDateTime"
-        }
-        
-        return data_type in string_types or data_type in datetime_types
+
+        return data_type in quoted_types 
