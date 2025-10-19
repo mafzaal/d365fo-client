@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2025-10-19
+
+### Fixed
+- **OData Key Formatting**: Fixed OData date/time key formatting for D365 F&O compatibility
+  - **BREAKING**: Date/time types in OData keys no longer use quotes (aligns with D365 F&O OData spec)
+  - OData queries with date/time keys now work correctly with D365 F&O
+  - Enhanced test coverage with comprehensive mock support for session manager
+- **Docker Deployment**: Updated deployment script to use 'latest' Docker image tag
+- **Docker Build**: Updated Docker build tags comments for clarity and removed unused SHA tagging
+
+### Improved
+- **Cache Organization**: Updated cache configuration to use shared base directory across environments
+  - **BREAKING**: Cache directory structure changed to shared base with environment subdirectories
+  - Integration tests now use environment-specific cache organization
+- **Unit Testing**: Enhanced unit tests with proper SessionManager mocking to avoid initialization issues
+
+### Dependencies
+- **GitHub Actions**: Bump astral-sh/setup-uv from 6 to 7
+- **Azure Dependencies**: Updated azure-core to 1.36.0, charset-normalizer to 3.4.4, pydantic to 2.12.2
+
 ## [0.3.2] - 2025-10-12
 
 ### Added
