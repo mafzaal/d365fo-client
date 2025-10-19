@@ -4,7 +4,7 @@ These tests validate the get_application_version() method logic using mocks,
 ensuring proper response handling and error management without external dependencies.
 """
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -19,8 +19,13 @@ async def test_get_application_version_success():
 
     with (
         patch("d365fo_client.auth.DefaultAzureCredential"),
+        patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
         patch.object(FOClient, "call_action") as mock_call,
     ):
+        # Mock the session manager
+        mock_session_manager = AsyncMock()
+        mock_session_manager_class.return_value = mock_session_manager
+
         mock_call.return_value = "10.0.1985.137"
 
         async with FOClient(config) as client:
@@ -42,8 +47,13 @@ async def test_get_application_version_dict_response():
 
     with (
         patch("d365fo_client.auth.DefaultAzureCredential"),
+        patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
         patch.object(FOClient, "call_action") as mock_call,
     ):
+        # Mock the session manager
+        mock_session_manager = AsyncMock()
+        mock_session_manager_class.return_value = mock_session_manager
+
         mock_call.return_value = {"value": "10.0.1985.137"}
 
         async with FOClient(config) as client:
@@ -60,8 +70,13 @@ async def test_get_application_version_other_response():
     # Test with number response
     with (
         patch("d365fo_client.auth.DefaultAzureCredential"),
+        patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
         patch.object(FOClient, "call_action") as mock_call,
     ):
+        # Mock the session manager
+        mock_session_manager = AsyncMock()
+        mock_session_manager_class.return_value = mock_session_manager
+
         mock_call.return_value = 123
 
         async with FOClient(config) as client:
@@ -72,8 +87,13 @@ async def test_get_application_version_other_response():
     # Test with None response
     with (
         patch("d365fo_client.auth.DefaultAzureCredential"),
+        patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
         patch.object(FOClient, "call_action") as mock_call,
     ):
+        # Mock the session manager
+        mock_session_manager = AsyncMock()
+        mock_session_manager_class.return_value = mock_session_manager
+
         mock_call.return_value = None
 
         async with FOClient(config) as client:
@@ -89,8 +109,13 @@ async def test_get_application_version_error():
 
     with (
         patch("d365fo_client.auth.DefaultAzureCredential"),
+        patch("d365fo_client.session.SessionManager") as mock_session_manager_class,
         patch.object(FOClient, "call_action") as mock_call,
     ):
+        # Mock the session manager
+        mock_session_manager = AsyncMock()
+        mock_session_manager_class.return_value = mock_session_manager
+
         mock_call.side_effect = Exception("Action failed")
 
         async with FOClient(config) as client:

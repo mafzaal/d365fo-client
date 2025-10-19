@@ -9,7 +9,7 @@ RESOURCE_GROUP="${RESOURCE_GROUP:-d365fo-mcp-rg}"
 LOCATION="${LOCATION:-eastus}"
 CONTAINER_APP_ENV="${CONTAINER_APP_ENV:-d365fo-mcp-env}"
 CONTAINER_APP_NAME="${CONTAINER_APP_NAME:-d365fo-mcp-server}"
-IMAGE="ghcr.io/mafzaal/d365fo-client:v0.3.1"
+IMAGE="ghcr.io/mafzaal/d365fo-client:latest"
 
 # MCP Server Configuration (defaults for Azure Container Apps)
 D365FO_MCP_TRANSPORT="${D365FO_MCP_TRANSPORT:-http}"
