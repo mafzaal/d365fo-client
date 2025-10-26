@@ -22,12 +22,15 @@ from . import skip_if_not_level
 logger = logging.getLogger(__name__)
 
 
-class TestableBaseToolsMixin(BaseToolsMixin):
-    """Testable version of BaseToolsMixin for integration testing."""
-    
+class BaseToolsMixinWrapper(BaseToolsMixin):
+    """Wrapper for BaseToolsMixin to enable integration testing.
+
+    Note: Renamed from BaseToolsMixinWrapper to avoid pytest collection warning.
+    """
+
     def __init__(self, client: FOClient):
         self.client = client
-    
+
     async def _get_client(self, profile: str = "default") -> FOClient:
         """Return the test client."""
         return self.client
@@ -40,7 +43,7 @@ class TestEntityValidation:
     @pytest.mark.asyncio
     async def test_resolve_entity_name_variations(self, sandbox_client: FOClient):
         """Test resolving entity names from various input formats."""
-        mixin = TestableBaseToolsMixin(sandbox_client)
+        mixin = BaseToolsMixinWrapper(sandbox_client)
         
         # Get some known entities to test with
         entities_result = await sandbox_client.get_data_entities(QueryOptions(top=20))
@@ -89,7 +92,7 @@ class TestEntityValidation:
     @pytest.mark.asyncio
     async def test_validate_entity_for_query(self, sandbox_client: FOClient):
         """Test fast entity validation for query operations."""
-        mixin = TestableBaseToolsMixin(sandbox_client)
+        mixin = BaseToolsMixinWrapper(sandbox_client)
         
         # Get OData-enabled entities
         entities_result = await sandbox_client.get_data_entities(
@@ -120,7 +123,7 @@ class TestEntityValidation:
     @pytest.mark.asyncio
     async def test_validate_entity_exists(self, sandbox_client: FOClient):
         """Test comprehensive entity existence validation."""
-        mixin = TestableBaseToolsMixin(sandbox_client)
+        mixin = BaseToolsMixinWrapper(sandbox_client)
         
         # Get some entities to test with
         entities_result = await sandbox_client.get_data_entities(QueryOptions(top=10))
@@ -263,7 +266,7 @@ class TestODataSerialization:
     @pytest.mark.asyncio
     async def test_serialize_real_entity_key_fields(self, sandbox_client: FOClient):
         """Test OData serialization with real entity key field data types."""
-        mixin = TestableBaseToolsMixin(sandbox_client)
+        mixin = BaseToolsMixinWrapper(sandbox_client)
         
         # Get entities with detailed schema
         public_entities_result = await sandbox_client.get_public_entities(QueryOptions(top=20))
@@ -376,7 +379,7 @@ class TestODataSerialization:
     @pytest.mark.asyncio
     async def test_build_validated_key_dict(self, sandbox_client: FOClient):
         """Test building validated key dictionaries for composite keys."""
-        mixin = TestableBaseToolsMixin(sandbox_client)
+        mixin = BaseToolsMixinWrapper(sandbox_client)
         
         # Find an entity with composite keys
         public_entities_result = await sandbox_client.get_public_entities(QueryOptions(top=20))
@@ -448,7 +451,7 @@ class TestEntitySchemaValidation:
     @pytest.mark.asyncio
     async def test_validate_entity_schema_and_keys(self, sandbox_client: FOClient):
         """Test comprehensive entity schema and key validation."""
-        mixin = TestableBaseToolsMixin(sandbox_client)
+        mixin = BaseToolsMixinWrapper(sandbox_client)
         
         # Get entities to test with
         entities_result = await sandbox_client.get_data_entities(QueryOptions(top=15))
@@ -545,7 +548,7 @@ class TestIntegratedCRUDValidation:
     @pytest.mark.asyncio
     async def test_crud_validation_integration(self, sandbox_client: FOClient):
         """Test that CRUD operations work with enhanced validation methods."""
-        mixin = TestableBaseToolsMixin(sandbox_client)
+        mixin = BaseToolsMixinWrapper(sandbox_client)
         
         # Find an accessible entity for testing
         entities_result = await sandbox_client.get_data_entities(

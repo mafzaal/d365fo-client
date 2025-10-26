@@ -4,11 +4,14 @@ These tests validate that the MCP CRUD tools correctly leverage FOClient's
 schema validation and work end-to-end against real D365 F&O environments.
 """
 
+import asyncio
 import json
+from pathlib import Path
 import pytest
 from typing import Dict, Any
 
 from d365fo_client.mcp.fastmcp_server import FastD365FOMCPServer
+from d365fo_client.profile_manager import ProfileManager
 
 from . import skip_if_not_level
 
@@ -30,12 +33,27 @@ async def mcp_server(tmp_path):
     # The server will use the default profile manager which loads from ~/.d365fo-client
     from mcp.server.fastmcp import FastMCP
     mcp = FastMCP("d365fo-test")
-    server = FastD365FOMCPServer(mcp=mcp)
+    profile_manager = ProfileManager('/home/mafzaal/.cache/d365fo-client/config.yaml')
+    server = FastD365FOMCPServer(mcp=mcp, profile_manager=profile_manager)
 
     yield server
 
-    # Cleanup
+    # Cleanup - close all client connections and HTTP sessions
     await server.cleanup()
+
+    # Also close client manager connections to avoid "Unclosed connector" warning
+    if hasattr(server, 'client_manager'):
+        # Close all active clients
+        for profile_name in list(server.client_manager._client_pool.keys()):
+            try:
+                client = server.client_manager._client_pool[profile_name]
+                await client.close()
+            except Exception:
+                pass
+        server.client_manager._client_pool.clear()
+
+    # Give a moment for all async cleanup to complete
+    await asyncio.sleep(0.1)
 
 
 @skip_if_not_level("sandbox")
@@ -49,7 +67,7 @@ class TestMCPCrudToolsQuery:
         raw_result = await mcp_server.mcp.call_tool("d365fo_query_entities", {
             "entity_name": "Companies",
             "top": 5,
-            "profile": "default"
+            #"profile": "default"
         })
 
         result = parse_mcp_result(raw_result)
@@ -85,22 +103,24 @@ class TestMCPCrudToolsQuery:
             "top": 1,
             "profile": "default"
         })
+
+        print(raw_result)
         initial_result = parse_mcp_result(raw_result)
 
         if initial_result.get("data") and len(initial_result["data"]) > 0:
-            company_id = initial_result["data"][0]["DataAreaId"]
+            data_area_id = initial_result["data"][0]["DataArea"]
 
             # Now query with filter
             raw_result2 = await mcp_server.mcp.call_tool("d365fo_query_entities", {
                 "entity_name": "Companies",
-                "filter": f"DataAreaId eq '{company_id}'",
+                "filter": f"DataArea eq '{data_area_id}'",
                 "profile": "default"
             })
             filter_result = parse_mcp_result(raw_result2)
 
             assert "error" not in filter_result
             assert filter_result["totalRecords"] >= 1
-            assert filter_result["data"][0]["DataAreaId"] == company_id
+            assert filter_result["data"][0]["DataArea"] == data_area_id
 
 
 @skip_if_not_level("sandbox")
@@ -119,13 +139,13 @@ class TestMCPCrudToolsGet:
         query_result = parse_mcp_result(raw_result)
 
         if query_result.get("data") and len(query_result["data"]) > 0:
-            company_id = query_result["data"][0]["DataAreaId"]
+            data_area_id = query_result["data"][0]["DataArea"]
 
             # Now get the specific record
             raw_result2 = await mcp_server.mcp.call_tool("d365fo_get_entity_record", {
                 "entity_name": "Companies",
-                "key_fields": ["DataAreaId"],
-                "key_values": [company_id],
+                "key_fields": ["DataArea"],
+                "key_values": [data_area_id],
                 "profile": "default"
             })
             get_result = parse_mcp_result(raw_result2)
@@ -133,7 +153,7 @@ class TestMCPCrudToolsGet:
             # Should succeed
             assert "error" not in get_result
             assert "data" in get_result
-            assert get_result["data"]["DataAreaId"] == company_id
+            assert get_result["data"]["DataArea"] == data_area_id
             assert get_result["entityName"] == "Companies"
 
     @pytest.mark.asyncio
@@ -156,7 +176,7 @@ class TestMCPCrudToolsGet:
         """Test get record with mismatched key fields and values."""
         raw_result = await mcp_server.mcp.call_tool("d365fo_get_entity_record", {
             "entity_name": "Companies",
-            "key_fields": ["DataAreaId", "ExtraField"],
+            "key_fields": ["DataArea", "ExtraField"],
             "key_values": ["USMF"],  # Only one value for two fields
             "profile": "default"
         })
@@ -178,20 +198,20 @@ class TestMCPCrudToolsGet:
         query_result = parse_mcp_result(raw_result)
 
         if query_result.get("data") and len(query_result["data"]) > 0:
-            company_id = query_result["data"][0]["DataAreaId"]
+            data_area_id = query_result["data"][0]["DataArea"]
 
             # Get record with field selection
             raw_result2 = await mcp_server.mcp.call_tool("d365fo_get_entity_record", {
                 "entity_name": "Companies",
-                "key_fields": ["DataAreaId"],
-                "key_values": [company_id],
-                "select": ["DataAreaId"],
+                "key_fields": ["DataArea"],
+                "key_values": [data_area_id],
+                "select": ["DataArea"],
                 "profile": "default"
             })
             get_result = parse_mcp_result(raw_result2)
 
             assert "error" not in get_result
-            assert "DataAreaId" in get_result["data"]
+            assert "DataArea" in get_result["data"]
 
 
 @skip_if_not_level("sandbox")
@@ -204,7 +224,7 @@ class TestMCPCrudToolsCreate:
         # Companies is typically read-only for creation
         raw_result = await mcp_server.mcp.call_tool("d365fo_create_entity_record", {
             "entity_name": "Companies",
-            "data": {"DataAreaId": "TEST", "Name": "Test Company"},
+            "data": {"DataArea": "TEST", "Name": "Test Company"},
             "profile": "default"
         })
         result = parse_mcp_result(raw_result)
@@ -246,13 +266,13 @@ class TestMCPCrudToolsUpdate:
         query_result = parse_mcp_result(raw_result)
 
         if query_result.get("data") and len(query_result["data"]) > 0:
-            company_id = query_result["data"][0]["DataAreaId"]
+            data_area_id = query_result["data"][0]["DataArea"]
 
             # Try to update (should fail if read-only)
             raw_result2 = await mcp_server.mcp.call_tool("d365fo_update_entity_record", {
                 "entity_name": "Companies",
-                "key_fields": ["DataAreaId"],
-                "key_values": [company_id],
+                "key_fields": ["DataArea"],
+                "key_values": [data_area_id],
                 "data": {"Name": "Updated Test Name"},
                 "profile": "default"
             })
@@ -290,7 +310,7 @@ class TestMCPCrudToolsUpdate:
         """Test update record with mismatched key fields and values."""
         raw_result = await mcp_server.mcp.call_tool("d365fo_update_entity_record", {
             "entity_name": "Companies",
-            "key_fields": ["DataAreaId", "ExtraField"],
+            "key_fields": ["DataArea", "ExtraField"],
             "key_values": ["USMF"],  # Only one value for two fields
             "data": {"Name": "Test"},
             "profile": "default"
@@ -318,13 +338,13 @@ class TestMCPCrudToolsDelete:
         query_result = parse_mcp_result(raw_result)
 
         if query_result.get("data") and len(query_result["data"]) > 0:
-            company_id = query_result["data"][0]["DataAreaId"]
+            data_area_id = query_result["data"][0]["DataArea"]
 
             # Try to delete (should fail if read-only)
             raw_result2 = await mcp_server.mcp.call_tool("d365fo_delete_entity_record", {
                 "entity_name": "Companies",
-                "key_fields": ["DataAreaId"],
-                "key_values": [company_id],
+                "key_fields": ["DataArea"],
+                "key_values": [data_area_id],
                 "profile": "default"
             })
             result = parse_mcp_result(raw_result2)
@@ -359,7 +379,7 @@ class TestMCPCrudToolsDelete:
         """Test delete record with mismatched key fields and values."""
         raw_result = await mcp_server.mcp.call_tool("d365fo_delete_entity_record", {
             "entity_name": "Companies",
-            "key_fields": ["DataAreaId", "ExtraField"],
+            "key_fields": ["DataArea", "ExtraField"],
             "key_values": ["USMF"],  # Only one value for two fields
             "profile": "default"
         })
@@ -390,18 +410,18 @@ class TestMCPCrudToolsIntegration:
 
         # Step 2: Get specific record from query results
         first_record = query_result["data"][0]
-        company_id = first_record["DataAreaId"]
+        data_area_id = first_record["DataArea"]
 
         raw_result2 = await mcp_server.mcp.call_tool("d365fo_get_entity_record", {
             "entity_name": "Companies",
-            "key_fields": ["DataAreaId"],
-            "key_values": [company_id],
+            "key_fields": ["DataArea"],
+            "key_values": [data_area_id],
             "profile": "default"
         })
         get_result = parse_mcp_result(raw_result2)
 
         assert "error" not in get_result
-        assert get_result["data"]["DataAreaId"] == company_id
+        assert get_result["data"]["DataArea"] == data_area_id
 
     @pytest.mark.asyncio
     async def test_schema_aware_key_encoding(self, mcp_server):
@@ -415,17 +435,17 @@ class TestMCPCrudToolsIntegration:
         query_result = parse_mcp_result(raw_result)
 
         if query_result.get("data") and len(query_result["data"]) > 0:
-            company_id = query_result["data"][0]["DataAreaId"]
+            data_area_id = query_result["data"][0]["DataArea"]
 
             # Get record - FOClient should handle key encoding via schema
             raw_result2 = await mcp_server.mcp.call_tool("d365fo_get_entity_record", {
                 "entity_name": "Companies",
-                "key_fields": ["DataAreaId"],
-                "key_values": [company_id],
+                "key_fields": ["DataArea"],
+                "key_values": [data_area_id],
                 "profile": "default"
             })
             get_result = parse_mcp_result(raw_result2)
 
             # Should succeed with proper key encoding
             assert "error" not in get_result
-            assert get_result["data"]["DataAreaId"] == company_id
+            assert get_result["data"]["DataArea"] == data_area_id
