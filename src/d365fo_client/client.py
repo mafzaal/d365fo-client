@@ -1,6 +1,7 @@
 """Main F&O client implementation."""
 
 import asyncio
+import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -76,7 +77,6 @@ class FOClient:
         self.metadata_api_ops = MetadataAPIOperations(
             self.session_manager, self.metadata_url, self.label_ops
         )
-     
 
     async def close(self):
         """Close the client session"""
@@ -90,7 +90,6 @@ class FOClient:
 
         await self.session_manager.close()
 
-    
     async def initialize_metadata(self):
         await self._ensure_metadata_initialized()
 
@@ -99,7 +98,9 @@ class FOClient:
         if not self._metadata_initialized and self.config.enable_metadata_cache:
             try:
 
-                cache_dir = Path(self.config.metadata_cache_dir or get_default_cache_directory())
+                cache_dir = Path(
+                    self.config.metadata_cache_dir or get_default_cache_directory()
+                )
 
                 # Initialize metadata cache v2
                 self.metadata_cache = MetadataCacheV2(
@@ -107,7 +108,7 @@ class FOClient:
                 )
                 # Initialize label operations v2 with cache support
 
-                self.label_ops.set_label_cache(self.metadata_cache) 
+                self.label_ops.set_label_cache(self.metadata_cache)
 
                 await self.metadata_cache.initialize()
 
@@ -117,7 +118,9 @@ class FOClient:
                 )
 
                 # Initialize sync message with session
-                self._sync_session_manager = SyncSessionManager(self.metadata_cache, self.metadata_api_ops)
+                self._sync_session_manager = SyncSessionManager(
+                    self.metadata_cache, self.metadata_api_ops
+                )
 
                 self._metadata_initialized = True
                 self.logger.debug("Metadata cache v2 with label caching initialized")
@@ -159,9 +162,9 @@ class FOClient:
                 f"Starting background metadata sync for version {global_version_id}"
             )
 
- 
-            self.sync_session_manager.start_sync_session(global_version_id=global_version_id,initiated_by="background_task")
-            
+            await self.sync_session_manager.start_sync_session(
+                global_version_id=global_version_id, initiated_by="background_task"
+            )
 
         except Exception as e:
             self.logger.error(f"Background sync error: {e}")
@@ -181,22 +184,23 @@ class FOClient:
     @property
     def sync_session_manager(self) -> SyncSessionManager:
         """Get sync session manager (lazy initialization).
-        
+
         Returns:
             SyncSessionManager instance for enhanced sync progress tracking
-            
+
         Raises:
             RuntimeError: If metadata cache is not initialized
         """
         if self._sync_session_manager is None:
             if not self.metadata_cache:
-                raise RuntimeError("Metadata cache must be initialized before accessing sync session manager")
-            
+                raise RuntimeError(
+                    "Metadata cache must be initialized before accessing sync session manager"
+                )
+
             self._sync_session_manager = SyncSessionManager(
-                cache=self.metadata_cache,
-                metadata_api=self.metadata_api_ops
+                cache=self.metadata_cache, metadata_api=self.metadata_api_ops
             )
-        
+
         return self._sync_session_manager
 
     async def _get_from_cache_first(
@@ -470,7 +474,9 @@ class FOClient:
             if pattern:
                 # Convert simple regex to SQL LIKE pattern
                 cache_pattern = pattern.replace(".*", "%").replace(".", "_")
-                if not cache_pattern.startswith("%") and not cache_pattern.endswith("%"):
+                if not cache_pattern.startswith("%") and not cache_pattern.endswith(
+                    "%"
+                ):
                     cache_pattern = f"%{cache_pattern}%"
 
             return await self.metadata_cache.search_actions(
@@ -533,7 +539,10 @@ class FOClient:
     # CRUD Operations
 
     async def get_entities(
-        self, entity_name: str, options: Optional[QueryOptions] = None, skip_validation: bool = False
+        self,
+        entity_name: str,
+        options: Optional[QueryOptions] = None,
+        skip_validation: bool = False,
     ) -> Dict[str, Any]:
         """Get entities with OData query options
 
@@ -547,7 +556,9 @@ class FOClient:
         """
         entity_schema = None
         if not skip_validation:
-            entity_schema = await self.get_public_entity_schema_by_entityset(entity_name)
+            entity_schema = await self.get_public_entity_schema_by_entityset(
+                entity_name
+            )
             if not entity_schema:
                 raise FOClientError(
                     f"Entity '{entity_name}' not found or not accessible for OData operations"
@@ -578,7 +589,9 @@ class FOClient:
         """
         entity_schema = None
         if not skip_validation:
-            entity_schema = await self.get_public_entity_schema_by_entityset(entity_name)
+            entity_schema = await self.get_public_entity_schema_by_entityset(
+                entity_name
+            )
             if not entity_schema:
                 raise FOClientError(
                     f"Entity '{entity_name}' not found or not accessible for OData operations"
@@ -635,7 +648,9 @@ class FOClient:
         """
         entity_schema = None
         if not skip_validation:
-            entity_schema = await self.get_public_entity_schema_by_entityset(entity_name)
+            entity_schema = await self.get_public_entity_schema_by_entityset(
+                entity_name
+            )
             if not entity_schema:
                 raise FOClientError(
                     f"Entity '{entity_name}' not found or not accessible for OData operations"
@@ -672,7 +687,9 @@ class FOClient:
         """
         entity_schema = None
         if not skip_validation:
-            entity_schema = await self.get_public_entity_schema_by_entityset(entity_name)
+            entity_schema = await self.get_public_entity_schema_by_entityset(
+                entity_name
+            )
             if not entity_schema:
                 raise FOClientError(
                     f"Entity '{entity_name}' not found or not accessible for OData operations"
@@ -682,10 +699,15 @@ class FOClient:
                     f"Entity '{entity_name}' is read-only and cannot accept update operations"
                 )
 
-        return await self.crud_ops.update_entity(entity_name, key, data, method, entity_schema)
+        return await self.crud_ops.update_entity(
+            entity_name, key, data, method, entity_schema
+        )
 
     async def delete_entity(
-        self, entity_name: str, key: Union[str, Dict[str, Any]], skip_validation: bool = False
+        self,
+        entity_name: str,
+        key: Union[str, Dict[str, Any]],
+        skip_validation: bool = False,
     ) -> bool:
         """Delete entity with schema validation
 
@@ -702,7 +724,9 @@ class FOClient:
         """
         entity_schema = None
         if not skip_validation:
-            entity_schema = await self.get_public_entity_schema_by_entityset(entity_name)
+            entity_schema = await self.get_public_entity_schema_by_entityset(
+                entity_name
+            )
             if not entity_schema:
                 raise FOClientError(
                     f"Entity '{entity_name}' not found or not accessible for OData operations"
@@ -736,7 +760,9 @@ class FOClient:
         """
         entity_schema = None
         if not skip_validation and entity_name:
-            entity_schema = await self.get_public_entity_schema_by_entityset(entity_name)
+            entity_schema = await self.get_public_entity_schema_by_entityset(
+                entity_name
+            )
             if not entity_schema:
                 raise FOClientError(
                     f"Entity '{entity_name}' not found or not accessible for OData operations"
@@ -1011,7 +1037,7 @@ class FOClient:
             use_cache_first=use_cache_first,
         )
 
-        return await resolve_labels_generic(entity, self.label_ops) #type: ignore
+        return await resolve_labels_generic(entity, self.label_ops)  # type: ignore
 
     async def get_all_public_entities_with_details(
         self, resolve_labels: bool = False, language: str = "en-US"
@@ -1297,7 +1323,8 @@ class FOClient:
                     "advanced_cache_enabled": True,
                     "cache_v2_enabled": True,
                     "cache_initialized": self._metadata_initialized,
-                    "sync_manager_available": self.sync_manager is not None or self._sync_session_manager is not None,
+                    "sync_manager_available": self.sync_manager is not None
+                    or self._sync_session_manager is not None,
                     "background_sync_running": self._is_background_sync_running(),
                     "statistics": stats,
                 }
@@ -1343,7 +1370,7 @@ class FOClient:
 
         Args:
             service_group: Service group name (e.g., "SysSqlDiagnosticService")
-            service_name: Service name (e.g., "SysSqlDiagnosticServiceOperations") 
+            service_name: Service name (e.g., "SysSqlDiagnosticServiceOperations")
             operation_name: Operation name (e.g., "GetAxSqlExecuting")
             parameters: Optional parameters to send in the POST body
 
@@ -1357,7 +1384,7 @@ class FOClient:
             # Call a service without parameters
             response = await client.post_json_service(
                 "SysSqlDiagnosticService",
-                "SysSqlDiagnosticServiceOperations", 
+                "SysSqlDiagnosticServiceOperations",
                 "GetAxSqlExecuting"
             )
 
@@ -1396,7 +1423,7 @@ class FOClient:
 
             async with session.post(url, json=body, headers=headers) as response:
                 status_code = response.status
-                
+
                 # Handle success cases
                 if status_code in [200, 201]:
                     try:
@@ -1405,7 +1432,7 @@ class FOClient:
                             data = await response.json()
                         else:
                             data = await response.text()
-                        
+
                         return JsonServiceResponse(
                             success=True,
                             data=data,
@@ -1420,7 +1447,7 @@ class FOClient:
                             status_code=status_code,
                             error_message=f"Response parsing warning: {parse_error}",
                         )
-                
+
                 # Handle error cases
                 else:
                     error_text = await response.text()
@@ -1470,9 +1497,7 @@ class FOClient:
         )
 
     async def get_public_entity_schema_by_entityset(
-        self,
-        entityset_name: str,
-        use_cache_first: Optional[bool] = True
+        self, entityset_name: str, use_cache_first: Optional[bool] = True
     ) -> Optional[PublicEntityInfo]:
         """Get public entity schema by entityset name (public collection name).
 
@@ -1499,9 +1524,13 @@ class FOClient:
                 return None
 
             # Try direct public entity lookup first (entityset_name might be the entity name)
-            entity_schema = await self.metadata_cache.get_public_entity_schema(entityset_name)
+            entity_schema = await self.metadata_cache.get_public_entity_schema(
+                entityset_name
+            )
             if entity_schema:
-                self.logger.debug(f"Found entity schema directly for '{entityset_name}'")
+                self.logger.debug(
+                    f"Found entity schema directly for '{entityset_name}'"
+                )
                 return entity_schema
 
             # Try resolving via data entity metadata
@@ -1530,8 +1559,12 @@ class FOClient:
 
                 # Check if public_entity_name matches
                 if data_entity.public_entity_name == entityset_name:
-                    self.logger.debug(f"Found entity by public_entity_name '{entityset_name}'")
-                    return await self.metadata_cache.get_public_entity_schema(entityset_name)
+                    self.logger.debug(
+                        f"Found entity by public_entity_name '{entityset_name}'"
+                    )
+                    return await self.metadata_cache.get_public_entity_schema(
+                        entityset_name
+                    )
 
             return None
 
@@ -1542,10 +1575,14 @@ class FOClient:
                     entityset_name, resolve_labels=False
                 )
                 if entity_schema:
-                    self.logger.debug(f"Found entity schema via API for '{entityset_name}'")
+                    self.logger.debug(
+                        f"Found entity schema via API for '{entityset_name}'"
+                    )
                     return entity_schema
             except Exception as e:
-                self.logger.debug(f"Direct API lookup failed for '{entityset_name}': {e}")
+                self.logger.debug(
+                    f"Direct API lookup failed for '{entityset_name}': {e}"
+                )
 
             # Search data entities to find the mapping
             try:
@@ -1560,24 +1597,25 @@ class FOClient:
                         # Found match - get schema by public_entity_name
                         return await self.metadata_api_ops.get_public_entity_info(
                             data_entity.public_entity_name or data_entity.name,
-                            resolve_labels=False
+                            resolve_labels=False,
                         )
 
                     # Also check if entity name matches
                     if data_entity.name == entityset_name:
                         return await self.metadata_api_ops.get_public_entity_info(
                             data_entity.public_entity_name or data_entity.name,
-                            resolve_labels=False
+                            resolve_labels=False,
                         )
 
                     # Check if public_entity_name matches
                     if data_entity.public_entity_name == entityset_name:
                         return await self.metadata_api_ops.get_public_entity_info(
-                            entityset_name,
-                            resolve_labels=False
+                            entityset_name, resolve_labels=False
                         )
             except Exception as e:
-                self.logger.debug(f"Data entity search failed for '{entityset_name}': {e}")
+                self.logger.debug(
+                    f"Data entity search failed for '{entityset_name}': {e}"
+                )
 
             return None
 
@@ -1588,9 +1626,7 @@ class FOClient:
         )
 
     async def get_entity_schema(
-        self,
-        entity_name: str,
-        use_cache_first: Optional[bool] = True
+        self, entity_name: str, use_cache_first: Optional[bool] = True
     ) -> Optional[PublicEntityInfo]:
         """Get entity schema with cache-first optimization.
 
@@ -1604,10 +1640,161 @@ class FOClient:
             PublicEntityInfo object with schema details or None if not found
         """
         return await self.get_public_entity_info(
-            entity_name,
-            resolve_labels=False,
-            use_cache_first=use_cache_first
+            entity_name, resolve_labels=False, use_cache_first=use_cache_first
         )
+
+    async def download_srs_report(
+        self,
+        document_id: str,
+        legal_entity: str,
+        controller_name: str = "SalesInvoiceController",
+        data_table: str = "CustInvoiceJour",
+        data_field: str = "InvoiceId",
+        document_type: str = "SalesInvoice",
+        save_path: Optional[Union[str, Path]] = None,
+    ) -> str:
+        """Download SRS report as PDF from D365 F&O
+
+        This method downloads SQL Server Reporting Services (SSRS/SRS) reports from D365 F&O
+        by calling the RunCopilotReport action on the SrsFinanceCopilots entity. The report
+        is returned as base64-encoded PDF data which is decoded and saved to the specified path.
+
+        Args:
+            document_id: The ID/key of the document to download (e.g., invoice number, order ID)
+            legal_entity: The legal entity/company code (DataAreaId) for the document
+            controller_name: The SSRS controller class name. Common controllers:
+                - SalesInvoiceController: Customer invoices (CustInvoiceJour)
+                - FreeTextInvoiceController: Free text invoices (CustInvoiceJour)
+                - CustDebitCreditNoteController: Debit/Credit notes (CustInvoiceJour)
+                - SalesConfirmController: Sales confirmations (CustConfirmJour)
+                - PurchPurchaseOrderController: Purchase orders (VendPurchOrderJour)
+            data_table: The table name containing the document record
+            data_field: The field name that stores the document ID in the table
+            document_type: Human-readable document type for filename generation
+            save_path: Full path where PDF should be saved. If None, saves to ./Reports directory
+                      with auto-generated filename. Can be Path object or string.
+
+        Returns:
+            str: Absolute path to the saved PDF file
+
+        Raises:
+            FOClientError: If report generation fails, no PDF data returned, or file save fails
+            ValueError: If required parameters are missing or invalid
+
+        Example:
+            # Download customer invoice
+            path = await client.download_srs_report(
+                document_id="CIV-000708",
+                legal_entity="USMF",
+                controller_name="SalesInvoiceController",
+                data_table="CustInvoiceJour",
+                data_field="InvoiceId",
+                document_type="CustomerInvoice",
+                save_path="/reports/invoices/CIV-000708.pdf"
+            )
+
+            # Download with auto-generated filename
+            path = await client.download_srs_report(
+                document_id="FTI-00000021",
+                legal_entity="USMF",
+                controller_name="FreeTextInvoiceController"
+            )
+        """
+        import base64
+        from datetime import datetime
+
+        # Validate required parameters
+        if not document_id or not legal_entity:
+            raise ValueError(
+                f"document_id and legal_entity are required. "
+                f"Got document_id='{document_id}', legal_entity='{legal_entity}'"
+            )
+
+        # Determine save path
+        if save_path:
+            save_file = Path(save_path)
+            # Ensure parent directory exists
+            save_file.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            # Auto-generate filename in ~/Reports directory
+            save_directory = Path.home() / "Reports"
+            save_directory.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{document_type}_{document_id}_{legal_entity}_{timestamp}.pdf"
+            save_file = save_directory / filename
+
+        try:
+            # Build controller args
+            controller_args = {
+                "DataTableName": data_table,
+                "DataTableFieldName": data_field,
+                "DataTableFieldValue": document_id,
+            }
+
+            # Build action parameters
+            parameters = {
+                "_contractName": "SrsCopilotArgsContract",
+                "_controllerArgsJson": json.dumps(controller_args),
+                "_controllerName": controller_name,
+                "_legalEntityName": legal_entity,
+                "_reportParameterJson": "{}",
+            }
+
+            self.logger.info(
+                f"Downloading SRS report: {document_type} '{document_id}' "
+                f"for legal entity '{legal_entity}'"
+            )
+
+            # Call the action
+            result = await self.call_action(
+                action_name="RunCopilotReport",
+                parameters=parameters,
+                entity_name="SrsFinanceCopilots",
+            )
+
+            # Extract base64 PDF data from response
+            # Response structure: {"result": {"value": "base64data..."}} or {"Result": {"Value": "..."}}
+            base64_data = None
+            if isinstance(result, dict):
+                # Try standard case
+                result_obj = result.get("result") or result.get("Result")
+                if isinstance(result_obj, dict):
+                    base64_data = result_obj.get("value") or result_obj.get("Value")
+                # Fallback: check if value is at root
+                if base64_data is None:
+                    base64_data = result.get("value") or result.get("Value")
+
+            if not base64_data:
+                raise FOClientError(
+                    f"No PDF content returned from SRS report generation for document '{document_id}'. "
+                    f"The report may not exist or the document ID may be invalid."
+                )
+
+            # Decode base64 to PDF bytes
+            try:
+                pdf_bytes = base64.b64decode(base64_data)
+            except Exception as e:
+                raise FOClientError(
+                    f"Failed to decode PDF data for document '{document_id}': {e}"
+                )
+
+            # Save PDF file
+            try:
+                save_file.write_bytes(pdf_bytes)
+                absolute_path = str(save_file.resolve())
+                self.logger.info(f"SRS report saved successfully: {absolute_path}")
+                return absolute_path
+            except Exception as e:
+                raise FOClientError(f"Failed to save PDF file to '{save_file}': {e}")
+
+        except FOClientError:
+            # Re-raise FOClientError as-is
+            raise
+        except Exception as e:
+            # Wrap other exceptions
+            raise FOClientError(
+                f"Failed to download SRS report for document '{document_id}': {e}"
+            )
 
     async def get_application_version(self) -> str:
         """Get the current application version of the D365 F&O environment

@@ -8,6 +8,7 @@ from .label_tools_mixin import LabelToolsMixin
 from .metadata_tools_mixin import MetadataToolsMixin
 from .performance_tools_mixin import PerformanceToolsMixin
 from .profile_tools_mixin import ProfileToolsMixin
+from .srs_tools_mixin import SrsToolsMixin
 from .sync_tools_mixin import SyncToolsMixin
 
 __all__ = [
@@ -20,5 +21,6 @@ __all__ = [
     'MetadataToolsMixin',
     'PerformanceToolsMixin',
     'ProfileToolsMixin',
+    'SrsToolsMixin',
     'SyncToolsMixin',
 ]
