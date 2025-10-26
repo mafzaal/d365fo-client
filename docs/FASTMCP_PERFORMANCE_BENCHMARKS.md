@@ -282,7 +282,7 @@ async def load_test_concurrent_requests(base_url: str, num_clients: int, duratio
 #### FastMCP Startup Sequence
 1. **Import Dependencies**: 0.28s
 2. **Initialize FastMCP Framework**: 0.31s
-3. **Register Tools (34 tools)**: 0.45s
+3. **Register Tools (49 tools)**: 0.45s
 4. **Register Resources (12 types)**: 0.18s
 5. **Setup Transport Layer**: 0.07s
 6. **Total Startup Time**: 1.29s

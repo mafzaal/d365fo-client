@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2025-10-26
+
+### Added
+- **SRS Report Download Tools**: New comprehensive MCP tools for downloading various report types from D365 Finance & Operations
+  - `d365fo_download_customer_invoice` tool for customer invoice PDFs
+  - `d365fo_download_free_text_invoice` tool for free text invoice PDFs
+  - `d365fo_download_debit_credit_note` tool for credit/debit note PDFs
+  - `d365fo_download_sales_confirmation` tool for sales confirmation PDFs
+  - `d365fo_download_purchase_order` tool for purchase order PDFs
+  - `d365fo_download_srs_report` tool for generic SRS report downloads
+  - Enhanced D365FO client with SRS download capabilities and auto-generated file paths
+  - Comprehensive integration tests for SRS download functionality with PDF validation
+  - Example scripts and documentation for SRS operations
+
+### Improved
+- **Integration Testing**: Enhanced integration testing fixtures and MCP CRUD tools
+  - Updated sandbox_client fixture to fallback to default profile when environment variable is not set
+  - Renamed TestableBaseToolsMixin to BaseToolsMixinWrapper to avoid pytest collection warnings
+  - Modified MCP CRUD tools tests to use 'DataArea' instead of 'DataAreaId' for consistency
+  - Improved cleanup process in mcp_server fixture to close all client connections and avoid warnings
+
+### Documentation
+- **FastMCP Architecture**: Updated documentation to reflect 49 comprehensive tools across 9 categories
+- **Agent Guidelines**: Enhanced AI agent guide (AGENTS.md) with comprehensive tool reference and workflow patterns
+- **Project Instructions**: Updated copilot instructions to reflect current mixin-based architecture
+- **SRS Documentation**: Added comprehensive SRS implementation documentation and usage examples
+
+### Dependencies
+- **Core Dependencies**: Updated aiohttp from 3.13.0 to 3.13.1
+- **MCP Framework**: Updated mcp from 1.17.0 to 1.18.0  
+- **Development Tools**: Updated uvicorn from 0.37.0 to 0.38.0, ruff from 0.14.0 to 0.14.1
+
 ## [0.3.3] - 2025-10-19
 
 ### Fixed

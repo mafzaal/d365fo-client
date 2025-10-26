@@ -55,7 +55,7 @@ Both servers provide identical functionality but the FastMCP implementation offe
 
 ### Key Features
 
-- **34 comprehensive tools** covering all major D365 F&O operations across 7 functional categories
+- **49 comprehensive tools** covering all major D365 F&O operations across 9 functional categories
 - **12 resource types** with comprehensive metadata exposure and discovery capabilities
 - **2 prompt templates** for advanced workflow assistance
 - **Multi-transport support** (FastMCP): stdio, HTTP, Server-Sent Events (SSE)
@@ -577,19 +577,20 @@ export D365FO_MAX_CONCURRENT_REQUESTS="5"
 
 ### MCP Tools
 
-The server provides **34 comprehensive tools** organized into functional categories:
+The server provides **49 comprehensive tools** organized into functional categories:
 
 #### Connection & Environment Tools (2 tools)
 - **`d365fo_test_connection`** - Test connectivity and authentication with performance metrics and error diagnostics
 - **`d365fo_get_environment_info`** - Get comprehensive environment details including versions, configurations, and capabilities
 
-#### CRUD Operations Tools (6 tools)
+#### CRUD Operations Tools (7 tools)
 - **`d365fo_query_entities`** - Simplified OData querying with 'eq' filtering, wildcard patterns, field selection, and pagination
 - **`d365fo_get_entity_record`** - Retrieve specific records by key with expansion options and ETag support
 - **`d365fo_create_entity_record`** - Create new entity records with validation and business logic execution
 - **`d365fo_update_entity_record`** - Update existing records with partial updates and optimistic concurrency control
 - **`d365fo_delete_entity_record`** - Delete entity records with referential integrity checking and cascading rules
 - **`d365fo_call_action`** - Execute OData actions and functions for complex business operations
+- **`d365fo_call_json_service`** - Call generic JSON service endpoints with parameter support and response handling
 
 #### Metadata Discovery Tools (6 tools)
 - **`d365fo_search_entities`** - Search entities by pattern with category filtering and full-text search capabilities
@@ -603,7 +604,7 @@ The server provides **34 comprehensive tools** organized into functional categor
 - **`d365fo_get_label`** - Get single label text by ID with multi-language support and fallback options
 - **`d365fo_get_labels_batch`** - Get multiple labels efficiently with batch processing and performance optimization
 
-#### Profile Management Tools (10 tools)
+#### Profile Management Tools (14 tools)
 - **`d365fo_list_profiles`** - List all configured D365FO environment profiles with status information
 - **`d365fo_get_profile`** - Get detailed configuration information for specific profiles
 - **`d365fo_create_profile`** - Create new environment profiles with comprehensive authentication options
@@ -613,7 +614,11 @@ The server provides **34 comprehensive tools** organized into functional categor
 - **`d365fo_get_default_profile`** - Retrieve information about the currently configured default profile
 - **`d365fo_validate_profile`** - Validate profile configurations for completeness and security compliance
 - **`d365fo_test_profile_connection`** - Test connectivity and authentication for specific profiles
-- **`d365fo_get_profile_status`** - Get comprehensive status information for profiles
+- **`d365fo_clone_profile`** - Clone existing profiles with customization options for new environments
+- **`d365fo_search_profiles`** - Search profiles by pattern with filtering and sorting capabilities
+- **`d365fo_get_profile_names`** - Get simplified list of available profile names for quick reference
+- **`d365fo_import_profiles`** - Import profile configurations from external sources or backups
+- **`d365fo_export_profiles`** - Export profile configurations for backup or deployment purposes
 
 #### Database Analysis Tools (4 tools)
 - **`d365fo_execute_sql_query`** - Execute SELECT queries against metadata database with security validation
@@ -621,13 +626,29 @@ The server provides **34 comprehensive tools** organized into functional categor
 - **`d365fo_get_table_info`** - Get detailed information about specific database tables with sample data
 - **`d365fo_get_database_statistics`** - Generate database statistics and analytics for performance monitoring
 
-#### Synchronization Tools (4 tools)
+#### Synchronization Tools (5 tools)
 - **`d365fo_start_sync`** - Initiate metadata synchronization with various strategies and session tracking
 - **`d365fo_get_sync_progress`** - Monitor detailed progress of sync sessions with time estimates
 - **`d365fo_cancel_sync`** - Cancel running sync sessions with graceful cleanup
 - **`d365fo_list_sync_sessions`** - List all active sync sessions with status and progress information
+- **`d365fo_get_sync_history`** - Get history of completed sync sessions with success/failure status and statistics
+
+#### SRS Reporting Tools (6 tools)
+- **`d365fo_download_srs_report`** - Download SQL Server Reporting Services (SRS) reports with parameter support
+- **`d365fo_download_sales_confirmation`** - Download sales confirmation reports in various formats
+- **`d365fo_download_purchase_order`** - Download purchase order documents with formatting options
+- **`d365fo_download_customer_invoice`** - Download customer invoice reports with customization
+- **`d365fo_download_free_text_invoice`** - Download free text invoice documents
+- **`d365fo_download_debit_credit_note`** - Download debit and credit note reports
+
+#### Performance Monitoring Tools (3 tools)
+- **`d365fo_get_server_performance`** - Get server performance metrics and statistics
+- **`d365fo_get_server_config`** - Get server configuration information and system settings
+- **`d365fo_reset_performance_stats`** - Reset performance statistics and counters for fresh monitoring
 
 **📖 For detailed information about all MCP tools including usage examples and best practices, see the [Comprehensive MCP Tools Introduction](docs/MCP_TOOLS_COMPREHENSIVE_INTRODUCTION.md).**
+
+**🤖 For AI agents and assistants, see the [AI Agent Guide](AGENTS.md) for structured workflows, best practices, and automation patterns.**
 
 ### MCP Resources
 
@@ -808,7 +829,7 @@ export DEBUG="true"                                     # Enable debug mode
 - 💾 **Intelligent Caching**: Cross-environment cache sharing with module-based version detection
 - 🌐 **Async/Await**: Modern async/await patterns with optimized session management
 - 📝 **Type Hints**: Full type annotation support with enhanced data models
-- 🤖 **MCP Server**: Production-ready Model Context Protocol server with 12 tools and 4 resource types
+- 🤖 **MCP Server**: Production-ready Model Context Protocol server with 49 tools and 4 resource types
 - 🖥️ **Comprehensive CLI**: Hierarchical command-line interface for all D365 F&O operations
 - 🧪 **Multi-tier Testing**: Mock, sandbox, and live integration testing framework (17/17 tests passing)
 - 📋 **Metadata Scripts**: PowerShell and Python utilities for entity, enumeration, and action discovery
@@ -1391,7 +1412,8 @@ d365fo-client/
 │           ├── server.py        # Core MCP server implementation
 │           ├── client_manager.py# D365FO client connection pooling
 │           ├── models.py        # MCP-specific data models
-│           ├── tools/           # MCP tool implementations (12 tools)
+│           ├── mixins/          # FastMCP tool mixins (49 tools)
+│           ├── tools/           # Legacy MCP tools (deprecated)
 │           │   ├── connection_tools.py
 │           │   ├── crud_tools.py
 │           │   ├── metadata_tools.py

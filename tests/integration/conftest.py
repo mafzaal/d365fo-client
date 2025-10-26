@@ -13,21 +13,50 @@ from . import INTEGRATION_TEST_LEVEL, TEST_ENVIRONMENTS
 
 @pytest_asyncio.fixture
 async def sandbox_client() -> AsyncGenerator[FOClient, None]:
-    """Create FOClient configured for sandbox environment."""
+    """Create FOClient configured for sandbox environment.
+
+    Falls back to default profile from ~/.cache/d365fo-client/config.yaml
+    if D365FO_SANDBOX_BASE_URL is not set.
+    """
     if INTEGRATION_TEST_LEVEL not in ["sandbox", "all"]:
         pytest.skip("Sandbox integration tests not enabled")
 
     import os
+    from d365fo_client.profile_manager import ProfileManager
 
-    # Check required environment variables
-    required_vars = ["D365FO_SANDBOX_BASE_URL"]
-    missing_vars = [var for var in required_vars if not os.getenv(var)]
-    if missing_vars:
-        pytest.skip(f"Missing required environment variables: {missing_vars}")
+    # Try to get URL from environment variable first
+    base_url = os.getenv("D365FO_SANDBOX_BASE_URL")
+
+    # If not set, try to load from default profile
+    if not base_url:
+        try:
+            # Try both default config location and cache location
+            config_paths = [
+                os.path.expanduser("~/.d365fo-client/config.yaml"),
+                os.path.expanduser("~/.cache/d365fo-client/config.yaml"),
+            ]
+
+            for config_path in config_paths:
+                if os.path.exists(config_path):
+                    profile_manager = ProfileManager(config_path)
+                    default_profile = profile_manager.get_default_profile()
+                    if default_profile and hasattr(default_profile, 'base_url'):
+                        base_url = default_profile.base_url
+                        print(f"Using base_url from default profile ({config_path}): {base_url}")
+                        break
+        except Exception as e:
+            print(f"Could not load default profile: {e}")
+
+    # If still no base_url, skip the test
+    if not base_url:
+        pytest.skip(
+            "No D365FO_SANDBOX_BASE_URL environment variable set and no default profile found. "
+            "Set D365FO_SANDBOX_BASE_URL or configure a default profile in ~/.cache/d365fo-client/config.yaml"
+        )
 
     config = FOClientConfig(
-        base_url=os.getenv("D365FO_SANDBOX_BASE_URL"),
-        use_default_credentials=True,
+        base_url=base_url,
+        credential_source=None,  # Use Azure Default Credentials
         verify_ssl=False,  # Often needed for test environments
         timeout=60,
     )
@@ -55,7 +84,7 @@ async def live_client() -> AsyncGenerator[FOClient, None]:
 
     config = FOClientConfig(
         base_url=os.getenv("D365FO_LIVE_BASE_URL"),
-        use_default_credentials=True,
+        credential_source=None,  # Use Azure Default Credentials
         verify_ssl=True,
         timeout=60,
     )

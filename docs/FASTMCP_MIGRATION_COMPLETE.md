@@ -140,7 +140,7 @@ Successfully migrated the D365FO MCP Server from traditional MCP SDK to **FastMC
 ```
 === Validation Results Summary ===
 ✅ PASS: Server Initialization
-✅ PASS: Tools Registration (34/34 tools found)
+✅ PASS: Tools Registration (49/49 tools found)
 ✅ PASS: Resources Registration (12/12 resources + 1 template)
 ✅ PASS: Prompts Registration (2/2 prompts found)
 ✅ PASS: Tool Execution (successful execution with error handling)
@@ -236,7 +236,7 @@ d365fo-fastmcp-server --transport sse --port 8001 --host 0.0.0.0
 
 ## Conclusion
 
-The FastMCP migration has been **100% successful** with all 48 components (34 tools + 12 resources + 2 prompts) fully migrated and validated. The new implementation provides significant improvements in code quality, maintainability, and operational flexibility while maintaining complete backward compatibility.
+The FastMCP migration has been **100% successful** with all 63 components (49 tools + 12 resources + 2 prompts) fully migrated and validated. The new implementation provides significant improvements in code quality, maintainability, and operational flexibility while maintaining complete backward compatibility.
 
 **Key Success Metrics:**
 - ✅ **Functionality**: 100% feature parity achieved

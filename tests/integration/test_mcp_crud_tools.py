@@ -4,37 +4,56 @@ These tests validate that the MCP CRUD tools correctly leverage FOClient's
 schema validation and work end-to-end against real D365 F&O environments.
 """
 
+import asyncio
+import json
+from pathlib import Path
 import pytest
 from typing import Dict, Any
 
-from d365fo_client.mcp.fastmcp_server import D365FOFastMCPServer
+from d365fo_client.mcp.fastmcp_server import FastD365FOMCPServer
 from d365fo_client.profile_manager import ProfileManager
 
 from . import skip_if_not_level
 
 
+def parse_mcp_result(result):
+    """Parse MCP tool result from TextContent list to dictionary."""
+    if isinstance(result, list) and len(result) > 0:
+        # Extract text from first TextContent object
+        text_content = result[0]
+        if hasattr(text_content, 'text'):
+            return json.loads(text_content.text)
+    return result
+
+
 @pytest.fixture
 async def mcp_server(tmp_path):
     """Create MCP server instance for testing."""
-    # Setup test profile directory
-    profile_dir = tmp_path / ".d365fo-client"
-    profile_dir.mkdir(parents=True, exist_ok=True)
-
-    # Create profile manager with sandbox config
-    profile_manager = ProfileManager(str(profile_dir))
-
-    # Load sandbox profile from environment variables
-    # (Same environment variables used by sandbox_client fixture)
-    await profile_manager.load_profiles()
-
-    # Create MCP server
-    server = D365FOFastMCPServer()
-    await server.initialize()
+    # Create MCP server with default configuration
+    # The server will use the default profile manager which loads from ~/.d365fo-client
+    from mcp.server.fastmcp import FastMCP
+    mcp = FastMCP("d365fo-test")
+    profile_manager = ProfileManager('/home/mafzaal/.cache/d365fo-client/config.yaml')
+    server = FastD365FOMCPServer(mcp=mcp, profile_manager=profile_manager)
 
     yield server
 
-    # Cleanup
+    # Cleanup - close all client connections and HTTP sessions
     await server.cleanup()
+
+    # Also close client manager connections to avoid "Unclosed connector" warning
+    if hasattr(server, 'client_manager'):
+        # Close all active clients
+        for profile_name in list(server.client_manager._client_pool.keys()):
+            try:
+                client = server.client_manager._client_pool[profile_name]
+                await client.close()
+            except Exception:
+                pass
+        server.client_manager._client_pool.clear()
+
+    # Give a moment for all async cleanup to complete
+    await asyncio.sleep(0.1)
 
 
 @skip_if_not_level("sandbox")
@@ -44,15 +63,14 @@ class TestMCPCrudToolsQuery:
     @pytest.mark.asyncio
     async def test_query_entities_basic(self, mcp_server):
         """Test basic query operation through MCP tool."""
-        # Get the CRUD tools mixin
-        crud_mixin = mcp_server.crud_tools
+        # Query Companies entity through MCP framework
+        raw_result = await mcp_server.mcp.call_tool("d365fo_query_entities", {
+            "entity_name": "Companies",
+            "top": 5,
+            #"profile": "default"
+        })
 
-        # Query Companies entity
-        result = await crud_mixin.d365fo_query_entities(
-            entity_name="Companies",
-            top=5,
-            profile="sandbox"
-        )
+        result = parse_mcp_result(raw_result)
 
         # Should succeed without validation errors
         assert "error" not in result
@@ -64,13 +82,13 @@ class TestMCPCrudToolsQuery:
     @pytest.mark.asyncio
     async def test_query_entities_with_invalid_entity(self, mcp_server):
         """Test query operation with non-existent entity (should fail with clear error)."""
-        crud_mixin = mcp_server.crud_tools
+        raw_result = await mcp_server.mcp.call_tool("d365fo_query_entities", {
+            "entity_name": "NonExistentEntity12345",
+            "top": 5,
+            "profile": "default"
+        })
 
-        result = await crud_mixin.d365fo_query_entities(
-            entity_name="NonExistentEntity12345",
-            top=5,
-            profile="sandbox"
-        )
+        result = parse_mcp_result(raw_result)
 
         # Should return error from FOClient
         assert "error" in result
@@ -79,28 +97,30 @@ class TestMCPCrudToolsQuery:
     @pytest.mark.asyncio
     async def test_query_entities_with_filter(self, mcp_server):
         """Test query operation with OData filter."""
-        crud_mixin = mcp_server.crud_tools
-
         # First get a company to use in filter
-        initial_result = await crud_mixin.d365fo_query_entities(
-            entity_name="Companies",
-            top=1,
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_query_entities", {
+            "entity_name": "Companies",
+            "top": 1,
+            "profile": "default"
+        })
+
+        print(raw_result)
+        initial_result = parse_mcp_result(raw_result)
 
         if initial_result.get("data") and len(initial_result["data"]) > 0:
-            company_id = initial_result["data"][0]["DataAreaId"]
+            data_area_id = initial_result["data"][0]["DataArea"]
 
             # Now query with filter
-            filter_result = await crud_mixin.d365fo_query_entities(
-                entity_name="Companies",
-                filter=f"DataAreaId eq '{company_id}'",
-                profile="sandbox"
-            )
+            raw_result2 = await mcp_server.mcp.call_tool("d365fo_query_entities", {
+                "entity_name": "Companies",
+                "filter": f"DataArea eq '{data_area_id}'",
+                "profile": "default"
+            })
+            filter_result = parse_mcp_result(raw_result2)
 
             assert "error" not in filter_result
             assert filter_result["totalRecords"] >= 1
-            assert filter_result["data"][0]["DataAreaId"] == company_id
+            assert filter_result["data"][0]["DataArea"] == data_area_id
 
 
 @skip_if_not_level("sandbox")
@@ -110,43 +130,42 @@ class TestMCPCrudToolsGet:
     @pytest.mark.asyncio
     async def test_get_entity_record_basic(self, mcp_server):
         """Test get single entity record through MCP tool."""
-        crud_mixin = mcp_server.crud_tools
-
         # First query to get a valid record key
-        query_result = await crud_mixin.d365fo_query_entities(
-            entity_name="Companies",
-            top=1,
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_query_entities", {
+            "entity_name": "Companies",
+            "top": 1,
+            "profile": "default"
+        })
+        query_result = parse_mcp_result(raw_result)
 
         if query_result.get("data") and len(query_result["data"]) > 0:
-            company_id = query_result["data"][0]["DataAreaId"]
+            data_area_id = query_result["data"][0]["DataArea"]
 
             # Now get the specific record
-            get_result = await crud_mixin.d365fo_get_entity_record(
-                entity_name="Companies",
-                key_fields=["DataAreaId"],
-                key_values=[company_id],
-                profile="sandbox"
-            )
+            raw_result2 = await mcp_server.mcp.call_tool("d365fo_get_entity_record", {
+                "entity_name": "Companies",
+                "key_fields": ["DataArea"],
+                "key_values": [data_area_id],
+                "profile": "default"
+            })
+            get_result = parse_mcp_result(raw_result2)
 
             # Should succeed
             assert "error" not in get_result
             assert "data" in get_result
-            assert get_result["data"]["DataAreaId"] == company_id
+            assert get_result["data"]["DataArea"] == data_area_id
             assert get_result["entityName"] == "Companies"
 
     @pytest.mark.asyncio
     async def test_get_entity_record_with_invalid_entity(self, mcp_server):
         """Test get record with non-existent entity."""
-        crud_mixin = mcp_server.crud_tools
-
-        result = await crud_mixin.d365fo_get_entity_record(
-            entity_name="NonExistentEntity12345",
-            key_fields=["SomeKey"],
-            key_values=["SomeValue"],
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_get_entity_record", {
+            "entity_name": "NonExistentEntity12345",
+            "key_fields": ["SomeKey"],
+            "key_values": ["SomeValue"],
+            "profile": "default"
+        })
+        result = parse_mcp_result(raw_result)
 
         # Should return error from FOClient's schema validation
         assert "error" in result
@@ -155,14 +174,13 @@ class TestMCPCrudToolsGet:
     @pytest.mark.asyncio
     async def test_get_entity_record_with_mismatched_keys(self, mcp_server):
         """Test get record with mismatched key fields and values."""
-        crud_mixin = mcp_server.crud_tools
-
-        result = await crud_mixin.d365fo_get_entity_record(
-            entity_name="Companies",
-            key_fields=["DataAreaId", "ExtraField"],
-            key_values=["USMF"],  # Only one value for two fields
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_get_entity_record", {
+            "entity_name": "Companies",
+            "key_fields": ["DataArea", "ExtraField"],
+            "key_values": ["USMF"],  # Only one value for two fields
+            "profile": "default"
+        })
+        result = parse_mcp_result(raw_result)
 
         # Should return error about key mismatch
         assert "error" in result
@@ -171,29 +189,29 @@ class TestMCPCrudToolsGet:
     @pytest.mark.asyncio
     async def test_get_entity_record_with_select(self, mcp_server):
         """Test get record with field selection."""
-        crud_mixin = mcp_server.crud_tools
-
         # First query to get a valid record key
-        query_result = await crud_mixin.d365fo_query_entities(
-            entity_name="Companies",
-            top=1,
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_query_entities", {
+            "entity_name": "Companies",
+            "top": 1,
+            "profile": "default"
+        })
+        query_result = parse_mcp_result(raw_result)
 
         if query_result.get("data") and len(query_result["data"]) > 0:
-            company_id = query_result["data"][0]["DataAreaId"]
+            data_area_id = query_result["data"][0]["DataArea"]
 
             # Get record with field selection
-            get_result = await crud_mixin.d365fo_get_entity_record(
-                entity_name="Companies",
-                key_fields=["DataAreaId"],
-                key_values=[company_id],
-                select=["DataAreaId"],
-                profile="sandbox"
-            )
+            raw_result2 = await mcp_server.mcp.call_tool("d365fo_get_entity_record", {
+                "entity_name": "Companies",
+                "key_fields": ["DataArea"],
+                "key_values": [data_area_id],
+                "select": ["DataArea"],
+                "profile": "default"
+            })
+            get_result = parse_mcp_result(raw_result2)
 
             assert "error" not in get_result
-            assert "DataAreaId" in get_result["data"]
+            assert "DataArea" in get_result["data"]
 
 
 @skip_if_not_level("sandbox")
@@ -203,14 +221,13 @@ class TestMCPCrudToolsCreate:
     @pytest.mark.asyncio
     async def test_create_entity_readonly_validation(self, mcp_server):
         """Test that create operation fails for read-only entities."""
-        crud_mixin = mcp_server.crud_tools
-
         # Companies is typically read-only for creation
-        result = await crud_mixin.d365fo_create_entity_record(
-            entity_name="Companies",
-            data={"DataAreaId": "TEST", "Name": "Test Company"},
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_create_entity_record", {
+            "entity_name": "Companies",
+            "data": {"DataArea": "TEST", "Name": "Test Company"},
+            "profile": "default"
+        })
+        result = parse_mcp_result(raw_result)
 
         # Should fail with read-only error from FOClient
         assert "error" in result or result.get("created") is False
@@ -221,13 +238,12 @@ class TestMCPCrudToolsCreate:
     @pytest.mark.asyncio
     async def test_create_entity_invalid_entity(self, mcp_server):
         """Test create operation with non-existent entity."""
-        crud_mixin = mcp_server.crud_tools
-
-        result = await crud_mixin.d365fo_create_entity_record(
-            entity_name="NonExistentEntity12345",
-            data={"Field1": "Value1"},
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_create_entity_record", {
+            "entity_name": "NonExistentEntity12345",
+            "data": {"Field1": "Value1"},
+            "profile": "default"
+        })
+        result = parse_mcp_result(raw_result)
 
         # Should return error from FOClient's schema validation
         assert "error" in result
@@ -241,26 +257,26 @@ class TestMCPCrudToolsUpdate:
     @pytest.mark.asyncio
     async def test_update_entity_readonly_validation(self, mcp_server):
         """Test that update operation fails for read-only entities."""
-        crud_mixin = mcp_server.crud_tools
-
         # First get a record to attempt update
-        query_result = await crud_mixin.d365fo_query_entities(
-            entity_name="Companies",
-            top=1,
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_query_entities", {
+            "entity_name": "Companies",
+            "top": 1,
+            "profile": "default"
+        })
+        query_result = parse_mcp_result(raw_result)
 
         if query_result.get("data") and len(query_result["data"]) > 0:
-            company_id = query_result["data"][0]["DataAreaId"]
+            data_area_id = query_result["data"][0]["DataArea"]
 
             # Try to update (should fail if read-only)
-            result = await crud_mixin.d365fo_update_entity_record(
-                entity_name="Companies",
-                key_fields=["DataAreaId"],
-                key_values=[company_id],
-                data={"Name": "Updated Test Name"},
-                profile="sandbox"
-            )
+            raw_result2 = await mcp_server.mcp.call_tool("d365fo_update_entity_record", {
+                "entity_name": "Companies",
+                "key_fields": ["DataArea"],
+                "key_values": [data_area_id],
+                "data": {"Name": "Updated Test Name"},
+                "profile": "default"
+            })
+            result = parse_mcp_result(raw_result2)
 
             # Should fail with read-only error from FOClient (if Companies is read-only)
             # Or succeed if entity supports updates
@@ -276,15 +292,14 @@ class TestMCPCrudToolsUpdate:
     @pytest.mark.asyncio
     async def test_update_entity_invalid_entity(self, mcp_server):
         """Test update operation with non-existent entity."""
-        crud_mixin = mcp_server.crud_tools
-
-        result = await crud_mixin.d365fo_update_entity_record(
-            entity_name="NonExistentEntity12345",
-            key_fields=["SomeKey"],
-            key_values=["SomeValue"],
-            data={"Field1": "Value1"},
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_update_entity_record", {
+            "entity_name": "NonExistentEntity12345",
+            "key_fields": ["SomeKey"],
+            "key_values": ["SomeValue"],
+            "data": {"Field1": "Value1"},
+            "profile": "default"
+        })
+        result = parse_mcp_result(raw_result)
 
         # Should return error from FOClient's schema validation
         assert "error" in result
@@ -293,15 +308,14 @@ class TestMCPCrudToolsUpdate:
     @pytest.mark.asyncio
     async def test_update_entity_with_mismatched_keys(self, mcp_server):
         """Test update record with mismatched key fields and values."""
-        crud_mixin = mcp_server.crud_tools
-
-        result = await crud_mixin.d365fo_update_entity_record(
-            entity_name="Companies",
-            key_fields=["DataAreaId", "ExtraField"],
-            key_values=["USMF"],  # Only one value for two fields
-            data={"Name": "Test"},
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_update_entity_record", {
+            "entity_name": "Companies",
+            "key_fields": ["DataArea", "ExtraField"],
+            "key_values": ["USMF"],  # Only one value for two fields
+            "data": {"Name": "Test"},
+            "profile": "default"
+        })
+        result = parse_mcp_result(raw_result)
 
         # Should return error about key mismatch
         assert "error" in result
@@ -315,25 +329,25 @@ class TestMCPCrudToolsDelete:
     @pytest.mark.asyncio
     async def test_delete_entity_readonly_validation(self, mcp_server):
         """Test that delete operation fails for read-only entities."""
-        crud_mixin = mcp_server.crud_tools
-
         # First get a record to attempt delete
-        query_result = await crud_mixin.d365fo_query_entities(
-            entity_name="Companies",
-            top=1,
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_query_entities", {
+            "entity_name": "Companies",
+            "top": 1,
+            "profile": "default"
+        })
+        query_result = parse_mcp_result(raw_result)
 
         if query_result.get("data") and len(query_result["data"]) > 0:
-            company_id = query_result["data"][0]["DataAreaId"]
+            data_area_id = query_result["data"][0]["DataArea"]
 
             # Try to delete (should fail if read-only)
-            result = await crud_mixin.d365fo_delete_entity_record(
-                entity_name="Companies",
-                key_fields=["DataAreaId"],
-                key_values=[company_id],
-                profile="sandbox"
-            )
+            raw_result2 = await mcp_server.mcp.call_tool("d365fo_delete_entity_record", {
+                "entity_name": "Companies",
+                "key_fields": ["DataArea"],
+                "key_values": [data_area_id],
+                "profile": "default"
+            })
+            result = parse_mcp_result(raw_result2)
 
             # Should fail with read-only error from FOClient
             assert "error" in result
@@ -348,14 +362,13 @@ class TestMCPCrudToolsDelete:
     @pytest.mark.asyncio
     async def test_delete_entity_invalid_entity(self, mcp_server):
         """Test delete operation with non-existent entity."""
-        crud_mixin = mcp_server.crud_tools
-
-        result = await crud_mixin.d365fo_delete_entity_record(
-            entity_name="NonExistentEntity12345",
-            key_fields=["SomeKey"],
-            key_values=["SomeValue"],
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_delete_entity_record", {
+            "entity_name": "NonExistentEntity12345",
+            "key_fields": ["SomeKey"],
+            "key_values": ["SomeValue"],
+            "profile": "default"
+        })
+        result = parse_mcp_result(raw_result)
 
         # Should return error from FOClient's schema validation
         assert "error" in result
@@ -364,14 +377,13 @@ class TestMCPCrudToolsDelete:
     @pytest.mark.asyncio
     async def test_delete_entity_with_mismatched_keys(self, mcp_server):
         """Test delete record with mismatched key fields and values."""
-        crud_mixin = mcp_server.crud_tools
-
-        result = await crud_mixin.d365fo_delete_entity_record(
-            entity_name="Companies",
-            key_fields=["DataAreaId", "ExtraField"],
-            key_values=["USMF"],  # Only one value for two fields
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_delete_entity_record", {
+            "entity_name": "Companies",
+            "key_fields": ["DataArea", "ExtraField"],
+            "key_values": ["USMF"],  # Only one value for two fields
+            "profile": "default"
+        })
+        result = parse_mcp_result(raw_result)
 
         # Should return error about key mismatch
         assert "error" in result
@@ -385,55 +397,55 @@ class TestMCPCrudToolsIntegration:
     @pytest.mark.asyncio
     async def test_query_then_get_workflow(self, mcp_server):
         """Test typical workflow: query entities, then get specific record."""
-        crud_mixin = mcp_server.crud_tools
-
         # Step 1: Query for records
-        query_result = await crud_mixin.d365fo_query_entities(
-            entity_name="Companies",
-            top=3,
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_query_entities", {
+            "entity_name": "Companies",
+            "top": 3,
+            "profile": "default"
+        })
+        query_result = parse_mcp_result(raw_result)
 
         assert "error" not in query_result
         assert query_result["totalRecords"] > 0
 
         # Step 2: Get specific record from query results
         first_record = query_result["data"][0]
-        company_id = first_record["DataAreaId"]
+        data_area_id = first_record["DataArea"]
 
-        get_result = await crud_mixin.d365fo_get_entity_record(
-            entity_name="Companies",
-            key_fields=["DataAreaId"],
-            key_values=[company_id],
-            profile="sandbox"
-        )
+        raw_result2 = await mcp_server.mcp.call_tool("d365fo_get_entity_record", {
+            "entity_name": "Companies",
+            "key_fields": ["DataArea"],
+            "key_values": [data_area_id],
+            "profile": "default"
+        })
+        get_result = parse_mcp_result(raw_result2)
 
         assert "error" not in get_result
-        assert get_result["data"]["DataAreaId"] == company_id
+        assert get_result["data"]["DataArea"] == data_area_id
 
     @pytest.mark.asyncio
     async def test_schema_aware_key_encoding(self, mcp_server):
         """Test that schema-aware key encoding works correctly."""
-        crud_mixin = mcp_server.crud_tools
-
         # Get a record with composite or complex key structure
-        query_result = await crud_mixin.d365fo_query_entities(
-            entity_name="Companies",
-            top=1,
-            profile="sandbox"
-        )
+        raw_result = await mcp_server.mcp.call_tool("d365fo_query_entities", {
+            "entity_name": "Companies",
+            "top": 1,
+            "profile": "default"
+        })
+        query_result = parse_mcp_result(raw_result)
 
         if query_result.get("data") and len(query_result["data"]) > 0:
-            company_id = query_result["data"][0]["DataAreaId"]
+            data_area_id = query_result["data"][0]["DataArea"]
 
             # Get record - FOClient should handle key encoding via schema
-            get_result = await crud_mixin.d365fo_get_entity_record(
-                entity_name="Companies",
-                key_fields=["DataAreaId"],
-                key_values=[company_id],
-                profile="sandbox"
-            )
+            raw_result2 = await mcp_server.mcp.call_tool("d365fo_get_entity_record", {
+                "entity_name": "Companies",
+                "key_fields": ["DataArea"],
+                "key_values": [data_area_id],
+                "profile": "default"
+            })
+            get_result = parse_mcp_result(raw_result2)
 
             # Should succeed with proper key encoding
             assert "error" not in get_result
-            assert get_result["data"]["DataAreaId"] == company_id
+            assert get_result["data"]["DataArea"] == data_area_id

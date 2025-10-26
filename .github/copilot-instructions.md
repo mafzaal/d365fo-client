@@ -50,11 +50,18 @@ d365fo-client/
 │       ├── server.py            # Core MCP server implementation
 │       ├── client_manager.py    # D365FO client connection pooling
 │       ├── models.py            # MCP-specific data models
-│       ├── tools/               # MCP tool handlers (12 tools)
-│       │   ├── connection_tools.py # Connection testing tools
-│       │   ├── crud_tools.py    # CRUD operation tools
-│       │   ├── metadata_tools.py# Metadata discovery tools
-│       │   └── label_tools.py   # Label retrieval tools
+│       ├── mixins/              # FastMCP tool mixins (49 tools)
+│       │   ├── connection_tools_mixin.py # Connection testing mixins
+│       │   ├── crud_tools_mixin.py    # CRUD operation mixins
+│       │   ├── metadata_tools_mixin.py# Metadata discovery mixins
+│       │   ├── label_tools_mixin.py   # Label retrieval mixins
+│       │   ├── profile_tools_mixin.py # Profile management mixins
+│       │   ├── database_tools_mixin.py# Database analysis mixins
+│       │   ├── sync_tools_mixin.py    # Synchronization mixins
+│       │   ├── srs_tools_mixin.py     # SRS reporting mixins
+│       │   └── performance_tools_mixin.py # Performance monitoring mixins
+│       ├── tools/               # Legacy MCP tool handlers (deprecated)
+│       │   └── *.py             # Use mixins/ instead
 │       ├── resources/           # MCP resource handlers (4 types)
 │       │   ├── entity_handler.py    # Entity resource handler
 │       │   ├── metadata_handler.py  # Metadata resource handler
@@ -302,7 +309,49 @@ class CLIManager:
 - Place API documentation, guides, and tutorials in `docs/`
 - Consider using Sphinx for API documentation with output to `docs/`
 
-### 8. Version Management
+### 8. MCP Server Development
+
+#### 8.1 FastMCP Architecture (Recommended)
+The MCP server now uses the FastMCP framework with tool mixins for better organization and maintainability:
+
+- **Tool Mixins**: Located in `src/d365fo_client/mcp/mixins/`
+- **Server Implementation**: `src/d365fo_client/mcp/fastmcp_server.py`
+- **Entry Point**: `d365fo-fastmcp-server` command
+
+#### 8.2 Tool Organization with Mixins
+Tools are organized into functional mixins for better code organization:
+
+```python
+# Example mixin structure
+class ConnectionToolsMixin(BaseToolsMixin):
+    def register_connection_tools(self):
+        @self.mcp.tool()
+        async def d365fo_test_connection(profile: str = "default") -> Dict[str, Any]:
+            # Tool implementation
+```
+
+#### 8.3 Tool Categories and Mixins
+- **ConnectionToolsMixin**: Connection and environment testing (2 tools)
+- **CrudToolsMixin**: CRUD operations on D365 F&O entities (7 tools)
+- **MetadataToolsMixin**: Metadata discovery and schema operations (6 tools)
+- **LabelToolsMixin**: Label management and multilingual support (2 tools)
+- **ProfileToolsMixin**: Environment profile management (14 tools)
+- **DatabaseToolsMixin**: Database analysis and querying (4 tools)
+- **SyncToolsMixin**: Metadata synchronization management (5 tools)
+- **SrsToolsMixin**: SQL Server Reporting Services integration (6 tools)
+- **PerformanceToolsMixin**: Performance monitoring and statistics (3 tools)
+
+#### 8.4 Legacy Tools Directory (Deprecated)
+The `src/d365fo_client/mcp/tools/` directory is deprecated. All new tool development should use the mixin-based approach in `src/d365fo_client/mcp/mixins/`.
+
+#### 8.5 Adding New Tools
+1. Identify appropriate mixin category or create new mixin
+2. Add tool method with `@self.mcp.tool()` decorator
+3. Register mixin in FastMCP server
+4. Add comprehensive documentation and examples
+5. Update tool count in documentation
+
+### 9. Version Management
 - Follow semantic versioning (MAJOR.MINOR.PATCH)
 - Update version in `pyproject.toml` before releases
 - Maintain CHANGELOG.md with release notes
