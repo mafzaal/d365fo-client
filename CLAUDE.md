@@ -8,7 +8,7 @@ This is a comprehensive Python package for **Microsoft Dynamics 365 Finance & Op
 
 - **OData Client Library**: Full CRUD operations on D365 F&O data entities with async/await patterns
 - **CLI Application**: Command-line interface for D365 F&O operations with hierarchical commands
-- **MCP Server**: Production-ready Model Context Protocol server for AI assistant integration (34 tools, 12 resources)
+- **MCP Server**: Production-ready Model Context Protocol server for AI assistant integration (49 tools, 12 resources)
 - **Metadata Management V2**: Advanced caching and discovery system with SQLite FTS5 search
 - **Label Operations V2**: Multilingual label retrieval with intelligent caching
 - **Multi-tier Integration Testing**: Mock, sandbox, and live environment testing framework
@@ -104,7 +104,17 @@ src/d365fo_client/
     ├── server.py            # Core MCP server implementation
     ├── fastmcp_server.py    # FastMCP server implementation (recommended)
     ├── client_manager.py    # Connection pooling for D365 F&O clients
-    ├── tools/               # 34 MCP tools across 7 functional categories
+    ├── mixins/              # FastMCP tool mixins (49 tools across 9 categories)
+    │   ├── connection_tools_mixin.py # Connection testing mixins
+    │   ├── crud_tools_mixin.py    # CRUD operation mixins
+    │   ├── metadata_tools_mixin.py# Metadata discovery mixins
+    │   ├── label_tools_mixin.py   # Label retrieval mixins
+    │   ├── profile_tools_mixin.py # Profile management mixins
+    │   ├── database_tools_mixin.py# Database analysis mixins
+    │   ├── sync_tools_mixin.py    # Synchronization mixins
+    │   ├── srs_tools_mixin.py     # SRS reporting mixins
+    │   └── performance_tools_mixin.py # Performance monitoring mixins
+    ├── tools/               # Legacy MCP tools (deprecated - use mixins/)
     ├── resources/           # 12 MCP resource types for discovery
     └── prompts/             # MCP prompt templates
 ```
@@ -129,7 +139,7 @@ src/d365fo_client/
 
 #### MCP Server (`mcp/`)
 - **Two implementations**: Traditional MCP SDK and modern FastMCP framework
-- **34 comprehensive tools** covering connection, CRUD, metadata, labels, profiles, database analysis, and synchronization
+- **49 comprehensive tools** covering connection, CRUD, metadata, labels, profiles, database analysis, synchronization, SRS reporting, and performance monitoring
 - **12 resource types** for entity, metadata, environment, and query discovery
 - Multi-transport support (stdio, HTTP, SSE) for web integration
 
@@ -181,11 +191,12 @@ D365FO_TENANT_ID=your-tenant-id
 - Use profile-based configuration in `~/.d365fo-client/config.yaml`
 
 ### MCP Server Development
-- Add new tools in `src/d365fo_client/mcp/tools/`
+- Add new tools in `src/d365fo_client/mcp/mixins/` using the mixin pattern
 - Add new resources in `src/d365fo_client/mcp/resources/`
-- Register tools and resources in server configuration
+- Register mixins in FastMCP server configuration
 - Follow MCP protocol specifications for tool and resource interfaces
 - Test with both traditional MCP SDK and FastMCP implementations
+- **Note**: `src/d365fo_client/mcp/tools/` is deprecated - use mixins instead
 
 ## D365 F&O Specific Patterns
 

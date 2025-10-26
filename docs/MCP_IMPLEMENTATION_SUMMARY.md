@@ -29,27 +29,74 @@ Successfully implemented a comprehensive Model Context Protocol (MCP) server for
    - Predefined query templates
    - Parameterized query support
 
-### ✅ Tool Handlers (12 tools)
+### ✅ Tool Handlers (49 tools)
 
 #### Connection Tools (2 tools)
 - `d365fo_test_connection` - Test environment connectivity
 - `d365fo_get_environment_info` - Get comprehensive environment details
 
-#### CRUD Tools (5 tools) 
+#### CRUD Tools (7 tools) 
 - `d365fo_query_entities` - Advanced OData querying with filters
 - `d365fo_get_entity_record` - Retrieve specific records by key
 - `d365fo_create_entity_record` - Create new entity records
 - `d365fo_update_entity_record` - Update existing records
 - `d365fo_delete_entity_record` - Delete entity records
+- `d365fo_call_action` - Execute OData actions and functions
+- `d365fo_call_json_service` - Call generic JSON service endpoints
 
-#### Metadata Tools (3 tools)
+#### Metadata Tools (6 tools)
 - `d365fo_search_entities` - Search entities by pattern with filters
 - `d365fo_get_entity_schema` - Get detailed entity schemas
 - `d365fo_search_actions` - Search available OData actions
+- `d365fo_search_enumerations` - Search system enumerations
+- `d365fo_get_enumeration_fields` - Get enumeration member details
+- `d365fo_get_installed_modules` - Get installed module information
 
 #### Label Tools (2 tools)
 - `d365fo_get_label` - Get single label text by ID
 - `d365fo_get_labels_batch` - Get multiple labels efficiently
+
+#### Profile Tools (14 tools)
+- `d365fo_list_profiles` - List configured environment profiles
+- `d365fo_get_profile` - Get detailed profile information
+- `d365fo_create_profile` - Create new environment profiles
+- `d365fo_update_profile` - Modify existing profile configurations
+- `d365fo_delete_profile` - Remove environment profiles
+- `d365fo_set_default_profile` - Set default profile for operations
+- `d365fo_get_default_profile` - Get current default profile information
+- `d365fo_validate_profile` - Validate profile configurations
+- `d365fo_test_profile_connection` - Test profile connectivity
+- `d365fo_clone_profile` - Clone existing profiles with customization
+- `d365fo_search_profiles` - Search profiles by pattern and filters
+- `d365fo_get_profile_names` - Get list of available profile names
+- `d365fo_import_profiles` - Import profile configurations
+- `d365fo_export_profiles` - Export profile configurations
+
+#### Database Tools (4 tools)
+- `d365fo_execute_sql_query` - Execute SQL queries against metadata database
+- `d365fo_get_database_schema` - Get database schema information
+- `d365fo_get_table_info` - Get detailed table information
+- `d365fo_get_database_statistics` - Get database statistics and analytics
+
+#### Synchronization Tools (5 tools)
+- `d365fo_start_sync` - Initiate metadata synchronization
+- `d365fo_get_sync_progress` - Monitor sync session progress
+- `d365fo_cancel_sync` - Cancel running sync sessions
+- `d365fo_list_sync_sessions` - List active sync sessions
+- `d365fo_get_sync_history` - Get sync session history and statistics
+
+#### SRS Reporting Tools (6 tools)
+- `d365fo_download_srs_report` - Download SQL Server Reporting Services reports
+- `d365fo_download_sales_confirmation` - Download sales confirmation reports
+- `d365fo_download_purchase_order` - Download purchase order documents
+- `d365fo_download_customer_invoice` - Download customer invoice reports
+- `d365fo_download_free_text_invoice` - Download free text invoice documents
+- `d365fo_download_debit_credit_note` - Download debit and credit note reports
+
+#### Performance Tools (3 tools)
+- `d365fo_get_server_performance` - Get server performance metrics
+- `d365fo_get_server_config` - Get server configuration information
+- `d365fo_reset_performance_stats` - Reset performance statistics
 
 ### ✅ Technical Features
 
@@ -186,7 +233,7 @@ The implementation provides a solid foundation with these areas for future expan
 The MCP server implementation successfully fulfills the requirements specified in `docs/MCP_SERVER_SPECIFICATION.md`. It provides a robust, performant, and comprehensive interface for AI assistants to interact with Microsoft Dynamics 365 Finance & Operations environments through the standardized Model Context Protocol.
 
 Key achievements:
-- ✅ **12 functional MCP tools** covering all major D365FO operations
+- ✅ **49 functional MCP tools** covering all major D365FO operations across 9 categories
 - ✅ **4 resource types** with comprehensive metadata exposure
 - ✅ **Production-ready** with proper error handling and authentication
 - ✅ **Well-tested** with comprehensive unit test coverage
