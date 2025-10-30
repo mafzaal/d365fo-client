@@ -7,7 +7,7 @@ Provides centralized client management with session reuse and error handling.
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from ..client import FOClient
 from ..exceptions import AuthenticationError, FOClientError
@@ -20,16 +20,17 @@ logger = logging.getLogger(__name__)
 class D365FOClientManager:
     """Manages D365FO client instances and connection pooling."""
 
-    def __init__(self, profile_manager: Optional[ProfileManager] = None):
+    def __init__(self, config: Optional[Dict] = None, profile_manager: Optional[ProfileManager] = None):
         """Initialize the client manager.
 
         Args:
-            config: Configuration dictionary with client settings
+            config: Configuration dictionary with client settings (optional)
             profile_manager: Optional shared ProfileManager instance
         """
         self._client_pool: Dict[str, FOClient] = {}
         self._session_lock = asyncio.Lock()
         self._last_health_check: Optional[datetime] = None
+        self.config = config or {}
         self.profile_manager = profile_manager or ProfileManager()
 
     async def get_client(self, profile: str = "default") -> FOClient:
@@ -210,8 +211,22 @@ class D365FOClientManager:
             
             return config
         
+        # Fallback: Try to build config from environment dict passed to __init__
+        # This supports connectors that pass configuration via environment variables
+        if self.config and "default_environment" in self.config:
+            env_config = self.config["default_environment"]
+            logger.info(f"Building config from environment dict for profile '{profile}'")
+            return FOClientConfig(
+                base_url=env_config.get("base_url"),
+                client_id=env_config.get("client_id"),
+                client_secret=env_config.get("client_secret"),
+                tenant_id=env_config.get("tenant_id"),
+                use_default_credentials=env_config.get("use_default_credentials", False),
+                verify_ssl=env_config.get("verify_ssl", True),
+            )
+        
         raise ValueError(
-                    f"Profile '{profile}' not found in profile manager"
+                    f"Profile '{profile}' not found in profile manager and no fallback configuration available"
                 )
 
     async def shutdown(self):
