@@ -43,9 +43,10 @@ class TestCompositeKeyHandling:
         """Test building entity URL with composite key."""
         key = {"dataAreaId": "usmf", "CustomerAccount": "MAFZAAL001"}
         url = QueryBuilder.build_entity_url("https://example.com", "CustomersV3", key)
+        # Should now include cross-company=true because dataAreaId is in the key
         assert (
             url
-            == "https://example.com/data/CustomersV3(dataAreaId='usmf',CustomerAccount='MAFZAAL001')"
+            == "https://example.com/data/CustomersV3(dataAreaId='usmf',CustomerAccount='MAFZAAL001')?cross-company=true"
         )
 
     def test_build_entity_url_no_key(self):
@@ -69,9 +70,10 @@ class TestCompositeKeyHandling:
         url = QueryBuilder.build_action_url(
             "https://example.com", "TestAction", "CustomersV3", key
         )
+        # Should now include cross-company=true because dataAreaId is in the key
         assert (
             url
-            == "https://example.com/data/CustomersV3(dataAreaId='usmf',CustomerAccount='MAFZAAL001')/Microsoft.Dynamics.DataEntities.TestAction"
+            == "https://example.com/data/CustomersV3(dataAreaId='usmf',CustomerAccount='MAFZAAL001')/Microsoft.Dynamics.DataEntities.TestAction?cross-company=true"
         )
 
     def test_build_action_url_entity_set_bound(self):
@@ -102,8 +104,8 @@ class TestCompositeKeyHandling:
         # The URL should NOT contain the problematic string representation
         assert "'{'dataAreaId': 'usmf', 'CustomerAccount': 'MAFZAAL001'}'" not in url
 
-        # The URL should be properly formatted
-        expected = "https://usnconeboxax1aos.cloud.onebox.dynamics.com/data/CustomersV3(dataAreaId='usmf',CustomerAccount='MAFZAAL001')"
+        # The URL should be properly formatted and include cross-company=true
+        expected = "https://usnconeboxax1aos.cloud.onebox.dynamics.com/data/CustomersV3(dataAreaId='usmf',CustomerAccount='MAFZAAL001')?cross-company=true"
         assert url == expected
 
     def test_multiple_composite_keys(self):
