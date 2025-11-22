@@ -116,7 +116,11 @@ class TestMetadataStatistics(unittest.IsolatedAsyncioTestCase):
         # Should return cache statistics structure
         self.assertIsInstance(stats, dict)
         # Cache statistics have different structure than database statistics
-        essential_fields = ["data_entities_count", "public_entities_count", "entity_properties_count"]
+        essential_fields = [
+            "data_entities_count",
+            "public_entities_count",
+            "entity_properties_count",
+        ]
         for field in essential_fields:
             self.assertIn(field, stats)
 

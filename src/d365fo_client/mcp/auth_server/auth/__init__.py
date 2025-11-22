@@ -1,13 +1,12 @@
 from .auth import (
-    OAuthProvider,
-    TokenVerifier,
-    RemoteAuthProvider,
     AccessToken,
     AuthProvider,
+    OAuthProvider,
+    RemoteAuthProvider,
+    TokenVerifier,
 )
-from .providers.jwt import JWTVerifier, StaticTokenVerifier
 from .oauth_proxy import OAuthProxy
-
+from .providers.jwt import JWTVerifier, StaticTokenVerifier
 
 __all__ = [
     "AuthProvider",

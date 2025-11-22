@@ -168,7 +168,9 @@ class SmartSyncManagerV2:
             progress.phase = "completed" if result.success else "failed"
             progress.completed_steps = progress.total_steps
             progress.current_operation = (
-                "Sync completed" if result.success else f"Sync failed: {result.errors[0] if result.errors else 'Unknown error'}"
+                "Sync completed"
+                if result.success
+                else f"Sync failed: {result.errors[0] if result.errors else 'Unknown error'}"
             )
             progress.estimated_completion = datetime.now(timezone.utc)
             self._update_progress(progress)
@@ -599,7 +601,7 @@ class SmartSyncManagerV2:
                 (target_version_id, target_version_id, source_version_id),
             )
 
-            # Copy enumeration members with label processing  
+            # Copy enumeration members with label processing
             await db.execute(
                 """INSERT INTO enumeration_members
                    (enumeration_id, global_version_id, name, value,

@@ -57,10 +57,10 @@ class ProfileToolsMixin(BaseToolsMixin):
     Legacy credential fields (auth_mode, client_id, client_secret, tenant_id) are automatically
     migrated to appropriate credential sources for backward compatibility.
     """
-    
+
     def register_profile_tools(self) -> None:
         """Register all profile tools with FastMCP."""
-        
+
         @self.mcp.tool()
         async def d365fo_list_profiles() -> Dict[str, Any]:
             """Get list of all available D365FO environment profiles.
@@ -73,7 +73,11 @@ class ProfileToolsMixin(BaseToolsMixin):
 
                 profile_list = []
                 for name, profile in profiles.items():
-                    profile_dict = profile.to_dict() if hasattr(profile, 'to_dict') else {"name": name, "baseUrl": getattr(profile, 'base_url', '')}
+                    profile_dict = (
+                        profile.to_dict()
+                        if hasattr(profile, "to_dict")
+                        else {"name": name, "baseUrl": getattr(profile, "base_url", "")}
+                    )
                     profile_list.append(profile_dict)
 
                 return {
@@ -152,7 +156,9 @@ class ProfileToolsMixin(BaseToolsMixin):
                 # Handle credential source conversion
                 credential_source_obj = None
                 if credentialSource:
-                    credential_source_obj = self._convert_credential_source(credentialSource)
+                    credential_source_obj = self._convert_credential_source(
+                        credentialSource
+                    )
 
                 success = self.profile_manager.create_profile(
                     name=name,
@@ -182,7 +188,11 @@ class ProfileToolsMixin(BaseToolsMixin):
                     "created": success,
                     "setAsDefault": setAsDefault and success,
                     "profile": created_profile.to_dict() if created_profile else None,
-                    "authType": "default_credentials" if not credentialSource else credentialSource.get("sourceType", "unknown"),
+                    "authType": (
+                        "default_credentials"
+                        if not credentialSource
+                        else credentialSource.get("sourceType", "unknown")
+                    ),
                 }
 
             except Exception as e:
@@ -232,27 +242,31 @@ class ProfileToolsMixin(BaseToolsMixin):
                 # Convert parameter names and handle credential source
                 update_params = {}
                 if baseUrl is not None:
-                    update_params['base_url'] = baseUrl
+                    update_params["base_url"] = baseUrl
                 if description is not None:
-                    update_params['description'] = description
+                    update_params["description"] = description
                 if verifySsl is not None:
-                    update_params['verify_ssl'] = verifySsl
+                    update_params["verify_ssl"] = verifySsl
                 if timeout is not None:
-                    update_params['timeout'] = timeout
+                    update_params["timeout"] = timeout
                 if useLabelCache is not None:
-                    update_params['use_label_cache'] = useLabelCache
+                    update_params["use_label_cache"] = useLabelCache
                 if labelCacheExpiryMinutes is not None:
-                    update_params['label_cache_expiry_minutes'] = labelCacheExpiryMinutes
+                    update_params["label_cache_expiry_minutes"] = (
+                        labelCacheExpiryMinutes
+                    )
                 if useCacheFirst is not None:
-                    update_params['use_cache_first'] = useCacheFirst
+                    update_params["use_cache_first"] = useCacheFirst
                 if language is not None:
-                    update_params['language'] = language
+                    update_params["language"] = language
                 if cacheDir is not None:
-                    update_params['cache_dir'] = cacheDir
+                    update_params["cache_dir"] = cacheDir
                 if outputFormat is not None:
-                    update_params['output_format'] = outputFormat
+                    update_params["output_format"] = outputFormat
                 if credentialSource is not None:
-                    update_params['credential_source'] = self._convert_credential_source(credentialSource)
+                    update_params["credential_source"] = (
+                        self._convert_credential_source(credentialSource)
+                    )
 
                 success = self.profile_manager.update_profile(name, **update_params)
 
@@ -261,9 +275,13 @@ class ProfileToolsMixin(BaseToolsMixin):
                 if success:
                     try:
                         await self.client_manager.refresh_all_profiles()
-                        logger.info(f"Refreshed all clients due to profile update: {name}")
+                        logger.info(
+                            f"Refreshed all clients due to profile update: {name}"
+                        )
                     except Exception as client_error:
-                        logger.warning(f"Failed to refresh clients after profile update: {client_error}")
+                        logger.warning(
+                            f"Failed to refresh clients after profile update: {client_error}"
+                        )
                         clients_refreshed = False
                         # Continue with success response, client refresh failure is not critical
 
@@ -311,9 +329,13 @@ class ProfileToolsMixin(BaseToolsMixin):
                 if success:
                     try:
                         await self.client_manager.refresh_all_profiles()
-                        logger.info(f"Refreshed all clients due to profile deletion: {profileName}")
+                        logger.info(
+                            f"Refreshed all clients due to profile deletion: {profileName}"
+                        )
                     except Exception as client_error:
-                        logger.warning(f"Failed to refresh clients after profile deletion: {client_error}")
+                        logger.warning(
+                            f"Failed to refresh clients after profile deletion: {client_error}"
+                        )
                         clients_refreshed = False
                         # Continue with success response, client refresh failure is not critical
 
@@ -353,9 +375,13 @@ class ProfileToolsMixin(BaseToolsMixin):
                 if success:
                     try:
                         await self.client_manager.refresh_all_profiles()
-                        logger.info(f"Refreshed all clients due to default profile change: {profileName}")
+                        logger.info(
+                            f"Refreshed all clients due to default profile change: {profileName}"
+                        )
                     except Exception as client_error:
-                        logger.warning(f"Failed to refresh clients after default profile change: {client_error}")
+                        logger.warning(
+                            f"Failed to refresh clients after default profile change: {client_error}"
+                        )
                         clients_refreshed = False
                         # Continue with success response, client refresh failure is not critical
 
@@ -406,12 +432,20 @@ class ProfileToolsMixin(BaseToolsMixin):
             try:
                 profile = self.profile_manager.get_profile(profileName)
                 if not profile:
-                    return {"error": f"Profile '{profileName}' not found", "profileName": profileName, "isValid": False}
+                    return {
+                        "error": f"Profile '{profileName}' not found",
+                        "profileName": profileName,
+                        "isValid": False,
+                    }
 
                 errors = self.profile_manager.validate_profile(profile)
                 is_valid = len(errors) == 0
 
-                return {"profileName": profileName, "isValid": is_valid, "errors": errors}
+                return {
+                    "profileName": profileName,
+                    "isValid": is_valid,
+                    "errors": errors,
+                }
 
             except Exception as e:
                 logger.error(f"Validate profile failed: {e}")
@@ -460,12 +494,15 @@ class ProfileToolsMixin(BaseToolsMixin):
             try:
                 source_profile = self.profile_manager.get_profile(sourceProfileName)
                 if not source_profile:
-                    return {"error": f"Source profile '{sourceProfileName}' not found", "profileName": sourceProfileName}
+                    return {
+                        "error": f"Source profile '{sourceProfileName}' not found",
+                        "profileName": sourceProfileName,
+                    }
 
                 # Prepare overrides
                 clone_overrides = {}
                 if description is not None:
-                    clone_overrides['description'] = description
+                    clone_overrides["description"] = description
 
                 # Clone the profile
                 new_profile = source_profile.clone(newProfileName, **clone_overrides)
@@ -487,7 +524,12 @@ class ProfileToolsMixin(BaseToolsMixin):
 
             except Exception as e:
                 logger.error(f"Clone profile failed: {e}")
-                return {"error": str(e), "sourceProfile": sourceProfileName, "newProfile": newProfileName, "cloned": False}
+                return {
+                    "error": str(e),
+                    "sourceProfile": sourceProfileName,
+                    "newProfile": newProfileName,
+                    "cloned": False,
+                }
 
         @self.mcp.tool()
         async def d365fo_export_profiles(filePath: str) -> Dict[str, Any]:
@@ -507,7 +549,11 @@ class ProfileToolsMixin(BaseToolsMixin):
                     "filePath": filePath,
                     "exported": success,
                     "profileCount": len(profiles),
-                    "message": f"Exported {len(profiles)} profiles to {filePath}" if success else "Export failed",
+                    "message": (
+                        f"Exported {len(profiles)} profiles to {filePath}"
+                        if success
+                        else "Export failed"
+                    ),
                 }
 
             except Exception as e:
@@ -516,8 +562,7 @@ class ProfileToolsMixin(BaseToolsMixin):
 
         @self.mcp.tool()
         async def d365fo_import_profiles(
-            filePath: str,
-            overwrite: bool = False
+            filePath: str, overwrite: bool = False
         ) -> Dict[str, Any]:
             """Import D365FO environment profiles from a file.
 
@@ -531,8 +576,12 @@ class ProfileToolsMixin(BaseToolsMixin):
             try:
                 results = self.profile_manager.import_profiles(filePath, overwrite)
 
-                successful_imports = [name for name, success in results.items() if success]
-                failed_imports = [name for name, success in results.items() if not success]
+                successful_imports = [
+                    name for name, success in results.items() if success
+                ]
+                failed_imports = [
+                    name for name, success in results.items() if not success
+                ]
 
                 return {
                     "filePath": filePath,
@@ -554,7 +603,7 @@ class ProfileToolsMixin(BaseToolsMixin):
         async def d365fo_search_profiles(
             pattern: Optional[str] = None,
             hasCredentialSource: Optional[bool] = None,
-            credentialSourceType: Optional[str] = None
+            credentialSourceType: Optional[str] = None,
         ) -> Dict[str, Any]:
             """Search D365FO environment profiles based on criteria.
 
@@ -574,11 +623,13 @@ class ProfileToolsMixin(BaseToolsMixin):
                     # Check pattern match
                     if pattern:
                         pattern_lower = pattern.lower()
-                        if not any([
-                            pattern_lower in name.lower(),
-                            pattern_lower in (profile.description or "").lower(),
-                            pattern_lower in profile.base_url.lower()
-                        ]):
+                        if not any(
+                            [
+                                pattern_lower in name.lower(),
+                                pattern_lower in (profile.description or "").lower(),
+                                pattern_lower in profile.base_url.lower(),
+                            ]
+                        ):
                             continue
 
                     # Skip auth mode check as it's no longer a field in Profile
@@ -594,7 +645,10 @@ class ProfileToolsMixin(BaseToolsMixin):
                     if credentialSourceType is not None:
                         if profile.credential_source is None:
                             continue  # Profile uses default credentials, no source type to match
-                        if profile.credential_source.source_type != credentialSourceType:
+                        if (
+                            profile.credential_source.source_type
+                            != credentialSourceType
+                        ):
                             continue
 
                     # Profile matches all criteria
@@ -603,10 +657,16 @@ class ProfileToolsMixin(BaseToolsMixin):
                         "baseUrl": profile.base_url,
                         "description": profile.description,
                         "hasCredentialSource": profile.credential_source is not None,
-                        "authType": "credential_source" if profile.credential_source is not None else "default_credentials",
+                        "authType": (
+                            "credential_source"
+                            if profile.credential_source is not None
+                            else "default_credentials"
+                        ),
                     }
                     if profile.credential_source:
-                        profile_info["credentialSourceType"] = profile.credential_source.source_type
+                        profile_info["credentialSourceType"] = (
+                            profile.credential_source.source_type
+                        )
 
                     matching_profiles.append(profile_info)
 
@@ -622,7 +682,14 @@ class ProfileToolsMixin(BaseToolsMixin):
 
             except Exception as e:
                 logger.error(f"Search profiles failed: {e}")
-                return {"error": str(e), "searchCriteria": {"pattern": pattern, "hasCredentialSource": hasCredentialSource, "credentialSourceType": credentialSourceType}}
+                return {
+                    "error": str(e),
+                    "searchCriteria": {
+                        "pattern": pattern,
+                        "hasCredentialSource": hasCredentialSource,
+                        "credentialSourceType": credentialSourceType,
+                    },
+                }
 
         @self.mcp.tool()
         async def d365fo_get_profile_names() -> Dict[str, Any]:
@@ -701,7 +768,7 @@ class ProfileToolsMixin(BaseToolsMixin):
                 "keyvaultAuthMode": "keyvault_auth_mode",
                 "keyvaultClientId": "keyvault_client_id",
                 "keyvaultClientSecret": "keyvault_client_secret",
-                "keyvaultTenantId": "keyvault_tenant_id"
+                "keyvaultTenantId": "keyvault_tenant_id",
             }
 
             for api_param, internal_param in optional_params.items():

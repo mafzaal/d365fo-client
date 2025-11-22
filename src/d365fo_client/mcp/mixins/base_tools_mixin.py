@@ -2,10 +2,12 @@
 
 import logging
 
+from mcp.server.fastmcp import FastMCP
+
 from d365fo_client.client import FOClient
 from d365fo_client.profile_manager import ProfileManager
+
 from ..client_manager import D365FOClientManager
-from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 

@@ -11,6 +11,6 @@ from .client_manager import D365FOClientManager
 from .fastmcp_server import FastD365FOMCPServer
 
 __all__ = [
-    "FastD365FOMCPServer",       # FastMCP server with multi-transport support
+    "FastD365FOMCPServer",  # FastMCP server with multi-transport support
     "D365FOClientManager",
 ]

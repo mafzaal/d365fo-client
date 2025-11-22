@@ -5,9 +5,7 @@ from typing import TYPE_CHECKING
 from mcp.server.auth.middleware.auth_context import (
     get_access_token as _sdk_get_access_token,
 )
-from mcp.server.auth.provider import (
-    AccessToken as _SDKAccessToken,
-)
+from mcp.server.auth.provider import AccessToken as _SDKAccessToken
 from starlette.requests import Request
 
 from .auth import AccessToken
@@ -16,7 +14,7 @@ from .auth import AccessToken
 #     from fastmcp.server.context import Context
 
 __all__ = [
-    #"get_context",
+    # "get_context",
     "get_http_request",
     "get_http_headers",
     "get_access_token",
@@ -126,7 +124,7 @@ def get_access_token() -> AccessToken | None:
             scopes=access_token_as_dict["scopes"],
             # Optional fields
             expires_at=access_token_as_dict.get("expires_at"),
-            resource_owner=access_token_as_dict.get("resource_owner"),# type: ignore[arg-type]
+            resource_owner=access_token_as_dict.get("resource_owner"),  # type: ignore[arg-type]
             claims=access_token_as_dict.get("claims"),
         )
     except Exception as e:

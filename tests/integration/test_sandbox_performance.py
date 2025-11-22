@@ -6,7 +6,7 @@ testing real network latency, throughput, and system behavior under load.
 
 import asyncio
 import time
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 import pytest
 import pytest_asyncio
@@ -22,7 +22,9 @@ class TestSandboxConnectionPerformance:
     """Test connection performance characteristics against sandbox."""
 
     @pytest.mark.asyncio
-    async def test_connection_establishment_time(self, sandbox_client: FOClient, performance_metrics):
+    async def test_connection_establishment_time(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test time required to establish connections."""
         operations = [
             ("test_connection", sandbox_client.test_connection),
@@ -51,6 +53,7 @@ class TestSandboxConnectionPerformance:
     async def test_authentication_performance(self, performance_metrics):
         """Test authentication performance with fresh clients."""
         import os
+
         from d365fo_client import FOClientConfig
 
         if not os.getenv("D365FO_SANDBOX_BASE_URL"):
@@ -80,10 +83,14 @@ class TestSandboxConnectionPerformance:
         performance_metrics["timings"]["authentication_avg"] = avg_auth_time
 
         # Authentication should complete within reasonable time
-        assert avg_auth_time < 30.0, f"Authentication too slow: {avg_auth_time}s average"
+        assert (
+            avg_auth_time < 30.0
+        ), f"Authentication too slow: {avg_auth_time}s average"
 
     @pytest.mark.asyncio
-    async def test_connection_reuse_performance(self, sandbox_client: FOClient, performance_metrics):
+    async def test_connection_reuse_performance(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test performance benefits of connection reuse."""
         operations = [
             sandbox_client.test_connection,
@@ -109,7 +116,9 @@ class TestSandboxDataOperationPerformance:
     """Test data operation performance against sandbox."""
 
     @pytest.mark.asyncio
-    async def test_simple_query_performance(self, sandbox_client: FOClient, performance_metrics):
+    async def test_simple_query_performance(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test performance of simple data queries."""
         entity_tests = [
             ("Companies", QueryOptions(top=1)),
@@ -137,13 +146,17 @@ class TestSandboxDataOperationPerformance:
 
             if times:
                 avg_time = sum(times) / len(times)
-                performance_metrics["timings"][f"query_{entity}_top{options.top}_avg"] = avg_time
+                performance_metrics["timings"][
+                    f"query_{entity}_top{options.top}_avg"
+                ] = avg_time
 
                 # Simple queries should be fast
                 assert avg_time < 10.0, f"Query {entity} too slow: {avg_time}s average"
 
     @pytest.mark.asyncio
-    async def test_large_dataset_performance(self, sandbox_client: FOClient, performance_metrics):
+    async def test_large_dataset_performance(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test performance with larger datasets."""
         dataset_sizes = [10, 50, 100]
 
@@ -152,27 +165,31 @@ class TestSandboxDataOperationPerformance:
 
             try:
                 result = await sandbox_client.get_entities(
-                    "Companies",
-                    QueryOptions(top=size)
+                    "Companies", QueryOptions(top=size)
                 )
 
                 duration = time.time() - start_time
                 actual_count = len(result["value"]) if "value" in result else 0
 
                 performance_metrics["timings"][f"large_dataset_top{size}"] = duration
-                performance_metrics["call_counts"][f"large_dataset_top{size}_actual"] = actual_count
+                performance_metrics["call_counts"][
+                    f"large_dataset_top{size}_actual"
+                ] = actual_count
 
                 # Performance should scale reasonably
-                assert duration < 30.0, f"Large dataset query (top={size}) too slow: {duration}s"
+                assert (
+                    duration < 30.0
+                ), f"Large dataset query (top={size}) too slow: {duration}s"
 
             except Exception as e:
-                performance_metrics["errors"].append({
-                    "operation": f"large_dataset_top{size}",
-                    "error": str(e)
-                })
+                performance_metrics["errors"].append(
+                    {"operation": f"large_dataset_top{size}", "error": str(e)}
+                )
 
     @pytest.mark.asyncio
-    async def test_pagination_performance(self, sandbox_client: FOClient, performance_metrics):
+    async def test_pagination_performance(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test pagination performance characteristics."""
         page_size = 10
         max_pages = 3
@@ -184,8 +201,7 @@ class TestSandboxDataOperationPerformance:
 
             try:
                 result = await sandbox_client.get_entities(
-                    "Companies",
-                    QueryOptions(top=page_size, skip=page * page_size)
+                    "Companies", QueryOptions(top=page_size, skip=page * page_size)
                 )
 
                 duration = time.time() - start_time
@@ -202,7 +218,9 @@ class TestSandboxDataOperationPerformance:
             performance_metrics["timings"]["pagination_avg_per_page"] = avg_page_time
 
             # Pagination should maintain consistent performance
-            assert avg_page_time < 10.0, f"Pagination too slow: {avg_page_time}s per page"
+            assert (
+                avg_page_time < 10.0
+            ), f"Pagination too slow: {avg_page_time}s per page"
 
             # Performance shouldn't degrade significantly across pages
             if len(page_times) > 1:
@@ -210,10 +228,14 @@ class TestSandboxDataOperationPerformance:
                 last_page_time = page_times[-1]
                 degradation_ratio = last_page_time / first_page_time
 
-                assert degradation_ratio < 3.0, f"Pagination performance degraded significantly: {degradation_ratio}x"
+                assert (
+                    degradation_ratio < 3.0
+                ), f"Pagination performance degraded significantly: {degradation_ratio}x"
 
     @pytest.mark.asyncio
-    async def test_entity_by_key_performance(self, sandbox_client: FOClient, performance_metrics):
+    async def test_entity_by_key_performance(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test performance of entity retrieval by key."""
         # First get a valid key
         companies = await sandbox_client.get_entities("Companies", QueryOptions(top=1))
@@ -236,7 +258,9 @@ class TestSandboxDataOperationPerformance:
             performance_metrics["timings"]["entity_by_key_avg"] = avg_time
 
             # Key-based retrieval should be fast
-            assert avg_time < 5.0, f"Entity by key retrieval too slow: {avg_time}s average"
+            assert (
+                avg_time < 5.0
+            ), f"Entity by key retrieval too slow: {avg_time}s average"
 
 
 @skip_if_not_level("sandbox")
@@ -244,7 +268,9 @@ class TestSandboxConcurrentPerformance:
     """Test concurrent operation performance against sandbox."""
 
     @pytest.mark.asyncio
-    async def test_concurrent_simple_operations(self, sandbox_client: FOClient, performance_metrics):
+    async def test_concurrent_simple_operations(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test performance of concurrent simple operations."""
         task_count = 5
 
@@ -270,14 +296,20 @@ class TestSandboxConcurrentPerformance:
         performance_metrics["call_counts"]["concurrent_simple_successful"] = successful
 
         # Concurrent operations should complete reasonably quickly
-        assert total_duration < 20.0, f"Concurrent operations too slow: {total_duration}s"
+        assert (
+            total_duration < 20.0
+        ), f"Concurrent operations too slow: {total_duration}s"
 
         # Most operations should succeed
         success_rate = successful / len(results)
-        assert success_rate >= 0.6, f"Low success rate in concurrent operations: {success_rate}"
+        assert (
+            success_rate >= 0.6
+        ), f"Low success rate in concurrent operations: {success_rate}"
 
     @pytest.mark.asyncio
-    async def test_concurrent_data_queries(self, sandbox_client: FOClient, performance_metrics):
+    async def test_concurrent_data_queries(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test performance of concurrent data queries."""
         # Create multiple concurrent data queries
         tasks = [
@@ -294,10 +326,14 @@ class TestSandboxConcurrentPerformance:
         performance_metrics["timings"]["concurrent_queries_total"] = total_duration
 
         # Analyze results
-        successful_results = [r for r in results if not isinstance(r, Exception) and "value" in r]
+        successful_results = [
+            r for r in results if not isinstance(r, Exception) and "value" in r
+        ]
         total_records = sum(len(r["value"]) for r in successful_results)
 
-        performance_metrics["call_counts"]["concurrent_queries_total_records"] = total_records
+        performance_metrics["call_counts"][
+            "concurrent_queries_total_records"
+        ] = total_records
 
         # Concurrent queries should complete efficiently
         assert total_duration < 25.0, f"Concurrent queries too slow: {total_duration}s"
@@ -306,15 +342,14 @@ class TestSandboxConcurrentPerformance:
         assert total_records > 0, "No data retrieved from concurrent queries"
 
     @pytest.mark.asyncio
-    async def test_high_concurrency_stress(self, sandbox_client: FOClient, performance_metrics):
+    async def test_high_concurrency_stress(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test system behavior under higher concurrency."""
         concurrency_level = 10
 
         # Create many concurrent lightweight operations
-        tasks = [
-            sandbox_client.test_connection()
-            for _ in range(concurrency_level)
-        ]
+        tasks = [sandbox_client.test_connection() for _ in range(concurrency_level)]
 
         start_time = time.time()
 
@@ -331,11 +366,15 @@ class TestSandboxConcurrentPerformance:
         performance_metrics["call_counts"]["high_concurrency_failed"] = failed
 
         # High concurrency should still work reasonably
-        assert total_duration < 60.0, f"High concurrency took too long: {total_duration}s"
+        assert (
+            total_duration < 60.0
+        ), f"High concurrency took too long: {total_duration}s"
 
         # Most operations should succeed (allowing for some failures under stress)
         success_rate = successful / len(results)
-        assert success_rate >= 0.5, f"High concurrency success rate too low: {success_rate}"
+        assert (
+            success_rate >= 0.5
+        ), f"High concurrency success rate too low: {success_rate}"
 
 
 @skip_if_not_level("sandbox")
@@ -343,7 +382,9 @@ class TestSandboxMetadataPerformance:
     """Test metadata operation performance against sandbox."""
 
     @pytest.mark.asyncio
-    async def test_metadata_download_performance(self, sandbox_client: FOClient, performance_metrics):
+    async def test_metadata_download_performance(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test metadata download performance."""
         # Test cold download (forced refresh)
         start_time = time.time()
@@ -362,19 +403,34 @@ class TestSandboxMetadataPerformance:
         performance_metrics["timings"]["metadata_download_warm"] = warm_duration
 
         # Metadata operations should complete in reasonable time
-        assert cold_duration < 120.0, f"Cold metadata download too slow: {cold_duration}s"
-        assert warm_duration < 30.0, f"Warm metadata download too slow: {warm_duration}s"
+        assert (
+            cold_duration < 120.0
+        ), f"Cold metadata download too slow: {cold_duration}s"
+        assert (
+            warm_duration < 30.0
+        ), f"Warm metadata download too slow: {warm_duration}s"
 
     @pytest.mark.asyncio
-    async def test_metadata_query_performance(self, sandbox_client: FOClient, performance_metrics):
+    async def test_metadata_query_performance(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test metadata query performance."""
         # Ensure metadata is available
         await sandbox_client.download_metadata()
 
         operations = [
-            ("data_entities", lambda: sandbox_client.get_data_entities(QueryOptions(top=20))),
-            ("public_entities", lambda: sandbox_client.get_public_entities(QueryOptions(top=20))),
-            ("public_enumerations", lambda: sandbox_client.get_public_enumerations(QueryOptions(top=10))),
+            (
+                "data_entities",
+                lambda: sandbox_client.get_data_entities(QueryOptions(top=20)),
+            ),
+            (
+                "public_entities",
+                lambda: sandbox_client.get_public_entities(QueryOptions(top=20)),
+            ),
+            (
+                "public_enumerations",
+                lambda: sandbox_client.get_public_enumerations(QueryOptions(top=10)),
+            ),
         ]
 
         for name, operation in operations:
@@ -395,10 +451,9 @@ class TestSandboxMetadataPerformance:
                     assert isinstance(result["value"], list)
 
                 except Exception as e:
-                    performance_metrics["errors"].append({
-                        "operation": f"metadata_{name}",
-                        "error": str(e)
-                    })
+                    performance_metrics["errors"].append(
+                        {"operation": f"metadata_{name}", "error": str(e)}
+                    )
                     continue
 
             if times:
@@ -406,10 +461,14 @@ class TestSandboxMetadataPerformance:
                 performance_metrics["timings"][f"metadata_{name}_avg"] = avg_time
 
                 # Metadata queries should be reasonably fast
-                assert avg_time < 15.0, f"Metadata {name} query too slow: {avg_time}s average"
+                assert (
+                    avg_time < 15.0
+                ), f"Metadata {name} query too slow: {avg_time}s average"
 
     @pytest.mark.asyncio
-    async def test_entity_search_performance(self, sandbox_client: FOClient, performance_metrics):
+    async def test_entity_search_performance(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test entity search performance."""
         # Ensure metadata is available
         await sandbox_client.download_metadata()
@@ -439,7 +498,9 @@ class TestSandboxMetadataPerformance:
             performance_metrics["timings"]["entity_search_avg"] = avg_search_time
 
             # Entity search should be fast (metadata is already loaded)
-            assert avg_search_time < 5.0, f"Entity search too slow: {avg_search_time}s average"
+            assert (
+                avg_search_time < 5.0
+            ), f"Entity search too slow: {avg_search_time}s average"
 
 
 @skip_if_not_level("sandbox")
@@ -447,7 +508,9 @@ class TestSandboxVersionMethodPerformance:
     """Test version method performance against sandbox."""
 
     @pytest.mark.asyncio
-    async def test_version_methods_individual_performance(self, sandbox_client: FOClient, performance_metrics):
+    async def test_version_methods_individual_performance(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test individual version method performance."""
         version_methods = [
             ("application_version", sandbox_client.get_application_version),
@@ -474,10 +537,14 @@ class TestSandboxVersionMethodPerformance:
             performance_metrics["timings"][f"version_{name}_avg"] = avg_time
 
             # Version methods should be fast
-            assert avg_time < 8.0, f"Version method {name} too slow: {avg_time}s average"
+            assert (
+                avg_time < 8.0
+            ), f"Version method {name} too slow: {avg_time}s average"
 
     @pytest.mark.asyncio
-    async def test_version_methods_parallel_performance(self, sandbox_client: FOClient, performance_metrics):
+    async def test_version_methods_parallel_performance(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test parallel version method performance."""
         start_time = time.time()
 
@@ -497,7 +564,9 @@ class TestSandboxVersionMethodPerformance:
             assert len(version) > 0
 
         # Parallel execution should be efficient
-        assert parallel_duration < 15.0, f"Parallel version methods too slow: {parallel_duration}s"
+        assert (
+            parallel_duration < 15.0
+        ), f"Parallel version methods too slow: {parallel_duration}s"
 
         # Should be faster than sequential execution (though not always guaranteed)
         # This is more of a sanity check
@@ -509,7 +578,9 @@ class TestSandboxOverallPerformance:
     """Test overall system performance characteristics."""
 
     @pytest.mark.asyncio
-    async def test_typical_workflow_performance(self, sandbox_client: FOClient, performance_metrics):
+    async def test_typical_workflow_performance(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test performance of a typical user workflow."""
         start_time = time.time()
 
@@ -517,7 +588,10 @@ class TestSandboxOverallPerformance:
         workflow_steps = [
             ("connection_test", sandbox_client.test_connection()),
             ("version_info", sandbox_client.get_application_version()),
-            ("data_browse", sandbox_client.get_entities("Companies", QueryOptions(top=5))),
+            (
+                "data_browse",
+                sandbox_client.get_entities("Companies", QueryOptions(top=5)),
+            ),
             ("metadata_check", sandbox_client.test_metadata_connection()),
         ]
 
@@ -530,21 +604,26 @@ class TestSandboxOverallPerformance:
                 performance_metrics["timings"][f"workflow_{step_name}"] = step_duration
 
             except Exception as e:
-                performance_metrics["errors"].append({
-                    "operation": f"workflow_{step_name}",
-                    "error": str(e)
-                })
+                performance_metrics["errors"].append(
+                    {"operation": f"workflow_{step_name}", "error": str(e)}
+                )
 
         total_workflow_time = time.time() - start_time
         performance_metrics["timings"]["workflow_total"] = total_workflow_time
 
         # Complete workflow should finish in reasonable time
-        assert total_workflow_time < 45.0, f"Typical workflow too slow: {total_workflow_time}s"
+        assert (
+            total_workflow_time < 45.0
+        ), f"Typical workflow too slow: {total_workflow_time}s"
 
     @pytest.mark.asyncio
-    async def test_performance_consistency(self, sandbox_client: FOClient, performance_metrics):
+    async def test_performance_consistency(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test that performance remains consistent across multiple runs."""
-        operation = lambda: sandbox_client.get_entities("Companies", QueryOptions(top=3))
+        operation = lambda: sandbox_client.get_entities(
+            "Companies", QueryOptions(top=3)
+        )
 
         run_times = []
 
@@ -571,8 +650,10 @@ class TestSandboxOverallPerformance:
             performance_metrics["timings"]["consistency_min"] = min_time
 
             # Performance should be reasonably consistent
-            variance_ratio = max_time / min_time if min_time > 0 else float('inf')
+            variance_ratio = max_time / min_time if min_time > 0 else float("inf")
 
             # Allow for some variance but not extreme outliers
-            assert variance_ratio < 5.0, f"Performance too inconsistent: {variance_ratio}x variance"
+            assert (
+                variance_ratio < 5.0
+            ), f"Performance too inconsistent: {variance_ratio}x variance"
             assert avg_time < 10.0, f"Average performance too slow: {avg_time}s"

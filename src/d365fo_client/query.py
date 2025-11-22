@@ -1,6 +1,6 @@
 """OData query utilities for D365 F&O client."""
 
-from typing import Any, Dict, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 from urllib.parse import quote, urlencode
 
 from .models import QueryOptions
@@ -75,8 +75,8 @@ class QueryBuilder:
 
     @staticmethod
     def encode_key(
-        key: Union[str, Dict[str, Any]], 
-        entity_schema: Optional["PublicEntityInfo"] = None
+        key: Union[str, Dict[str, Any]],
+        entity_schema: Optional["PublicEntityInfo"] = None,
     ) -> str:
         """Encode entity key for URL with optional schema-aware serialization.
 

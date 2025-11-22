@@ -375,7 +375,7 @@ class FOClient:
                 )
                 return True
             else:
-                error_msg = result.errors[0] if result.errors else 'Unknown error'
+                error_msg = result.errors[0] if result.errors else "Unknown error"
                 self.logger.error(f"Metadata sync failed: {error_msg}")
                 return False
 

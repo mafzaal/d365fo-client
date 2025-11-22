@@ -15,10 +15,11 @@ from pydantic import AnyHttpUrl, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing_extensions import TypedDict
 
-from ..auth import AccessToken, TokenVerifier
 from d365fo_client.mcp.utilities.auth import parse_scopes
 from d365fo_client.mcp.utilities.logging import get_logger
 from d365fo_client.mcp.utilities.types import NotSet, NotSetT
+
+from ..auth import AccessToken, TokenVerifier
 
 logger = get_logger(__name__)
 

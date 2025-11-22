@@ -26,13 +26,13 @@ Usage:
 from .cache_v2 import MetadataCacheV2
 from .database_v2 import DatabaseSchemaV2, MetadataDatabaseV2
 from .global_version_manager import GlobalVersionManager
+
+# Search engine (Phase 2 - implemented)
+from .search_engine_v2 import VersionAwareSearchEngine
 from .sync_manager_v2 import SmartSyncManagerV2
 
 # Core components (implemented)
 from .version_detector import ModuleVersionDetector
-
-# Search engine (Phase 2 - implemented)
-from .search_engine_v2 import VersionAwareSearchEngine
 
 # Future components (not yet implemented)
 # from .migration_manager import MetadataMigrationManager  # Phase 4

@@ -31,6 +31,7 @@ async def sandbox_client() -> AsyncGenerator[FOClient, None]:
         pytest.skip("Sandbox integration tests not enabled")
 
     import os
+
     from d365fo_client.profile_manager import ProfileManager
 
     # Try to get URL from environment variable first
@@ -49,9 +50,11 @@ async def sandbox_client() -> AsyncGenerator[FOClient, None]:
                 if os.path.exists(config_path):
                     profile_manager = ProfileManager(config_path)
                     default_profile = profile_manager.get_default_profile()
-                    if default_profile and hasattr(default_profile, 'base_url'):
+                    if default_profile and hasattr(default_profile, "base_url"):
                         base_url = default_profile.base_url
-                        print(f"Using base_url from default profile ({config_path}): {base_url}")
+                        print(
+                            f"Using base_url from default profile ({config_path}): {base_url}"
+                        )
                         break
         except Exception as e:
             print(f"Could not load default profile: {e}")
@@ -111,9 +114,7 @@ def adaptive_client(request, sandbox_client, live_client):
     client_type = request.param
 
     if INTEGRATION_TEST_LEVEL == "sandbox" and client_type not in ["sandbox"]:
-        pytest.skip(
-            f"Skipping {client_type} test, only sandbox level enabled"
-        )
+        pytest.skip(f"Skipping {client_type} test, only sandbox level enabled")
     elif INTEGRATION_TEST_LEVEL == "live" and client_type not in ["live"]:
         pytest.skip(f"Skipping {client_type} test, only live level enabled")
 
@@ -174,7 +175,9 @@ async def sandbox_test_entities(sandbox_client: FOClient):
 
     # Get available companies for testing
     try:
-        companies_result = await sandbox_client.get_entities("Companies", QueryOptions(top=5))
+        companies_result = await sandbox_client.get_entities(
+            "Companies", QueryOptions(top=5)
+        )
         if companies_result.get("value"):
             test_entities["companies"] = companies_result["value"]
     except Exception:
@@ -182,7 +185,9 @@ async def sandbox_test_entities(sandbox_client: FOClient):
 
     # Get available legal entities for testing
     try:
-        legal_entities_result = await sandbox_client.get_entities("LegalEntities", QueryOptions(top=3))
+        legal_entities_result = await sandbox_client.get_entities(
+            "LegalEntities", QueryOptions(top=3)
+        )
         if legal_entities_result.get("value"):
             test_entities["legal_entities"] = legal_entities_result["value"]
     except Exception:
@@ -208,7 +213,9 @@ def sandbox_environment_info():
 
     return {
         "base_url": os.getenv("D365FO_SANDBOX_BASE_URL"),
-        "has_auth": bool(os.getenv("D365FO_CLIENT_ID") or os.getenv("D365FO_TENANT_ID")),
+        "has_auth": bool(
+            os.getenv("D365FO_CLIENT_ID") or os.getenv("D365FO_TENANT_ID")
+        ),
         "test_level": os.getenv("INTEGRATION_TEST_LEVEL", "sandbox"),
     }
 

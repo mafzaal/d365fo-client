@@ -6,7 +6,7 @@ type-aware OData serialization.
 """
 
 import logging
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional
 from urllib.parse import quote
 
 if TYPE_CHECKING:
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class ODataSerializer:
     """Shared OData value serialization utilities.
-    
+
     This class provides comprehensive OData serialization support for all
     D365 Finance & Operations data types, ensuring proper URL encoding
     and OData protocol compliance.
@@ -45,11 +45,11 @@ class ODataSerializer:
 
         # Handle different data types according to OData standards and D365 F&O ODataXppType
         if data_type in [
-            "String", 
-            "Guid", 
-            "Binary", 
-            "Memo", 
-            "Container", 
+            "String",
+            "Guid",
+            "Binary",
+            "Memo",
+            "Container",
             "VarString",
             "Record",  # D365 F&O ODataXppType.RECORD
         ]:
@@ -63,7 +63,7 @@ class ODataSerializer:
 
         elif data_type in [
             "Int32",
-            "Int64", 
+            "Int64",
             "Decimal",
             "Double",
             "Single",
@@ -92,8 +92,8 @@ class ODataSerializer:
             )
 
         elif data_type in [
-            "DateTime", 
-            "DateTimeOffset", 
+            "DateTime",
+            "DateTimeOffset",
             "Date",  # D365 F&O ODataXppType.DATE - date only
             "Time",  # D365 F&O ODataXppType.TIME - time only
             "UtcDateTime",  # D365 F&O ODataXppType.UTC_DATETIME - UTC timezone
@@ -102,7 +102,7 @@ class ODataSerializer:
             # OData expects ISO 8601 format: YYYY-MM-DDTHH:MM:SS.fffZ
             # D365 F&O specific types:
             # - Date: date only (YYYY-MM-DD)
-            # - Time: time only (HH:MM:SS)  
+            # - Time: time only (HH:MM:SS)
             # - UtcDateTime: full datetime with UTC timezone
             if "T" in str_value and (
                 "Z" in str_value or "+" in str_value or str_value.count("-") > 2
@@ -132,8 +132,18 @@ class ODataSerializer:
             # Default: treat as string and URL encode
             # Log warning only for truly unknown types (not common variations)
             if data_type not in [
-                "Text", "Char", "Character", "Varchar", "NVarchar", "LongText",
-                "ShortText", "Description", "Name", "Code", "Id", "Key"
+                "Text",
+                "Char",
+                "Character",
+                "Varchar",
+                "NVarchar",
+                "LongText",
+                "ShortText",
+                "Description",
+                "Name",
+                "Code",
+                "Id",
+                "Key",
             ]:
                 logger.warning(
                     f"Unknown data type '{data_type}' for OData serialization, treating as string"
@@ -142,8 +152,7 @@ class ODataSerializer:
 
     @staticmethod
     def serialize_key_dict(
-        key_dict: Dict[str, Any], 
-        entity_schema: Optional["PublicEntityInfo"] = None
+        key_dict: Dict[str, Any], entity_schema: Optional["PublicEntityInfo"] = None
     ) -> Dict[str, str]:
         """Serialize key dictionary with proper data type handling.
 
@@ -201,16 +210,30 @@ class ODataSerializer:
 
         # Handle different data types - URL encode when needed but don't add OData quotes
         if data_type in [
-            "String", "Guid", "Binary", "Memo", "Container", "VarString",
-            "Record", "Text", "Char", "Character", "Varchar", "NVarchar",
-            "LongText", "ShortText", "Description", "Name", "Code", "Id", "Key"
+            "String",
+            "Guid",
+            "Binary",
+            "Memo",
+            "Container",
+            "VarString",
+            "Record",
+            "Text",
+            "Char",
+            "Character",
+            "Varchar",
+            "NVarchar",
+            "LongText",
+            "ShortText",
+            "Description",
+            "Name",
+            "Code",
+            "Id",
+            "Key",
         ]:
             # String-like types need URL encoding
             return quote(str_value, safe="")
 
-        elif data_type in [
-            "DateTime", "DateTimeOffset", "Date", "Time", "UtcDateTime"
-        ]:
+        elif data_type in ["DateTime", "DateTimeOffset", "Date", "Time", "UtcDateTime"]:
             # DateTime values need URL encoding
             return quote(str_value, safe="")
 
@@ -220,11 +243,28 @@ class ODataSerializer:
 
         elif data_type == "Boolean":
             # Boolean values should be lowercase, no encoding needed
-            return str_value.lower() if str_value.lower() in ["true", "false"] else str_value
+            return (
+                str_value.lower()
+                if str_value.lower() in ["true", "false"]
+                else str_value
+            )
 
         elif data_type in [
-            "Int32", "Int64", "Decimal", "Double", "Single", "Real", "Float",
-            "Money", "Byte", "SByte", "Int16", "UInt16", "UInt32", "UInt64", "Number"
+            "Int32",
+            "Int64",
+            "Decimal",
+            "Double",
+            "Single",
+            "Real",
+            "Float",
+            "Money",
+            "Byte",
+            "SByte",
+            "Int16",
+            "UInt16",
+            "UInt32",
+            "UInt64",
+            "Number",
         ]:
             # Numeric types don't need URL encoding
             return str_value
@@ -238,8 +278,7 @@ class ODataSerializer:
 
     @staticmethod
     def format_composite_key(
-        key_dict: Dict[str, str], 
-        entity_schema: Optional["PublicEntityInfo"] = None
+        key_dict: Dict[str, str], entity_schema: Optional["PublicEntityInfo"] = None
     ) -> str:
         """Format a composite key dictionary into OData key string.
 
@@ -288,10 +327,26 @@ class ODataSerializer:
         # Note: Date/Time types do NOT need quotes in D365 F&O OData
         quoted_types = {
             # String-like types
-            "String", "Guid", "Binary", "Memo", "Container", "VarString",
-            "Record", "Enum", "Text", "Char", "Character", "Varchar",
-            "NVarchar", "LongText", "ShortText", "Description", "Name",
-            "Code", "Id", "Key"
+            "String",
+            "Guid",
+            "Binary",
+            "Memo",
+            "Container",
+            "VarString",
+            "Record",
+            "Enum",
+            "Text",
+            "Char",
+            "Character",
+            "Varchar",
+            "NVarchar",
+            "LongText",
+            "ShortText",
+            "Description",
+            "Name",
+            "Code",
+            "Id",
+            "Key",
         }
 
-        return data_type in quoted_types 
+        return data_type in quoted_types

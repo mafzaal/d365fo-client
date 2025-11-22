@@ -28,8 +28,7 @@ async def temp_cache_dir():
 async def metadata_cache(temp_cache_dir):
     """Create metadata cache instance"""
     cache = MetadataCacheV2(
-        cache_dir=temp_cache_dir,
-        base_url="https://test.dynamics.com"
+        cache_dir=temp_cache_dir, base_url="https://test.dynamics.com"
     )
     await cache.initialize()
     return cache
@@ -162,7 +161,7 @@ async def test_entity_caching(metadata_cache):
         # Check entity was inserted
         cursor = await db.execute(
             "SELECT name, entity_set_name FROM public_entities WHERE name = ?",
-            ("TestEntity",)
+            ("TestEntity",),
         )
         entity_row = await cursor.fetchone()
         assert entity_row is not None
@@ -172,7 +171,7 @@ async def test_entity_caching(metadata_cache):
         # Check property was inserted
         cursor = await db.execute(
             "SELECT name, is_key FROM entity_properties WHERE name = ?",
-            ("TestProperty",)
+            ("TestProperty",),
         )
         property_row = await cursor.fetchone()
         assert property_row is not None
@@ -208,8 +207,7 @@ async def test_cache_key_generation(metadata_cache):
 
     # Create another cache for different environment
     cache2 = MetadataCacheV2(
-        cache_dir=metadata_cache.cache_dir,
-        base_url="https://different.dynamics.com"
+        cache_dir=metadata_cache.cache_dir, base_url="https://different.dynamics.com"
     )
     await cache2.initialize()
 

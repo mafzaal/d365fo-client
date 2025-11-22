@@ -12,7 +12,6 @@ async def example_usage():
     """Example usage of the F&O client with label functionality"""
     config = FOClientConfig(
         base_url="https://usnconeboxax1aos.cloud.onebox.dynamics.com",
-
         verify_ssl=False,
         use_label_cache=True,
         label_cache_expiry_minutes=60,
@@ -465,8 +464,7 @@ def _add_service_commands(subparsers) -> None:
         "service_group", help="Service group name (e.g., 'SysSqlDiagnosticService')"
     )
     call_parser.add_argument(
-        "service_name", 
-        help="Service name (e.g., 'SysSqlDiagnosticServiceOperations')"
+        "service_name", help="Service name (e.g., 'SysSqlDiagnosticServiceOperations')"
     )
     call_parser.add_argument(
         "operation_name", help="Operation name (e.g., 'GetAxSqlExecuting')"
@@ -485,7 +483,7 @@ def _add_service_commands(subparsers) -> None:
         choices=[
             "GetAxSqlExecuting",
             "GetAxSqlResourceStats",
-            "GetAxSqlBlocking", 
+            "GetAxSqlBlocking",
             "GetAxSqlLockInfo",
             "GetAxSqlDisabledIndexes",
         ],

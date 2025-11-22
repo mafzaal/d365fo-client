@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class VersionAwareSearchEngine:
     """Advanced metadata search engine with version awareness and FTS5 support.
-    
+
     This search engine is designed to work with MetadataCacheV2 and provides:
     - Version-aware search across multiple environments
     - FTS5 full-text search capabilities
@@ -41,7 +41,7 @@ class VersionAwareSearchEngine:
 
     async def rebuild_search_index(self, global_version_id: Optional[int] = None):
         """Rebuild the FTS5 search index for a specific version.
-        
+
         Args:
             global_version_id: Specific version to rebuild index for.
                              If None, rebuilds for current environment version.
@@ -57,7 +57,7 @@ class VersionAwareSearchEngine:
                     """SELECT global_version_id FROM environment_versions 
                        WHERE environment_id = ? AND is_active = 1 
                        ORDER BY detected_at DESC LIMIT 1""",
-                    (self.cache._environment_id,)
+                    (self.cache._environment_id,),
                 )
                 row = await cursor.fetchone()
                 if not row:
@@ -71,11 +71,11 @@ class VersionAwareSearchEngine:
         """Rebuild FTS5 index for specific global version."""
         async with aiosqlite.connect(self.cache.db_path) as db:
             logger.info(f"Rebuilding FTS5 search index for version {global_version_id}")
-            
+
             # Clear existing entries for this version
             await db.execute(
                 "DELETE FROM metadata_search_v2 WHERE global_version_id = ?",
-                (global_version_id,)
+                (global_version_id,),
             )
 
             # Index data entities
@@ -92,10 +92,10 @@ class VersionAwareSearchEngine:
                        de.id
                    FROM data_entities de
                    WHERE de.global_version_id = ?""",
-                (global_version_id,)
+                (global_version_id,),
             )
 
-            # Index public entities  
+            # Index public entities
             await db.execute(
                 """INSERT INTO metadata_search_v2 
                    (name, entity_type, description, properties, labels, global_version_id, entity_id)
@@ -109,7 +109,7 @@ class VersionAwareSearchEngine:
                        pe.id
                    FROM public_entities pe
                    WHERE pe.global_version_id = ?""",
-                (global_version_id,)
+                (global_version_id,),
             )
 
             # Index enumerations
@@ -126,7 +126,7 @@ class VersionAwareSearchEngine:
                        e.id
                    FROM enumerations e
                    WHERE e.global_version_id = ?""",
-                (global_version_id,)
+                (global_version_id,),
             )
 
             await db.commit()
@@ -213,14 +213,14 @@ class VersionAwareSearchEngine:
                 """SELECT global_version_id FROM environment_versions 
                    WHERE environment_id = ? AND is_active = 1 
                    ORDER BY detected_at DESC LIMIT 1""",
-                (self.cache._environment_id,)
+                (self.cache._environment_id,),
             )
             version_row = await cursor.fetchone()
-            
+
             if not version_row:
                 logger.warning("No active version found for FTS search")
                 return SearchResults(results=[], total_count=0)
-            
+
             global_version_id = version_row[0]
 
             # Execute FTS5 search
@@ -264,7 +264,7 @@ class VersionAwareSearchEngine:
                 WHERE metadata_search_v2 MATCH ? AND global_version_id = ?
             """
             count_params = [search_query, global_version_id]
-            
+
             if query.entity_types:
                 placeholders = ",".join("?" * len(query.entity_types))
                 count_sql += f" AND entity_type IN ({placeholders})"
@@ -288,14 +288,14 @@ class VersionAwareSearchEngine:
                 """SELECT global_version_id FROM environment_versions 
                    WHERE environment_id = ? AND is_active = 1 
                    ORDER BY detected_at DESC LIMIT 1""",
-                (self.cache._environment_id,)
+                (self.cache._environment_id,),
             )
             version_row = await cursor.fetchone()
-            
+
             if not version_row:
                 logger.warning("No active version found for pattern search")
                 return SearchResults(results=[], total_count=0)
-            
+
             global_version_id = version_row[0]
 
             # Search across multiple entity types
@@ -387,14 +387,19 @@ class VersionAwareSearchEngine:
         else:
             return f'"{" ".join(terms)}"'
 
-    async def search_entities_fts(self, search_text: str, entity_types: Optional[List[str]] = None, limit: int = 10) -> List[Dict[str, Any]]:
+    async def search_entities_fts(
+        self,
+        search_text: str,
+        entity_types: Optional[List[str]] = None,
+        limit: int = 10,
+    ) -> List[Dict[str, Any]]:
         """Simplified FTS search for entities (for MCP compatibility).
-        
+
         Args:
             search_text: Text to search for
             entity_types: Optional list of entity types to filter by
             limit: Maximum number of results
-            
+
         Returns:
             List of entity dictionaries
         """
@@ -402,11 +407,11 @@ class VersionAwareSearchEngine:
             text=search_text,
             entity_types=entity_types or ["data_entity"],
             limit=limit,
-            use_fulltext=True
+            use_fulltext=True,
         )
-        
+
         results = await self.search(query)
-        
+
         # Convert to dictionary format for compatibility
         entities = []
         for result in results.results:
@@ -416,8 +421,8 @@ class VersionAwareSearchEngine:
                 "entity_set_name": result.entity_set_name,
                 "description": result.description,
                 "relevance": result.relevance,
-                "snippet": result.snippet
+                "snippet": result.snippet,
             }
             entities.append(entity_dict)
-            
+
         return entities

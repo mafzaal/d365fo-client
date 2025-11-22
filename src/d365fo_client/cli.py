@@ -534,8 +534,10 @@ class CLIManager:
             profile_list = []
             for name, profile in profiles.items():
                 # Determine auth mode based on credential source
-                auth_mode = "default" if profile.credential_source is None else "explicit"
-                
+                auth_mode = (
+                    "default" if profile.credential_source is None else "explicit"
+                )
+
                 profile_info = {
                     "name": name,
                     "base_url": profile.base_url,
@@ -568,7 +570,7 @@ class CLIManager:
 
             # Convert profile to dict for display
             auth_mode = "default" if profile.credential_source is None else "explicit"
-            
+
             profile_dict = {
                 "name": profile.name,
                 "base_url": profile.base_url,
@@ -582,7 +584,9 @@ class CLIManager:
 
             # Only show credential source info if it exists
             if profile.credential_source:
-                profile_dict["credential_source"] = profile.credential_source.source_type
+                profile_dict["credential_source"] = (
+                    profile.credential_source.source_type
+                )
 
             output = self.output_formatter.format_output(profile_dict)
             print(output)
@@ -616,11 +620,12 @@ class CLIManager:
             client_id = getattr(args, "client_id", None)
             client_secret = getattr(args, "client_secret", None)
             tenant_id = getattr(args, "tenant_id", None)
-            
+
             # Create credential source from legacy parameters if needed
             credential_source = None
             if auth_mode != "default" and all([client_id, client_secret, tenant_id]):
                 from .credential_sources import EnvironmentCredentialSource
+
                 credential_source = EnvironmentCredentialSource()
 
             # Create new profile
@@ -713,7 +718,7 @@ class CLIManager:
             service_group = getattr(args, "service_group", "")
             service_name = getattr(args, "service_name", "")
             operation_name = getattr(args, "operation_name", "")
-            
+
             # Parse parameters from JSON string if provided
             parameters = None
             parameters_str = getattr(args, "parameters", None)
@@ -766,15 +771,15 @@ class CLIManager:
         """Handle SQL diagnostic service call command."""
         try:
             operation = getattr(args, "operation", "")
-            
+
             # Prepare parameters based on operation
             parameters = {}
-            
+
             if operation == "GetAxSqlResourceStats":
                 since_minutes = getattr(args, "since_minutes", 10)
                 start_time = getattr(args, "start_time", None)
                 end_time = getattr(args, "end_time", None)
-                
+
                 if start_time and end_time:
                     parameters = {
                         "start": start_time,
@@ -782,7 +787,8 @@ class CLIManager:
                     }
                 else:
                     # Use since_minutes to calculate start/end
-                    from datetime import datetime, timezone, timedelta
+                    from datetime import datetime, timedelta, timezone
+
                     end = datetime.now(timezone.utc)
                     start = end - timedelta(minutes=since_minutes)
                     parameters = {
@@ -806,11 +812,11 @@ class CLIManager:
                     "operation": operation,
                     "data": response.data,
                 }
-                
+
                 # Add summary information
                 if isinstance(response.data, list):
                     result["recordCount"] = len(response.data)
-                    
+
                 output = self.output_formatter.format_output(result)
                 print(output)
                 return 0
