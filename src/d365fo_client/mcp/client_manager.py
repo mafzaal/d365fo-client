@@ -50,7 +50,7 @@ class D365FOClientManager:
                 client_config = self._build_client_config(profile)
                 if not client_config:
                     raise ValueError(f"Profile '{profile}' configuration is invalid")
-                
+
                 client = FOClient(client_config)
                 await client.initialize_metadata()
 
@@ -150,10 +150,10 @@ class D365FOClientManager:
 
     async def refresh_profile(self, profile: str):
         """Refresh a specific profile by clearing its cached client.
-        
+
         This forces the client manager to recreate the client with
         updated profile configuration on next access.
-        
+
         Args:
             profile: Profile name to refresh
         """
@@ -165,7 +165,7 @@ class D365FOClientManager:
 
     async def refresh_all_profiles(self):
         """Refresh all profiles by clearing the entire client pool.
-        
+
         This forces the client manager to recreate all clients with
         updated profile configurations on next access.
         """
@@ -204,20 +204,17 @@ class D365FOClientManager:
                 raise ValueError(
                     f"Profile '{env_profile.name}' has no base_url configured"
                 )
-            
+
             # Check if legacy config should override certain settings
 
-            
             return config
-        
-        raise ValueError(
-                    f"Profile '{profile}' not found in profile manager"
-                )
+
+        raise ValueError(f"Profile '{profile}' not found in profile manager")
 
     async def shutdown(self):
         """Shutdown the client manager and close all connections."""
         await self.cleanup()
-        
+
     async def _test_client_connection(self, client: FOClient) -> bool:
         """Test a client connection.
 

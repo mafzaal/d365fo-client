@@ -9,10 +9,8 @@ integration workflows through standardized MCP protocol.
 
 from .client_manager import D365FOClientManager
 from .fastmcp_server import FastD365FOMCPServer
-from .server import D365FOMCPServer
 
 __all__ = [
-    "D365FOMCPServer",           # Legacy MCP server (backward compatibility)
-    "FastD365FOMCPServer",       # New FastMCP server with multi-transport support
+    "FastD365FOMCPServer",  # FastMCP server with multi-transport support
     "D365FOClientManager",
 ]

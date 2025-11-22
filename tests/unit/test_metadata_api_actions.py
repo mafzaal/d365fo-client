@@ -1,8 +1,15 @@
 """Unit tests for action-related metadata API operations."""
 
-import pytest
 import re
+import warnings
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+# Filter out known coroutine warnings from background tasks and module imports
+warnings.filterwarnings(
+    "ignore", message="coroutine.*was never awaited", category=RuntimeWarning
+)
 
 from d365fo_client.metadata_api import MetadataAPIOperations
 from d365fo_client.models import (
@@ -114,7 +121,10 @@ class TestMetadataAPIActionOperations:
         """Test searching actions across all entities"""
         # Mock get_all_public_entities_with_details
         metadata_api_ops.get_all_public_entities_with_details = AsyncMock(
-            return_value=[sample_public_entity_with_actions, sample_entity_without_actions]
+            return_value=[
+                sample_public_entity_with_actions,
+                sample_entity_without_actions,
+            ]
         )
 
         result = await metadata_api_ops.search_actions()
@@ -152,7 +162,10 @@ class TestMetadataAPIActionOperations:
     ):
         """Test searching actions with entity filter"""
         metadata_api_ops.get_all_public_entities_with_details = AsyncMock(
-            return_value=[sample_public_entity_with_actions, sample_entity_without_actions]
+            return_value=[
+                sample_public_entity_with_actions,
+                sample_entity_without_actions,
+            ]
         )
 
         # Search for actions in Customer entity only
@@ -172,9 +185,7 @@ class TestMetadataAPIActionOperations:
         )
 
         # Search for actions bound to entity set
-        result = await metadata_api_ops.search_actions(
-            binding_kind="BoundToEntitySet"
-        )
+        result = await metadata_api_ops.search_actions(binding_kind="BoundToEntitySet")
 
         # Should only return actions with matching binding kind
         assert len(result) == 1
@@ -279,9 +290,7 @@ class TestMetadataAPIActionOperations:
         """Test getting action info when action is not found"""
         metadata_api_ops.get_public_entity_info = AsyncMock(return_value=None)
 
-        result = await metadata_api_ops.get_action_info(
-            "NonExistentAction", "Customer"
-        )
+        result = await metadata_api_ops.get_action_info("NonExistentAction", "Customer")
 
         # Should return None when entity is not found
         assert result is None
@@ -295,9 +304,7 @@ class TestMetadataAPIActionOperations:
             return_value=sample_public_entity_with_actions
         )
 
-        result = await metadata_api_ops.get_action_info(
-            "NonExistentAction", "Customer"
-        )
+        result = await metadata_api_ops.get_action_info("NonExistentAction", "Customer")
 
         # Should return None when action is not found in entity
         assert result is None

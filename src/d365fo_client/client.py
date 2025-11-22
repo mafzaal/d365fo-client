@@ -368,14 +368,15 @@ class FOClient:
             if result.success:
                 self.logger.info(
                     f"Metadata sync completed: "
-                    f"{result.entity_count} entities, "
-                    f"{result.enumeration_count} enumerations, "
-                    f"{result.action_count} actions, "
+                    f"{result.entities_synced} entities, "
+                    f"{result.enumerations_synced} enumerations, "
+                    f"{result.actions_synced} actions, "
                     f"{result.duration_ms:.2f}ms"
                 )
                 return True
             else:
-                self.logger.error(f"Metadata sync failed: {result.error}")
+                error_msg = result.errors[0] if result.errors else "Unknown error"
+                self.logger.error(f"Metadata sync failed: {error_msg}")
                 return False
 
         except Exception as e:

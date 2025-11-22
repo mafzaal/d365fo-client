@@ -194,7 +194,10 @@ class TestCacheFirstFunctionality:
 
                 # Mock metadata cache
                 mock_cache = AsyncMock()
-                mock_cache.check_version_and_sync.return_value = (True, 12345)  # sync_needed=True, version=12345
+                mock_cache.check_version_and_sync.return_value = (
+                    True,
+                    12345,
+                )  # sync_needed=True, version=12345
                 client.metadata_cache = mock_cache
 
                 # Mock sync manager
@@ -279,7 +282,10 @@ class TestBackgroundSyncLogic:
 
                 # Mock metadata cache
                 mock_cache = AsyncMock()
-                mock_cache.check_version_and_sync.return_value = (False, None)  # No sync needed
+                mock_cache.check_version_and_sync.return_value = (
+                    False,
+                    None,
+                )  # No sync needed
                 client.metadata_cache = mock_cache
 
                 await client._trigger_background_sync_if_needed()
@@ -301,7 +307,10 @@ class TestBackgroundSyncLogic:
 
                 # Mock metadata cache
                 mock_cache = AsyncMock()
-                mock_cache.check_version_and_sync.return_value = (True, 12345)  # Sync needed
+                mock_cache.check_version_and_sync.return_value = (
+                    True,
+                    12345,
+                )  # Sync needed
                 client.metadata_cache = mock_cache
 
                 # Mock sync manager

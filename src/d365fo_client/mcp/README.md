@@ -28,7 +28,7 @@ export D365FO_BASE_URL="https://your-d365fo-environment.dynamics.com"
 ### Running the MCP Server
 ```bash
 # Start the MCP server with stdio transport
-d365fo-mcp-server
+d365fo-fastmcp-server
 ```
 
 ## Architecture
@@ -174,7 +174,7 @@ pytest tests/test_mcp_server.py --cov=d365fo_client.mcp
 ### Debug Mode
 ```bash
 export D365FO_LOG_LEVEL=DEBUG
-d365fo-mcp-server
+d365fo-fastmcp-server
 ```
 
 ## Contributing

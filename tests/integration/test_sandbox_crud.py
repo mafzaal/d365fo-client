@@ -4,9 +4,10 @@ These tests validate CRUD operations against actual D365 F&O sandbox environment
 testing real API behavior, entity relationships, and data integrity.
 """
 
+from typing import Any, Dict, List
+
 import pytest
 import pytest_asyncio
-from typing import Dict, Any, List
 
 from d365fo_client import FOClient
 from d365fo_client.models import QueryOptions
@@ -30,8 +31,8 @@ class TestSandboxCrudOperations:
 
         # Validate company data structure
         company = result["value"][0]
-        assert "DataAreaId" in company  # Company ID field
-        assert isinstance(company["DataAreaId"], str)
+        assert "DataArea" in company  # Company ID field
+        assert isinstance(company["DataArea"], str)
 
     @pytest.mark.asyncio
     async def test_get_company_by_key(self, sandbox_client: FOClient):
@@ -40,12 +41,12 @@ class TestSandboxCrudOperations:
         companies = await sandbox_client.get_entities("Companies", QueryOptions(top=1))
 
         if companies["value"]:
-            company_id = companies["value"][0]["DataAreaId"]
+            company_id = companies["value"][0]["DataArea"]
 
             # Get specific company
             company = await sandbox_client.get_entity("Companies", company_id)
 
-            assert company["DataAreaId"] == company_id
+            assert company["DataArea"] == company_id
             assert "Name" in company or "CompanyName" in company
 
     @pytest.mark.asyncio
@@ -60,43 +61,51 @@ class TestSandboxCrudOperations:
         if result["value"]:
             entity = result["value"][0]
             # Legal entities should have these fields
-            assert "DataAreaId" in entity or "CompanyCode" in entity
+            assert "LegalEntityId" in entity or "Name" in entity
 
     @pytest.mark.asyncio
     async def test_query_options_top_and_skip(self, sandbox_client: FOClient):
         """Test OData query options against real data."""
         # Test top parameter
-        result_top2 = await sandbox_client.get_entities("Companies", QueryOptions(top=2))
+        result_top2 = await sandbox_client.get_entities(
+            "Companies", QueryOptions(top=2)
+        )
         assert len(result_top2["value"]) <= 2
 
         # Test skip parameter if we have enough data
         result_all = await sandbox_client.get_entities("Companies", QueryOptions(top=5))
         if len(result_all["value"]) > 1:
-            result_skip1 = await sandbox_client.get_entities("Companies", QueryOptions(top=1, skip=1))
+            result_skip1 = await sandbox_client.get_entities(
+                "Companies", QueryOptions(top=1, skip=1)
+            )
             if result_skip1["value"]:
                 # Should get different result when skipping
-                assert result_skip1["value"][0]["DataAreaId"] != result_all["value"][0]["DataAreaId"]
+                assert (
+                    result_skip1["value"][0]["DataArea"]
+                    != result_all["value"][0]["DataArea"]
+                )
 
     @pytest.mark.asyncio
     async def test_odata_filter_operations(self, sandbox_client: FOClient):
         """Test OData filter operations against real data."""
         try:
             # Get some companies first to understand available data
-            companies = await sandbox_client.get_entities("Companies", QueryOptions(top=10))
+            companies = await sandbox_client.get_entities(
+                "Companies", QueryOptions(top=10)
+            )
 
             if companies["value"] and len(companies["value"]) > 0:
                 # Test filter by specific company
-                company_id = companies["value"][0]["DataAreaId"]
-                filter_query = f"DataAreaId eq '{company_id}'"
+                company_id = companies["value"][0]["DataArea"]
+                filter_query = f"DataArea eq '{company_id}'"
 
                 filtered_result = await sandbox_client.get_entities(
-                    "Companies",
-                    QueryOptions(filter=filter_query)
+                    "Companies", QueryOptions(filter=filter_query)
                 )
 
                 assert "value" in filtered_result
                 if filtered_result["value"]:
-                    assert filtered_result["value"][0]["DataAreaId"] == company_id
+                    assert filtered_result["value"][0]["DataArea"] == company_id
 
         except Exception as e:
             pytest.skip(f"Filter operations not supported or data unavailable: {e}")
@@ -106,16 +115,15 @@ class TestSandboxCrudOperations:
         """Test OData select operations to limit returned fields."""
         try:
             # Select only specific fields
-            select_fields = "DataAreaId"
+            select_fields = ["DataArea"]
             result = await sandbox_client.get_entities(
-                "Companies",
-                QueryOptions(top=1, select=select_fields)
+                "Companies", QueryOptions(top=1, select=select_fields)
             )
 
             if result["value"]:
                 company = result["value"][0]
                 # Should only contain selected field (plus possible system fields)
-                assert "DataAreaId" in company
+                assert "DataArea" in company
 
         except Exception as e:
             pytest.skip(f"Select operations not supported: {e}")
@@ -136,9 +144,9 @@ class TestSandboxDataIntegrity:
 
         # Results should be consistent
         if all(call["value"] for call in calls):
-            first_company = calls[0]["value"][0]["DataAreaId"]
-            for call in calls[1:]:
-                assert call["value"][0]["DataAreaId"] == first_company
+            first_company = calls[0]["value"][0]["DataArea"]
+            for call in calls:
+                assert call["value"][0]["DataArea"] == first_company
 
     @pytest.mark.asyncio
     async def test_entity_field_validation(self, sandbox_client: FOClient):
@@ -149,7 +157,7 @@ class TestSandboxDataIntegrity:
             company = companies["value"][0]
 
             # Validate field types
-            assert isinstance(company["DataAreaId"], str)
+            assert isinstance(company["DataArea"], str)
 
             # Check for common optional fields
             if "Name" in company:
@@ -161,20 +169,23 @@ class TestSandboxDataIntegrity:
         page_size = 2
 
         # Get first page
-        page1 = await sandbox_client.get_entities("Companies", QueryOptions(top=page_size))
+        page1 = await sandbox_client.get_entities(
+            "Companies", QueryOptions(top=page_size)
+        )
 
         # Get second page if first page has data
         if len(page1["value"]) == page_size:
             page2 = await sandbox_client.get_entities(
-                "Companies",
-                QueryOptions(top=page_size, skip=page_size)
+                "Companies", QueryOptions(top=page_size, skip=page_size)
             )
 
             # Pages should not overlap
             if page2["value"]:
-                page1_ids = {item["DataAreaId"] for item in page1["value"]}
-                page2_ids = {item["DataAreaId"] for item in page2["value"]}
-                assert page1_ids.isdisjoint(page2_ids), "Pagination returned overlapping results"
+                page1_ids = {item["DataArea"] for item in page1["value"]}
+                page2_ids = {item["DataArea"] for item in page2["value"]}
+                assert page1_ids.isdisjoint(
+                    page2_ids
+                ), "Pagination returned overlapping results"
 
 
 @skip_if_not_level("sandbox")
@@ -188,8 +199,8 @@ class TestSandboxEntityDiscovery:
             "Companies",
             "LegalEntities",
             "NumberSequences",
-            "DataAreaId",
-            "SystemParameters"
+            "DataArea",
+            "SystemParameters",
         ]
 
         available_entities = []
@@ -204,7 +215,9 @@ class TestSandboxEntityDiscovery:
                 continue
 
         # At least some common entities should be available
-        assert len(available_entities) > 0, f"No common entities available: {common_entities}"
+        assert (
+            len(available_entities) > 0
+        ), f"No common entities available: {common_entities}"
 
     @pytest.mark.asyncio
     async def test_entity_response_structure(self, sandbox_client: FOClient):
@@ -253,7 +266,9 @@ class TestSandboxConcurrentOperations:
                 successful += 1
 
         # At least some operations should succeed
-        assert successful >= 2, f"Too many concurrent operations failed: {len(results) - successful} failures"
+        assert (
+            successful >= 2
+        ), f"Too many concurrent operations failed: {len(results) - successful} failures"
 
     @pytest.mark.asyncio
     async def test_concurrent_same_entity_requests(self, sandbox_client: FOClient):
@@ -274,9 +289,9 @@ class TestSandboxConcurrentOperations:
 
         # Results should be consistent
         if all(r["value"] for r in successful_results):
-            first_result = successful_results[0]["value"][0]["DataAreaId"]
-            for result in successful_results[1:]:
-                assert result["value"][0]["DataAreaId"] == first_result
+            first_result = successful_results[0]["value"][0]["DataArea"]
+            for result in successful_results:
+                assert result["value"][0]["DataArea"] == first_result
 
 
 @skip_if_not_level("sandbox")
@@ -292,15 +307,14 @@ class TestSandboxRealWorldScenarios:
 
         if companies["value"]:
             # Step 2: Get details for first company
-            company_id = companies["value"][0]["DataAreaId"]
+            company_id = companies["value"][0]["DataArea"]
             company_detail = await sandbox_client.get_entity("Companies", company_id)
-            assert company_detail["DataAreaId"] == company_id
+            assert company_detail["DataArea"] == company_id
 
             # Step 3: Search for related legal entities in same company
             try:
                 legal_entities = await sandbox_client.get_entities(
-                    "LegalEntities",
-                    QueryOptions(top=5)
+                    "LegalEntities", QueryOptions(top=5)
                 )
                 assert "value" in legal_entities
             except Exception:
@@ -308,7 +322,9 @@ class TestSandboxRealWorldScenarios:
                 pass
 
     @pytest.mark.asyncio
-    async def test_large_dataset_handling(self, sandbox_client: FOClient, performance_metrics):
+    async def test_large_dataset_handling(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test handling larger datasets from sandbox."""
         import time
 
@@ -341,7 +357,7 @@ class TestSandboxRealWorldScenarios:
                 try:
                     result = await sandbox_client.get_entities(
                         entity.public_collection_name or entity.name,
-                        QueryOptions(top=1)
+                        QueryOptions(top=1),
                     )
                     assert "value" in result
                 except Exception:

@@ -1,6 +1,7 @@
 """Integration test for API Key authentication server startup."""
 
 import os
+
 import pytest
 
 
@@ -29,15 +30,17 @@ def test_api_key_settings_configured():
 def test_api_key_provider_initialization():
     """Test that API Key provider can be initialized."""
     from pydantic import SecretStr
+
     from d365fo_client.mcp.auth_server.auth.providers.apikey import APIKeyVerifier
 
     provider = APIKeyVerifier(
-        api_key=SecretStr("test-key"),
-        base_url="http://localhost:8000"
+        api_key=SecretStr("test-key"), base_url="http://localhost:8000"
     )
 
     assert provider.api_key.get_secret_value() == "test-key"
-    assert str(provider.base_url) == "http://localhost:8000/"  # AnyHttpUrl adds trailing slash
+    assert (
+        str(provider.base_url) == "http://localhost:8000/"
+    )  # AnyHttpUrl adds trailing slash
 
 
 @pytest.mark.integration
@@ -45,11 +48,10 @@ def test_api_key_provider_initialization():
 async def test_api_key_token_verification():
     """Test that API Key provider can verify tokens."""
     from pydantic import SecretStr
+
     from d365fo_client.mcp.auth_server.auth.providers.apikey import APIKeyVerifier
 
-    provider = APIKeyVerifier(
-        api_key=SecretStr("my-secret-key")
-    )
+    provider = APIKeyVerifier(api_key=SecretStr("my-secret-key"))
 
     # Valid token
     token = await provider.verify_token("my-secret-key")
@@ -65,15 +67,15 @@ async def test_api_key_token_verification():
 @pytest.mark.integration
 def test_fastmcp_with_api_key_config():
     """Test that FastMCP can be configured with API Key authentication."""
-    from pydantic import SecretStr, AnyHttpUrl
-    from mcp.server.fastmcp import FastMCP
     from mcp.server.auth.settings import AuthSettings
+    from mcp.server.fastmcp import FastMCP
+    from pydantic import AnyHttpUrl, SecretStr
+
     from d365fo_client.mcp.auth_server.auth.providers.apikey import APIKeyVerifier
 
     # Create API Key provider
     api_key_provider = APIKeyVerifier(
-        api_key=SecretStr("test-fastmcp-key"),
-        base_url="http://localhost:8000"
+        api_key=SecretStr("test-fastmcp-key"), base_url="http://localhost:8000"
     )
 
     # Create minimal auth settings WITHOUT resource_server_url

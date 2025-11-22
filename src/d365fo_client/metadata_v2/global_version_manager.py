@@ -325,7 +325,7 @@ class GlobalVersionManager:
                 first_seen_at=datetime.fromisoformat(row[3]),
                 last_used_at=datetime.fromisoformat(row[4]),
                 reference_count=row[5],
-                modules=modules
+                modules=modules,
             )
 
     async def find_compatible_versions(
@@ -570,7 +570,9 @@ class GlobalVersionManager:
 
             return stats
 
-    async def get_environment_version_statistics(self, environment_id: int) -> Dict[str, Any]:
+    async def get_environment_version_statistics(
+        self, environment_id: int
+    ) -> Dict[str, Any]:
         """Get version statistics scoped to a specific environment
 
         Args:
@@ -587,7 +589,7 @@ class GlobalVersionManager:
                 """SELECT COUNT(DISTINCT global_version_id) 
                    FROM environment_versions 
                    WHERE environment_id = ? AND is_active = 1""",
-                (environment_id,)
+                (environment_id,),
             )
             stats["total_versions"] = (await cursor.fetchone())[0]
 
@@ -604,7 +606,7 @@ class GlobalVersionManager:
                    FROM global_versions gv
                    INNER JOIN environment_versions ev ON gv.id = ev.global_version_id
                    WHERE ev.environment_id = ? AND ev.is_active = 1 AND gv.reference_count > 0""",
-                (environment_id,)
+                (environment_id,),
             )
             ref_stats = await cursor.fetchone()
             stats["reference_statistics"] = {
@@ -622,7 +624,7 @@ class GlobalVersionManager:
                    INNER JOIN environment_versions ev ON gv.id = ev.global_version_id
                    WHERE ev.environment_id = ? AND ev.is_active = 1
                    AND gv.last_used_at >= datetime('now', '-7 days')""",
-                (environment_id,)
+                (environment_id,),
             )
             stats["recent_activity"] = {
                 "versions_used_last_7_days": (await cursor.fetchone())[0]

@@ -7,14 +7,13 @@ import pytest
 @pytest.mark.asyncio
 async def test_bearer_auth_backend_with_api_key():
     """Test that BearerAuthBackend can verify API keys sent as Bearer tokens."""
-    from pydantic import SecretStr
     from mcp.server.auth.middleware.bearer_auth import BearerAuthBackend
+    from pydantic import SecretStr
+
     from d365fo_client.mcp.auth_server.auth.providers.apikey import APIKeyVerifier
 
     # Create API Key provider
-    provider = APIKeyVerifier(
-        api_key=SecretStr("test-api-key-12345")
-    )
+    provider = APIKeyVerifier(api_key=SecretStr("test-api-key-12345"))
 
     # Create BearerAuthBackend (this is what FastMCP uses)
     backend = BearerAuthBackend(token_verifier=provider)
@@ -30,7 +29,9 @@ async def test_bearer_auth_backend_with_api_key():
 
     assert result is not None, "Authentication should succeed with correct API key"
     credentials, user = result
-    assert "authenticated" not in credentials.scopes  # API keys don't have scopes by default
+    assert (
+        "authenticated" not in credentials.scopes
+    )  # API keys don't have scopes by default
     assert user.username == "api_key_client"
 
     # Test 2: Wrong API key

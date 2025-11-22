@@ -77,4 +77,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 USER mcp_user
 
 # Use our entrypoint script to handle CMD execution with proper validation
-CMD ["d365fo-mcp-server"]
+CMD ["d365fo-fastmcp-server"]

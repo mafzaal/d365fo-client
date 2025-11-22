@@ -105,9 +105,7 @@ class TestConfigManager:
 
     def test_save_and_load_profile(self):
         """Test saving and loading profiles."""
-        profile = CLIProfile(
-            name="test", base_url="https://test.dynamics.com"
-        )
+        profile = CLIProfile(name="test", base_url="https://test.dynamics.com")
 
         self.config_manager.save_profile(profile)
 
@@ -223,7 +221,7 @@ class TestCLIManager:
 
         # Mock the config manager to return a config with no base URL
         # Create mock config without validation to test missing base_url handling
-        with patch.object(FOClientConfig, '_validate_config'):
+        with patch.object(FOClientConfig, "_validate_config"):
             mock_config = FOClientConfig(base_url="")
 
         with patch.object(

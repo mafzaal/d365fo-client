@@ -1,7 +1,7 @@
 services:
-  d365fo-mcp-server:
+  d365fo-fastmcp-server:
     build: .
-    container_name: d365fo-mcp-server
+    container_name: d365fo-fastmcp-server
     env_file:
       - .env
     environment:

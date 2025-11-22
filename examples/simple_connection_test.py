@@ -129,7 +129,9 @@ def show_environment():
     env_vars = {
         "D365FO_BASE_URL": os.getenv("D365FO_BASE_URL", "Not set"),
         "D365FO_CLIENT_ID": os.getenv("D365FO_CLIENT_ID", "Not set"),
-        "D365FO_CLIENT_SECRET": "***" if os.getenv("D365FO_CLIENT_SECRET") else "Not set",
+        "D365FO_CLIENT_SECRET": (
+            "***" if os.getenv("D365FO_CLIENT_SECRET") else "Not set"
+        ),
         "D365FO_TENANT_ID": os.getenv("D365FO_TENANT_ID", "Not set"),
     }
 

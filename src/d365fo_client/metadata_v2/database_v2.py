@@ -550,7 +550,9 @@ class MetadataDatabaseV2:
         """
         return await self.get_database_statistics()
 
-    async def get_environment_database_statistics(self, environment_id: int) -> Dict[str, Any]:
+    async def get_environment_database_statistics(
+        self, environment_id: int
+    ) -> Dict[str, Any]:
         """Get database statistics scoped to a specific environment
 
         Args:
@@ -567,10 +569,10 @@ class MetadataDatabaseV2:
                 """SELECT DISTINCT global_version_id 
                    FROM environment_versions 
                    WHERE environment_id = ? AND is_active = 1""",
-                (environment_id,)
+                (environment_id,),
             )
             active_versions = [row[0] for row in await cursor.fetchall()]
-            
+
             if not active_versions:
                 # No active versions, return zero counts
                 return {
@@ -606,7 +608,7 @@ class MetadataDatabaseV2:
             for table, key in tables:
                 cursor = await db.execute(
                     f"SELECT COUNT(*) FROM {table} WHERE global_version_id IN ({version_placeholders})",
-                    active_versions
+                    active_versions,
                 )
                 stats[f"{table}_count"] = (await cursor.fetchone())[0]
 
@@ -616,7 +618,7 @@ class MetadataDatabaseV2:
                      COUNT(DISTINCT ev.global_version_id) as linked_versions
                    FROM environment_versions ev
                    WHERE ev.environment_id = ? AND ev.is_active = 1""",
-                (environment_id,)
+                (environment_id,),
             )
             env_stats = await cursor.fetchone()
             stats["environment_statistics"] = {

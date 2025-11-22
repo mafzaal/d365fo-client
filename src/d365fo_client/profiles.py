@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Profile(FOClientConfig):
     """Unified profile for CLI and MCP operations.
-    
+
     Inherits from FOClientConfig and adds profile-specific functionality
     like name, description, and CLI output formatting.
     """
@@ -31,34 +31,34 @@ class Profile(FOClientConfig):
         """Override parent post_init to handle profile-specific validation."""
         # Call parent validation first
         super().__post_init__()
-        
+
         # Additional profile-specific validation
         if not self.name:
             raise ValueError("Profile name is required")
 
     def to_client_config(self) -> FOClientConfig:
         """Convert profile to FOClientConfig.
-        
+
         Since Profile now inherits from FOClientConfig, we can return a copy
         of self with only the FOClientConfig fields.
         """
         from dataclasses import fields
-        
+
         # Get all FOClientConfig field names
         fo_client_fields = {f.name for f in fields(FOClientConfig)}
-        
+
         # Create a dict with only FOClientConfig fields from this instance
         # Use getattr to preserve object types (especially credential_source)
         client_data = {}
         for field_name in fo_client_fields:
             if hasattr(self, field_name):
                 client_data[field_name] = getattr(self, field_name)
-        
+
         return FOClientConfig(**client_data)
 
     def validate(self) -> List[str]:
         """Validate profile configuration.
-        
+
         Since Profile inherits from FOClientConfig, we leverage the parent's
         validation and add profile-specific checks.
         """
@@ -77,7 +77,10 @@ class Profile(FOClientConfig):
         # Validate credential_source if provided
         if self.credential_source is not None:
             # Basic validation - credential source should have a valid source_type
-            if not hasattr(self.credential_source, 'source_type') or not self.credential_source.source_type:
+            if (
+                not hasattr(self.credential_source, "source_type")
+                or not self.credential_source.source_type
+            ):
                 errors.append("Credential source must have a valid source_type")
 
         return errors
@@ -85,8 +88,8 @@ class Profile(FOClientConfig):
     @classmethod
     def create_from_dict(cls, name: str, data: Dict[str, Any]) -> "Profile":
         """Create Profile from dictionary data with migration support.
-        
-        This method maintains the same interface as the original from_dict but 
+
+        This method maintains the same interface as the original from_dict but
         works with the inheritance structure.
         """
 
@@ -111,14 +114,16 @@ class Profile(FOClientConfig):
         try:
             # Create FOClientConfig from the data first
             fo_config = super().from_dict(migrated_data)
-            
+
             # Convert back to dict and add Profile-specific fields
             fo_data = fo_config.to_dict()
-            fo_data.update({
-                "name": migrated_data["name"],
-                "description": migrated_data.get("description"),
-                "output_format": migrated_data.get("output_format", "table"),
-            })
+            fo_data.update(
+                {
+                    "name": migrated_data["name"],
+                    "description": migrated_data.get("description"),
+                    "output_format": migrated_data.get("output_format", "table"),
+                }
+            )
 
             # Filter out any unknown parameters
             valid_params = {
@@ -126,10 +131,15 @@ class Profile(FOClientConfig):
             }
 
             # Handle credential_source deserialization if it's still a dict
-            if "credential_source" in valid_params and isinstance(valid_params["credential_source"], dict):
+            if "credential_source" in valid_params and isinstance(
+                valid_params["credential_source"], dict
+            ):
                 from .credential_sources import CredentialSource
+
                 try:
-                    valid_params["credential_source"] = CredentialSource.from_dict(valid_params["credential_source"])
+                    valid_params["credential_source"] = CredentialSource.from_dict(
+                        valid_params["credential_source"]
+                    )
                 except Exception as e:
                     logger.error(f"Error deserializing credential_source: {e}")
                     valid_params["credential_source"] = None
@@ -160,7 +170,9 @@ class Profile(FOClientConfig):
         # If auth_mode is "client_credentials", treat it as explicit credentials
         if data.get("auth_mode") == "client_credentials":
             data["use_default_credentials"] = False
-            logger.debug("Setting use_default_credentials=False for client_credentials auth_mode")
+            logger.debug(
+                "Setting use_default_credentials=False for client_credentials auth_mode"
+            )
 
         # Migrate legacy credential fields to credential_source (use parent method)
         data = FOClientConfig._migrate_legacy_credentials(data)
@@ -171,13 +183,15 @@ class Profile(FOClientConfig):
         """Convert profile to dictionary for storage."""
         # Use parent's to_dict method and remove profile-specific fields that shouldn't be in storage
         data = super().to_dict()
-        
+
         # Add profile-specific fields
-        data.update({
-            "description": self.description,
-            "output_format": self.output_format,
-        })
-        
+        data.update(
+            {
+                "description": self.description,
+                "output_format": self.output_format,
+            }
+        )
+
         # Remove name from storage (it's stored as the key)
         data.pop("name", None)
 
@@ -198,12 +212,22 @@ class Profile(FOClientConfig):
 
     def __str__(self) -> str:
         """String representation of the profile."""
-        cred_info = "default_credentials" if self.credential_source is None else f"credential_source={self.credential_source.source_type}"
-        return f"Profile(name='{self.name}', base_url='{self.base_url}', auth={cred_info})"
+        cred_info = (
+            "default_credentials"
+            if self.credential_source is None
+            else f"credential_source={self.credential_source.source_type}"
+        )
+        return (
+            f"Profile(name='{self.name}', base_url='{self.base_url}', auth={cred_info})"
+        )
 
     def __repr__(self) -> str:
         """Detailed string representation of the profile."""
-        cred_info = "default_credentials" if self.credential_source is None else f"credential_source={self.credential_source.source_type}"
+        cred_info = (
+            "default_credentials"
+            if self.credential_source is None
+            else f"credential_source={self.credential_source.source_type}"
+        )
         return (
             f"Profile(name='{self.name}', base_url='{self.base_url}', "
             f"auth={cred_info}, description='{self.description}')"

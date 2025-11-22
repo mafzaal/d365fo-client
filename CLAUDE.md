@@ -99,10 +99,8 @@ src/d365fo_client/
 ├── models.py                # Data models and type definitions
 ├── exceptions.py            # Custom exception classes
 └── mcp/                     # Model Context Protocol server
-    ├── main.py              # MCP server entry point (d365fo-mcp-server)
     ├── fastmcp_main.py      # FastMCP server entry point (d365fo-fastmcp-server)
-    ├── server.py            # Core MCP server implementation
-    ├── fastmcp_server.py    # FastMCP server implementation (recommended)
+    ├── fastmcp_server.py    # FastMCP server implementation
     ├── client_manager.py    # Connection pooling for D365 F&O clients
     ├── mixins/              # FastMCP tool mixins (49 tools across 9 categories)
     │   ├── connection_tools_mixin.py # Connection testing mixins
@@ -273,9 +271,9 @@ d365fo-client entities list --pattern "customer"
 d365fo-client metadata sync --force-refresh
 d365fo-client version app
 
-# MCP Servers (installed as separate commands)
-d365fo-mcp-server           # Traditional MCP SDK
-d365fo-fastmcp-server       # FastMCP implementation (recommended)
+# MCP Server (installed as d365fo-fastmcp-server command)
+d365fo-fastmcp-server       # FastMCP implementation
+# Note: d365fo-mcp-server is maintained as an alias for backward compatibility
 ```
 
 ## Package Distribution

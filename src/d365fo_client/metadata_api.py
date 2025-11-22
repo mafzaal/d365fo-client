@@ -114,7 +114,7 @@ class MetadataAPIOperations:
                     cardinality = Cardinality.SINGLE  # Default
             except Exception:
                 cardinality = Cardinality.SINGLE
-                
+
             nav_prop = NavigationPropertyInfo(
                 name=nav_data.get("Name", ""),
                 related_entity=nav_data.get("RelatedEntity", ""),
@@ -125,7 +125,7 @@ class MetadataAPIOperations:
             # Process constraints
             for constraint_data in nav_data.get("Constraints", []):
                 odata_type = constraint_data.get("@odata.type", "")
-                
+
                 if "ReferentialConstraint" in odata_type:
                     # Referential constraint (foreign key relationship)
                     constraint = ReferentialConstraintInfo(
@@ -135,22 +135,26 @@ class MetadataAPIOperations:
                         ),
                     )
                     nav_prop.constraints.append(constraint)
-                    
+
                 elif "RelatedFixedConstraint" in odata_type:
                     # Related fixed constraint (check this before FixedConstraint)
                     constraint = RelatedFixedConstraintInfo(
                         related_property=constraint_data.get("RelatedProperty", ""),
                         value=constraint_data.get("Value"),
-                        value_str=constraint_data.get("ValueStr", constraint_data.get("StringValue")),
+                        value_str=constraint_data.get(
+                            "ValueStr", constraint_data.get("StringValue")
+                        ),
                     )
                     nav_prop.constraints.append(constraint)
-                    
+
                 elif "FixedConstraint" in odata_type:
                     # Fixed value constraint
                     constraint = FixedConstraintInfo(
                         property=constraint_data.get("Property", ""),
                         value=constraint_data.get("Value"),
-                        value_str=constraint_data.get("ValueStr", constraint_data.get("StringValue")),
+                        value_str=constraint_data.get(
+                            "ValueStr", constraint_data.get("StringValue")
+                        ),
                     )
                     nav_prop.constraints.append(constraint)
                     nav_prop.constraints.append(constraint)
@@ -182,7 +186,7 @@ class MetadataAPIOperations:
                     binding_kind = ODataBindingKind.BOUND_TO_ENTITY_SET
             except Exception:
                 binding_kind = ODataBindingKind.BOUND_TO_ENTITY_SET
-                
+
             action = PublicEntityActionInfo(
                 name=action_data.get("Name", ""),
                 binding_kind=binding_kind,
@@ -340,7 +344,7 @@ class MetadataAPIOperations:
                     # If no match, leave as None
                 except Exception:
                     entity_category = None
-            
+
             entity = DataEntityInfo(
                 name=item.get("Name", ""),
                 public_entity_name=item.get("PublicEntityName", ""),
@@ -370,22 +374,22 @@ class MetadataAPIOperations:
             # Use the search method without any filters to get all entities
             # We could also use get_data_entities() with no top limit, but search handles pagination better
             entities = []
-            
+
             # Get all entities by calling the raw endpoint with no top limit
             options = QueryOptions()
             options.select = [
                 "Name",
-                "PublicEntityName", 
+                "PublicEntityName",
                 "PublicCollectionName",
                 "LabelId",
                 "DataServiceEnabled",
                 "DataManagementEnabled",
                 "EntityCategory",
-                "IsReadOnly"
+                "IsReadOnly",
             ]
-            
+
             data = await self.get_data_entities(options)
-            
+
             for item in data.get("value", []):
                 # Convert entity category string to enum
                 entity_category_str = item.get("EntityCategory")
@@ -408,7 +412,7 @@ class MetadataAPIOperations:
                         # If no match, leave as None
                     except Exception:
                         entity_category = None
-                
+
                 entity = DataEntityInfo(
                     name=item.get("Name", ""),
                     public_entity_name=item.get("PublicEntityName", ""),
@@ -420,9 +424,9 @@ class MetadataAPIOperations:
                     is_read_only=item.get("IsReadOnly", False),
                 )
                 entities.append(entity)
-            
+
             return entities
-            
+
         except Exception as e:
             logger.error(f"Error getting all data entities: {e}")
             raise
@@ -447,7 +451,7 @@ class MetadataAPIOperations:
             async with session.get(url) as response:
                 if response.status == 200:
                     item = await response.json()
-                    
+
                     # Convert entity category string to enum
                     entity_category_str = item.get("EntityCategory")
                     entity_category = None
@@ -469,7 +473,7 @@ class MetadataAPIOperations:
                             # If no match, leave as None
                         except Exception:
                             entity_category = None
-                    
+
                     entity = DataEntityInfo(
                         name=item.get("Name", ""),
                         public_entity_name=item.get("PublicEntityName", ""),
@@ -978,7 +982,7 @@ class MetadataAPIOperations:
         from .models import ActionInfo
 
         actions = []
-        
+
         try:
             # Compile regex pattern if provided
             regex_pattern = None
@@ -993,7 +997,9 @@ class MetadataAPIOperations:
                     regex_pattern = regex_pattern.search
 
             # Get all public entities with full details
-            entities = await self.get_all_public_entities_with_details(resolve_labels=False)
+            entities = await self.get_all_public_entities_with_details(
+                resolve_labels=False
+            )
 
             for entity in entities:
                 # Filter by entity name if specified
@@ -1048,7 +1054,9 @@ class MetadataAPIOperations:
         try:
             if entity_name:
                 # If entity name is provided, get that specific entity
-                entity = await self.get_public_entity_info(entity_name, resolve_labels=False)
+                entity = await self.get_public_entity_info(
+                    entity_name, resolve_labels=False
+                )
                 if not entity:
                     return None
 
@@ -1066,7 +1074,9 @@ class MetadataAPIOperations:
                         )
             else:
                 # Search across all entities for the action
-                actions = await self.search_actions(pattern=f"^{re.escape(action_name)}$")
+                actions = await self.search_actions(
+                    pattern=f"^{re.escape(action_name)}$"
+                )
                 if actions:
                     # Return the first match (actions should be unique across entities)
                     return actions[0]

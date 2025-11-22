@@ -375,5 +375,3 @@ def test_cache_directory_structure():
 
     # Domain should be the last part
     assert parts[-1] == "test.dynamics.com"
-
-

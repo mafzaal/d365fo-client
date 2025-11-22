@@ -1,10 +1,11 @@
 """Unit tests for enhanced QueryBuilder OData encoding with schema awareness."""
 
-import pytest
 from unittest.mock import Mock
 
-from d365fo_client.query import QueryBuilder
+import pytest
+
 from d365fo_client.models import PublicEntityInfo, PublicEntityPropertyInfo
+from d365fo_client.query import QueryBuilder
 
 
 class TestQueryBuilderEnhancedEncoding:
@@ -51,7 +52,14 @@ class TestQueryBuilderEnhancedEncoding:
         bool_prop.type_name = "Edm.Boolean"
         bool_prop.is_key = True
 
-        properties = [string_prop, record_id_prop, company_id_prop, date_prop, enum_prop, bool_prop]
+        properties = [
+            string_prop,
+            record_id_prop,
+            company_id_prop,
+            date_prop,
+            enum_prop,
+            bool_prop,
+        ]
 
         # Create mock entity schema
         schema = Mock()
@@ -77,18 +85,18 @@ class TestQueryBuilderEnhancedEncoding:
         }
 
         result = QueryBuilder.encode_key(key_dict)
-        
+
         # Without schema, all values are treated as strings with quotes
         expected_parts = [
             "StringKey='test-value'",
             "RecordId='123'",
             "CompanyId='456'",
         ]
-        
+
         # Check that all expected parts are in the result
         for part in expected_parts:
             assert part in result
-        
+
         # Check proper comma separation
         assert result.count(",") == 2
 
@@ -109,7 +117,10 @@ class TestQueryBuilderEnhancedEncoding:
         # String types should have quotes
         assert "StringKey='test-value'" in result
         # Enum types should have quotes
-        assert "StatusKey='Microsoft.Dynamics.DataEntities.EntityStatus%27Active%27'" in result
+        assert (
+            "StatusKey='Microsoft.Dynamics.DataEntities.EntityStatus%27Active%27'"
+            in result
+        )
 
         # Date types should NOT have quotes (F&O OData specific)
         assert "DateKey=2024-01-15" in result
@@ -132,7 +143,7 @@ class TestQueryBuilderEnhancedEncoding:
         }
 
         result = QueryBuilder.encode_key(key_dict, mock_entity_schema)
-        
+
         # Both should be numeric without quotes
         assert "RecordId=123" in result
         assert "CompanyId=456" in result
@@ -145,7 +156,7 @@ class TestQueryBuilderEnhancedEncoding:
         }
 
         result = QueryBuilder.encode_key(key_dict, mock_entity_schema)
-        
+
         # String should have quotes
         assert result == "StringKey='test-value'"
 
@@ -153,23 +164,23 @@ class TestQueryBuilderEnhancedEncoding:
         """Test building entity URL with schema-aware key encoding."""
         base_url = "https://test.dynamics.com"
         entity_name = "TestEntities"
-        
+
         # Simple string key
         url = QueryBuilder.build_entity_url(
             base_url, entity_name, "simple-key", mock_entity_schema
         )
         assert url == "https://test.dynamics.com/data/TestEntities('simple-key')"
-        
+
         # Composite key with mixed types
         composite_key = {
             "StringKey": "test",
             "RecordId": "123",
         }
-        
+
         url = QueryBuilder.build_entity_url(
             base_url, entity_name, composite_key, mock_entity_schema
         )
-        
+
         # Should contain properly formatted composite key
         assert "https://test.dynamics.com/data/TestEntities(" in url
         assert "StringKey='test'" in url
@@ -181,17 +192,17 @@ class TestQueryBuilderEnhancedEncoding:
         base_url = "https://test.dynamics.com"
         action_name = "TestAction"
         entity_name = "TestEntities"
-        
+
         # Composite key for bound action
         composite_key = {
             "StringKey": "test",
             "RecordId": "123",
         }
-        
+
         url = QueryBuilder.build_action_url(
             base_url, action_name, entity_name, composite_key, mock_entity_schema
         )
-        
+
         # Should contain properly formatted composite key and action path
         assert "https://test.dynamics.com/data/TestEntities(" in url
         assert "StringKey='test'" in url
@@ -201,21 +212,19 @@ class TestQueryBuilderEnhancedEncoding:
     def test_backward_compatibility_no_schema(self):
         """Test that existing code without schema parameter still works."""
         # All existing QueryBuilder calls should work unchanged
-        
+
         # Simple key
         result = QueryBuilder.encode_key("test")
         assert result == "test"
-        
+
         # Composite key (legacy behavior - all strings with quotes)
         composite = {"key1": "value1", "key2": "value2"}
         result = QueryBuilder.encode_key(composite)
         assert "key1='value1'" in result
         assert "key2='value2'" in result
-        
+
         # URL building without schema
-        url = QueryBuilder.build_entity_url(
-            "https://test.com", "Entity", composite
-        )
+        url = QueryBuilder.build_entity_url("https://test.com", "Entity", composite)
         assert "Entity(" in url
         assert "key1='value1'" in url
         assert "key2='value2'" in url
@@ -228,7 +237,7 @@ class TestQueryBuilderEnhancedEncoding:
         }
 
         result = QueryBuilder.encode_key(key_dict, mock_entity_schema)
-        
+
         # String value should be URL encoded
         assert "StringKey=" in result
         assert "RecordId=123" in result
@@ -242,7 +251,7 @@ class TestQueryBuilderEnhancedEncoding:
         }
 
         result = QueryBuilder.encode_key(key_dict, mock_entity_schema)
-        
+
         # Empty string should still be quoted
         assert "StringKey=''" in result
         # Zero should not be quoted
@@ -266,7 +275,7 @@ class TestQueryBuilderEnhancedEncoding:
         }
 
         result = QueryBuilder.encode_key(key_dict, limited_schema)
-        
+
         # Known key should use schema info (string with quotes)
         assert "KnownKey='known-value'" in result
         # Unknown key should fall back to string treatment

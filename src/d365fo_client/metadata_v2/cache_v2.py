@@ -213,19 +213,23 @@ class MetadataCacheV2:
             entities: List of data entity information
         """
         async with aiosqlite.connect(self.db_path) as db:
-            
 
             # Insert new entities with label processing
             for entity in entities:
                 # Process label fallback for this entity
-                processed_label_text = process_label_fallback(entity.label_id, entity.label_text)
+                processed_label_text = process_label_fallback(
+                    entity.label_id, entity.label_text
+                )
 
                 # Clear existing entity for this version
                 await db.execute(
                     "DELETE FROM data_entities WHERE global_version_id = ? and name = ?",
-                    (global_version_id, entity.name,),
+                    (
+                        global_version_id,
+                        entity.name,
+                    ),
                 )
-                    
+
                 await db.execute(
                     """INSERT INTO data_entities
                        (global_version_id, name, public_entity_name, public_collection_name,
@@ -312,7 +316,7 @@ class MetadataCacheV2:
             for row in await cursor.fetchall():
                 # Apply label fallback during retrieval
                 processed_label_text = apply_label_fallback(row[3], row[4])
-                
+
                 entities.append(
                     DataEntityInfo(
                         name=row[0],
@@ -411,8 +415,10 @@ class MetadataCacheV2:
                 )
 
             # Insert new entity with label processing
-            processed_entity_label_text = process_label_fallback(entity_schema.label_id, entity_schema.label_text)
-            
+            processed_entity_label_text = process_label_fallback(
+                entity_schema.label_id, entity_schema.label_text
+            )
+
             cursor = await db.execute(
                 """INSERT INTO public_entities
                    (global_version_id, name, entity_set_name, label_id, label_text,
@@ -436,8 +442,10 @@ class MetadataCacheV2:
             for prop in entity_schema.properties:
                 prop_order += 1
                 # Process label fallback for this property
-                processed_prop_label_text = process_label_fallback(prop.label_id, prop.label_text)
-                
+                processed_prop_label_text = process_label_fallback(
+                    prop.label_id, prop.label_text
+                )
+
                 await db.execute(
                     """INSERT INTO entity_properties
                        (entity_id, global_version_id, name, type_name, data_type,
@@ -569,9 +577,9 @@ class MetadataCacheV2:
                        VALUES (?, ?, ?)""",
                     (entity_id, global_version_id, group.name),
                 )
-                
+
                 group_id = group_cursor.lastrowid
-                
+
                 # Store property group members
                 for property_name in group.properties:
                     await db.execute(
@@ -634,8 +642,10 @@ class MetadataCacheV2:
             properties = []
             for prop_row in await cursor.fetchall():
                 # Apply label fallback for property labels
-                processed_prop_label_text = apply_label_fallback(prop_row[4], prop_row[5])
-                
+                processed_prop_label_text = apply_label_fallback(
+                    prop_row[4], prop_row[5]
+                )
+
                 properties.append(
                     PublicEntityPropertyInfo(
                         name=prop_row[0],
@@ -670,7 +680,7 @@ class MetadataCacheV2:
             navigation_properties = []
             for nav_row in await cursor.fetchall():
                 nav_prop_id = nav_row[0]
-                
+
                 # Get constraints for this navigation property
                 constraint_cursor = await db.execute(
                     """SELECT constraint_type, property_name, referenced_property,
@@ -684,7 +694,7 @@ class MetadataCacheV2:
                 constraints = []
                 for constraint_row in await constraint_cursor.fetchall():
                     constraint_type = constraint_row[0]
-                    
+
                     if constraint_type == "Referential":
                         constraints.append(
                             ReferentialConstraintInfo(
@@ -714,7 +724,11 @@ class MetadataCacheV2:
                         name=nav_row[1],
                         related_entity=nav_row[2],
                         related_relation_name=nav_row[3],
-                        cardinality=Cardinality(nav_row[4]) if nav_row[4] else Cardinality.SINGLE,
+                        cardinality=(
+                            Cardinality(nav_row[4])
+                            if nav_row[4]
+                            else Cardinality.SINGLE
+                        ),
                         constraints=constraints,
                     )
                 )
@@ -731,7 +745,7 @@ class MetadataCacheV2:
             property_groups = []
             for group_row in await cursor.fetchall():
                 group_id = group_row[0]
-                
+
                 # Get property group members
                 member_cursor = await db.execute(
                     """SELECT property_name
@@ -763,7 +777,7 @@ class MetadataCacheV2:
             actions = []
             for action_row in await cursor.fetchall():
                 action_id = action_row[0]
-                
+
                 # Get action parameters
                 param_cursor = await db.execute(
                     """SELECT name, type_name, is_collection, odata_xpp_type, parameter_order
@@ -807,7 +821,9 @@ class MetadataCacheV2:
                 )
 
             # Apply label fallback for entity labels
-            processed_entity_label_text = apply_label_fallback(entity_row[3], entity_row[4])
+            processed_entity_label_text = apply_label_fallback(
+                entity_row[3], entity_row[4]
+            )
 
             return PublicEntityInfo(
                 name=entity_row[1],
@@ -840,8 +856,10 @@ class MetadataCacheV2:
 
             for enum_info in enumerations:
                 # Process label fallback for this enumeration
-                processed_enum_label_text = process_label_fallback(enum_info.label_id, enum_info.label_text)
-                
+                processed_enum_label_text = process_label_fallback(
+                    enum_info.label_id, enum_info.label_text
+                )
+
                 # Insert enumeration
                 cursor = await db.execute(
                     """INSERT INTO enumerations
@@ -862,8 +880,10 @@ class MetadataCacheV2:
                 for member in enum_info.members:
                     member_order += 1
                     # Process label fallback for this member
-                    processed_member_label_text = process_label_fallback(member.label_id, member.label_text)
-                    
+                    processed_member_label_text = process_label_fallback(
+                        member.label_id, member.label_text
+                    )
+
                     await db.execute(
                         """INSERT INTO enumeration_members
                            (enumeration_id, global_version_id, name, value,
@@ -930,8 +950,10 @@ class MetadataCacheV2:
             members = []
             for member_row in await cursor.fetchall():
                 # Apply label fallback for member labels
-                processed_member_label_text = apply_label_fallback(member_row[2], member_row[3])
-                
+                processed_member_label_text = apply_label_fallback(
+                    member_row[2], member_row[3]
+                )
+
                 members.append(
                     EnumerationMemberInfo(
                         name=member_row[0],
@@ -1500,18 +1522,22 @@ class MetadataCacheV2:
             Dictionary with cache statistics scoped to the current environment
         """
         await self.initialize()
-        
+
         if self._environment_id is None:
             raise ValueError("Environment not initialized")
-            
+
         stats = {}
 
         # Environment-scoped database statistics
-        db_stats = await self.database.get_environment_database_statistics(self._environment_id)
+        db_stats = await self.database.get_environment_database_statistics(
+            self._environment_id
+        )
         stats.update(db_stats)
 
         # Environment-scoped version statistics
-        version_stats = await self.version_manager.get_environment_version_statistics(self._environment_id)
+        version_stats = await self.version_manager.get_environment_version_statistics(
+            self._environment_id
+        )
         stats["version_manager"] = version_stats
 
         # Current version info (already environment-scoped)
@@ -1536,9 +1562,10 @@ class MetadataCacheV2:
 
     def create_search_engine(self):
         """Create a search engine instance for this cache.
-        
+
         Returns:
             VersionAwareSearchEngine instance
         """
         from .search_engine_v2 import VersionAwareSearchEngine
+
         return VersionAwareSearchEngine(self)

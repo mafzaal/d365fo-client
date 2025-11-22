@@ -22,18 +22,22 @@ class AuthenticationManager:
         self._token = None
         self._token_expires = None
         self._credential_manager = CredentialManager()
-        self.credential: Optional[Union[ClientSecretCredential, DefaultAzureCredential]] = None  # Will be set by _setup_credentials
+        self.credential: Optional[
+            Union[ClientSecretCredential, DefaultAzureCredential]
+        ] = None  # Will be set by _setup_credentials
 
     async def _setup_credentials(self):
         """Setup authentication credentials with support for credential sources"""
-        
+
         # Check if credential source is specified in config
         credential_source = self.config.credential_source
-        
+
         if credential_source is not None:
             # Use credential source to get credentials
             try:
-                client_id, client_secret, tenant_id = await self._credential_manager.get_credentials(credential_source)
+                client_id, client_secret, tenant_id = (
+                    await self._credential_manager.get_credentials(credential_source)
+                )
                 self.credential = ClientSecretCredential(
                     tenant_id=tenant_id,
                     client_id=client_id,
@@ -42,12 +46,10 @@ class AuthenticationManager:
                 return
             except Exception as e:
                 raise ValueError(f"Failed to setup credentials from source: {e}")
-        
-        
+
         # Fallback to existing logic for backward compatibility
-  
+
         self.credential = DefaultAzureCredential()
-      
 
     async def get_token(self) -> str:
         """Get authentication token
@@ -110,11 +112,11 @@ class AuthenticationManager:
         """Invalidate cached credentials and token to force full refresh"""
         self.invalidate_token()
         self.credential = None
-        if hasattr(self, '_credential_manager'):
+        if hasattr(self, "_credential_manager"):
             self._credential_manager.clear_cache()
 
     def get_credential_cache_stats(self) -> dict:
         """Get credential cache statistics for debugging"""
-        if hasattr(self, '_credential_manager'):
+        if hasattr(self, "_credential_manager"):
             return self._credential_manager.get_cache_stats()
         return {"total_cached": 0, "expired": 0, "active": 0}

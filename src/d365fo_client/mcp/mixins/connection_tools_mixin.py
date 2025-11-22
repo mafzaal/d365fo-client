@@ -10,10 +10,10 @@ logger = logging.getLogger(__name__)
 
 class ConnectionToolsMixin(BaseToolsMixin):
     """Connection and environment tools for FastMCP server."""
-    
+
     def register_connection_tools(self):
         """Register all connection tools with FastMCP."""
-        
+
         @self.mcp.tool()
         async def d365fo_test_connection(profile: str = "default") -> dict:
             """Test connection to D365FO environment.
@@ -27,7 +27,7 @@ class ConnectionToolsMixin(BaseToolsMixin):
             try:
                 result = await self.client_manager.test_connection(profile)
 
-                return {"status":result}
+                return {"status": result}
             except Exception as e:
                 logger.error(f"Connection test failed: {e}")
                 return {"status": "error", "error": str(e), "profile": profile}

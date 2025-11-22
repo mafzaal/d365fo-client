@@ -1,7 +1,8 @@
 """Unit tests for action search and lookup functionality."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from d365fo_client.client import FOClient
 from d365fo_client.config import FOClientConfig
@@ -104,7 +105,8 @@ class TestActionSearchAndLookup:
             return obj
 
         with patch(
-            "d365fo_client.client.resolve_labels_generic", side_effect=mock_resolve_labels
+            "d365fo_client.client.resolve_labels_generic",
+            side_effect=mock_resolve_labels,
         ):
             result = await mock_client.search_actions(pattern="Test")
 
@@ -171,7 +173,8 @@ class TestActionSearchAndLookup:
             return obj
 
         with patch(
-            "d365fo_client.client.resolve_labels_generic", side_effect=mock_resolve_labels
+            "d365fo_client.client.resolve_labels_generic",
+            side_effect=mock_resolve_labels,
         ):
             result = await mock_client.get_action_info("TestAction")
 

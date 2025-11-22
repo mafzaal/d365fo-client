@@ -8,8 +8,9 @@ for numeric, boolean, and date key fields.
 """
 
 from unittest.mock import Mock
-from d365fo_client.query import QueryBuilder
+
 from d365fo_client.odata_serializer import ODataSerializer
+from d365fo_client.query import QueryBuilder
 
 
 def create_mock_schema():
@@ -52,7 +53,14 @@ def create_mock_schema():
     enum_prop.is_key = True
 
     schema = Mock()
-    schema.properties = [string_prop, record_prop, company_prop, date_prop, bool_prop, enum_prop]
+    schema.properties = [
+        string_prop,
+        record_prop,
+        company_prop,
+        date_prop,
+        bool_prop,
+        enum_prop,
+    ]
     return schema
 
 
@@ -61,23 +69,19 @@ def demo_backward_compatibility():
     print("=" * 60)
     print("BACKWARD COMPATIBILITY DEMO (No Schema)")
     print("=" * 60)
-    
+
     # Simple string key
     simple_key = "CUST001"
     encoded = QueryBuilder.encode_key(simple_key)
     print(f"Simple key '{simple_key}' -> '{encoded}'")
-    
+
     # Composite key (legacy behavior - all strings with quotes)
-    composite_key = {
-        "CustomerId": "CUST001",
-        "RecordId": "123456",
-        "CompanyId": "100"
-    }
-    
+    composite_key = {"CustomerId": "CUST001", "RecordId": "123456", "CompanyId": "100"}
+
     encoded = QueryBuilder.encode_key(composite_key)
     print(f"Composite key (no schema): {encoded}")
     print("Note: All values are quoted as strings (legacy behavior)")
-    
+
     # Build URL
     url = QueryBuilder.build_entity_url(
         "https://example.com", "Customers", composite_key
@@ -91,24 +95,24 @@ def demo_schema_aware_encoding():
     print("=" * 60)
     print("SCHEMA-AWARE ENCODING DEMO")
     print("=" * 60)
-    
+
     schema = create_mock_schema()
-    
+
     # Mixed data type composite key
     composite_key = {
-        "CustomerId": "CUST001",      # String -> should be quoted
-        "RecordId": "123456",         # Int64 -> should NOT be quoted
-        "CompanyId": "100",           # Int32 -> should NOT be quoted
-        "EffectiveDate": "2024-01-15", # Date -> should be quoted
-        "IsActive": "true",           # Boolean -> should NOT be quoted
-        "Status": "Microsoft.Dynamics.DataEntities.EntityStatus'Active'" # Enum -> should be quoted
+        "CustomerId": "CUST001",  # String -> should be quoted
+        "RecordId": "123456",  # Int64 -> should NOT be quoted
+        "CompanyId": "100",  # Int32 -> should NOT be quoted
+        "EffectiveDate": "2024-01-15",  # Date -> should be quoted
+        "IsActive": "true",  # Boolean -> should NOT be quoted
+        "Status": "Microsoft.Dynamics.DataEntities.EntityStatus'Active'",  # Enum -> should be quoted
     }
-    
+
     # Encode with schema awareness
     encoded = QueryBuilder.encode_key(composite_key, schema)
     print(f"Schema-aware encoding: {encoded}")
     print()
-    
+
     print("Data type handling:")
     print("- CustomerId (String): 'CUST001' (quoted)")
     print("- RecordId (Int64): 123456 (no quotes)")
@@ -117,7 +121,7 @@ def demo_schema_aware_encoding():
     print("- IsActive (Boolean): true (no quotes)")
     print("- Status (Enum): 'Microsoft...Active%27' (quoted and URL-encoded)")
     print()
-    
+
     # Build URL with schema
     url = QueryBuilder.build_entity_url(
         "https://example.com", "Customers", composite_key, schema
@@ -131,18 +135,22 @@ def demo_individual_serialization():
     print("=" * 60)
     print("INDIVIDUAL VALUE SERIALIZATION DEMO")
     print("=" * 60)
-    
+
     test_values = [
         ("Hello World", "String", "Edm.String"),
         ("123456", "Int64", "Edm.Int64"),
         ("100", "Int32", "Edm.Int32"),
         ("2024-01-15T10:30:00Z", "DateTime", "Edm.DateTime"),
         ("true", "Boolean", "Edm.Boolean"),
-        ("Microsoft.Dynamics.DataEntities.NoYes'Yes'", "Enum", "Microsoft.Dynamics.DataEntities.NoYes"),
+        (
+            "Microsoft.Dynamics.DataEntities.NoYes'Yes'",
+            "Enum",
+            "Microsoft.Dynamics.DataEntities.NoYes",
+        ),
         ("99.99", "Decimal", "Edm.Decimal"),
         ("test/value with spaces", "String", "Edm.String"),
     ]
-    
+
     for value, data_type, type_name in test_values:
         serialized = ODataSerializer.serialize_value(value, data_type, type_name)
         print(f"{data_type:12} '{value}' -> '{serialized}'")
@@ -154,13 +162,9 @@ def demo_performance_comparison():
     print("=" * 60)
     print("BEFORE vs AFTER COMPARISON")
     print("=" * 60)
-    
-    composite_key = {
-        "CustomerId": "CUST001",
-        "RecordId": "123456",
-        "CompanyId": "100"
-    }
-    
+
+    composite_key = {"CustomerId": "CUST001", "RecordId": "123456", "CompanyId": "100"}
+
     print("BEFORE (Old QueryBuilder behavior):")
     # Simulate old behavior - all values quoted as strings
     old_style = "CustomerId='CUST001',RecordId='123456',CompanyId='100'"
@@ -168,7 +172,7 @@ def demo_performance_comparison():
     print("  Problem: Numeric IDs incorrectly quoted as strings")
     print("  Issue: RecordId='123456' should be RecordId=123456")
     print()
-    
+
     schema = create_mock_schema()
     print("AFTER (Enhanced QueryBuilder with schema):")
     new_style = QueryBuilder.encode_key(composite_key, schema)
@@ -185,12 +189,12 @@ def main():
     print("This demonstrates the fix for the critical QueryBuilder limitation")
     print("where encode_key() treated all values as strings.")
     print()
-    
+
     demo_backward_compatibility()
     demo_schema_aware_encoding()
     demo_individual_serialization()
     demo_performance_comparison()
-    
+
     print("=" * 60)
     print("SUMMARY")
     print("=" * 60)

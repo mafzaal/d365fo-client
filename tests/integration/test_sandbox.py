@@ -300,14 +300,14 @@ class TestSandboxJsonServices:
         assert response.status_code == 200
         assert response.data is not None
         assert response.error_message is None
-        
+
         # Data should be a list (even if empty)
         assert isinstance(response.data, list)
 
     @pytest.mark.asyncio
     async def test_post_json_service_with_parameters(self, sandbox_client: FOClient):
         """Test JSON service call with parameters (GetAxSqlResourceStats)."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
 
         # Use last 5 minutes to reduce load
         end_time = datetime.now(timezone.utc)
@@ -320,7 +320,7 @@ class TestSandboxJsonServices:
 
         response = await sandbox_client.post_json_service(
             service_group="SysSqlDiagnosticService",
-            service_name="SysSqlDiagnosticServiceOperations", 
+            service_name="SysSqlDiagnosticServiceOperations",
             operation_name="GetAxSqlResourceStats",
             parameters=parameters,
         )
@@ -330,16 +330,18 @@ class TestSandboxJsonServices:
         assert response.status_code == 200
         assert response.data is not None
         assert response.error_message is None
-        
+
         # Data should be a list
         assert isinstance(response.data, list)
 
     @pytest.mark.asyncio
-    async def test_post_json_service_sql_diagnostics_all_operations(self, sandbox_client: FOClient):
+    async def test_post_json_service_sql_diagnostics_all_operations(
+        self, sandbox_client: FOClient
+    ):
         """Test all SQL diagnostic operations to ensure they're accessible."""
         operations = [
             "GetAxSqlExecuting",
-            "GetAxSqlBlocking", 
+            "GetAxSqlBlocking",
             "GetAxSqlLockInfo",
             "GetAxSqlDisabledIndexes",
         ]
@@ -352,15 +354,21 @@ class TestSandboxJsonServices:
             )
 
             # All operations should succeed
-            assert response.success is True, f"Operation {operation} failed: {response.error_message}"
+            assert (
+                response.success is True
+            ), f"Operation {operation} failed: {response.error_message}"
             assert response.status_code == 200
             assert response.data is not None
-            
+
             # Data should be a list for these operations
-            assert isinstance(response.data, list), f"Operation {operation} returned non-list data"
+            assert isinstance(
+                response.data, list
+            ), f"Operation {operation} returned non-list data"
 
     @pytest.mark.asyncio
-    async def test_call_json_service_with_request_object(self, sandbox_client: FOClient):
+    async def test_call_json_service_with_request_object(
+        self, sandbox_client: FOClient
+    ):
         """Test call_json_service method with JsonServiceRequest object."""
         from d365fo_client.models import JsonServiceRequest
 
@@ -394,7 +402,9 @@ class TestSandboxJsonServices:
         assert len(response.error_message) > 0
 
     @pytest.mark.asyncio
-    async def test_post_json_service_invalid_service_group(self, sandbox_client: FOClient):
+    async def test_post_json_service_invalid_service_group(
+        self, sandbox_client: FOClient
+    ):
         """Test JSON service with invalid service group."""
         response = await sandbox_client.post_json_service(
             service_group="NonExistentService",

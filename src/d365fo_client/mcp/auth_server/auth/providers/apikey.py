@@ -16,8 +16,9 @@ import secrets
 
 from pydantic import SecretStr
 
-from ..auth import AccessToken, TokenVerifier
 from d365fo_client.mcp.utilities.logging import get_logger
+
+from ..auth import AccessToken, TokenVerifier
 
 logger = get_logger(__name__)
 

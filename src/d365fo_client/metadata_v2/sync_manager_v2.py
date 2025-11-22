@@ -92,13 +92,14 @@ class SmartSyncManagerV2:
         """
         if self._is_syncing:
             return SyncResult(
+                sync_type="failed",
                 success=False,
-                error="Sync already in progress",
+                errors=["Sync already in progress"],
                 duration_ms=0,
-                entity_count=0,
-                action_count=0,
-                enumeration_count=0,
-                label_count=0,
+                entities_synced=0,
+                actions_synced=0,
+                enumerations_synced=0,
+                labels_synced=0,
             )
 
         self._is_syncing = True
@@ -153,10 +154,10 @@ class SmartSyncManagerV2:
                 # Mark cache sync completed
                 await self.cache.mark_sync_completed(
                     global_version_id,
-                    result.entity_count,
-                    result.action_count,
-                    result.enumeration_count,
-                    result.label_count,
+                    result.entities_synced,
+                    result.actions_synced,
+                    result.enumerations_synced,
+                    result.labels_synced,
                 )
             else:
                 await self.version_manager.update_sync_status(
@@ -167,7 +168,9 @@ class SmartSyncManagerV2:
             progress.phase = "completed" if result.success else "failed"
             progress.completed_steps = progress.total_steps
             progress.current_operation = (
-                "Sync completed" if result.success else f"Sync failed: {result.error}"
+                "Sync completed"
+                if result.success
+                else f"Sync failed: {result.errors[0] if result.errors else 'Unknown error'}"
             )
             progress.estimated_completion = datetime.now(timezone.utc)
             self._update_progress(progress)
@@ -185,13 +188,14 @@ class SmartSyncManagerV2:
             )
 
             return SyncResult(
+                sync_type="failed",
                 success=False,
-                error=str(e),
+                errors=[str(e)],
                 duration_ms=duration_ms,
-                entity_count=0,
-                action_count=0,
-                enumeration_count=0,
-                label_count=0,
+                entities_synced=0,
+                actions_synced=0,
+                enumerations_synced=0,
+                labels_synced=0,
             )
         finally:
             self._is_syncing = False
@@ -307,25 +311,27 @@ class SmartSyncManagerV2:
             self._update_progress(progress)
 
             return SyncResult(
+                sync_type="full",
                 success=True,
-                error=None,
+                errors=[],
                 duration_ms=0,  # Will be set by caller
-                entity_count=entity_count,
-                action_count=action_count,
-                enumeration_count=enumeration_count,
-                label_count=label_count,
+                entities_synced=entity_count,
+                actions_synced=action_count,
+                enumerations_synced=enumeration_count,
+                labels_synced=label_count,
             )
 
         except Exception as e:
             logger.error(f"Full sync failed: {e}")
             return SyncResult(
+                sync_type="failed",
                 success=False,
-                error=str(e),
+                errors=[str(e)],
                 duration_ms=0,
-                entity_count=entity_count,
-                action_count=action_count,
-                enumeration_count=enumeration_count,
-                label_count=label_count,
+                entities_synced=entity_count,
+                actions_synced=action_count,
+                enumerations_synced=enumeration_count,
+                labels_synced=label_count,
             )
 
     async def _sync_incremental_metadata(
@@ -378,25 +384,27 @@ class SmartSyncManagerV2:
             self._update_progress(progress)
 
             return SyncResult(
+                sync_type="entities_only",
                 success=True,
-                error=None,
+                errors=[],
                 duration_ms=0,
-                entity_count=entity_count,
-                action_count=0,
-                enumeration_count=0,
-                label_count=0,
+                entities_synced=entity_count,
+                actions_synced=0,
+                enumerations_synced=0,
+                labels_synced=0,
             )
 
         except Exception as e:
             logger.error(f"Entities-only sync failed: {e}")
             return SyncResult(
+                sync_type="failed",
                 success=False,
-                error=str(e),
+                errors=[str(e)],
                 duration_ms=0,
-                entity_count=0,
-                action_count=0,
-                enumeration_count=0,
-                label_count=0,
+                entities_synced=0,
+                actions_synced=0,
+                enumerations_synced=0,
+                labels_synced=0,
             )
 
     async def _sync_sharing_mode(
@@ -470,25 +478,27 @@ class SmartSyncManagerV2:
             )
 
             return SyncResult(
+                sync_type="linked",
                 success=True,
-                error=None,
+                errors=[],
                 duration_ms=0,
-                entity_count=counts.get("entities", 0),
-                action_count=counts.get("actions", 0),
-                enumeration_count=counts.get("enumerations", 0),
-                label_count=counts.get("labels", 0),
+                entities_synced=counts.get("entities", 0),
+                actions_synced=counts.get("actions", 0),
+                enumerations_synced=counts.get("enumerations", 0),
+                labels_synced=counts.get("labels", 0),
             )
 
         except Exception as e:
             logger.error(f"Sharing sync failed: {e}")
             return SyncResult(
+                sync_type="failed",
                 success=False,
-                error=str(e),
+                errors=[str(e)],
                 duration_ms=0,
-                entity_count=0,
-                action_count=0,
-                enumeration_count=0,
-                label_count=0,
+                entities_synced=0,
+                actions_synced=0,
+                enumerations_synced=0,
+                labels_synced=0,
             )
 
     async def _copy_metadata_between_versions(
@@ -591,7 +601,7 @@ class SmartSyncManagerV2:
                 (target_version_id, target_version_id, source_version_id),
             )
 
-            # Copy enumeration members with label processing  
+            # Copy enumeration members with label processing
             await db.execute(
                 """INSERT INTO enumeration_members
                    (enumeration_id, global_version_id, name, value,

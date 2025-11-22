@@ -205,7 +205,9 @@ Note: Unit tests for version methods are now in tests/unit/ directory.
     )
 
     parser.add_argument(
-        "--test", "-t", help="Specific test file to run (e.g., test_sandbox_crud.py, test_sandbox_metadata.py)"
+        "--test",
+        "-t",
+        help="Specific test file to run (e.g., test_sandbox_crud.py, test_sandbox_metadata.py)",
     )
 
     parser.add_argument(

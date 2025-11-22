@@ -71,7 +71,7 @@ class ConfigManager:
 
     def reload_config(self) -> None:
         """Reload configuration from file.
-        
+
         This is useful when the config file has been modified externally
         or by another instance of the ConfigManager.
         """
@@ -302,10 +302,14 @@ class ConfigManager:
                 legacy_credentials[param_name] = arg_value
 
         # Create credential source from legacy credentials if provided
-        if any(legacy_credentials.values()) and config_params["credential_source"] is None:
+        if (
+            any(legacy_credentials.values())
+            and config_params["credential_source"] is None
+        ):
             # Check if we have all required credentials
             if all(legacy_credentials.values()):
                 from .credential_sources import EnvironmentCredentialSource
+
                 config_params["credential_source"] = EnvironmentCredentialSource()
 
         return FOClientConfig(**config_params)
