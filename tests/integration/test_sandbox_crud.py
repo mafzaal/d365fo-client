@@ -115,7 +115,7 @@ class TestSandboxCrudOperations:
         """Test OData select operations to limit returned fields."""
         try:
             # Select only specific fields
-            select_fields = "DataArea"
+            select_fields = ["DataArea"]
             result = await sandbox_client.get_entities(
                 "Companies", QueryOptions(top=1, select=select_fields)
             )
