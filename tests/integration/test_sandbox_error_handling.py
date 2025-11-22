@@ -264,7 +264,7 @@ class TestSandboxConnectionErrors:
         # Create client with very short timeout
         config = FOClientConfig(
             base_url=os.getenv("D365FO_SANDBOX_BASE_URL"),
-            use_default_credentials=True,
+            credential_source=None,  # Use Azure Default Credentials
             verify_ssl=False,
             timeout=1,  # Very short timeout
         )
@@ -306,7 +306,7 @@ class TestSandboxConnectionErrors:
             try:
                 config = FOClientConfig(
                     base_url=invalid_url,
-                    use_default_credentials=True,
+                    credential_source=None,  # Use Azure Default Credentials
                     timeout=5,
                 )
 

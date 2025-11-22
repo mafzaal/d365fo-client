@@ -58,7 +58,7 @@ class TestSandboxConnectionPerformance:
 
         config = FOClientConfig(
             base_url=os.getenv("D365FO_SANDBOX_BASE_URL"),
-            use_default_credentials=True,
+            credential_source=None,  # Use Azure Default Credentials
             verify_ssl=False,
             timeout=60,
         )
@@ -219,7 +219,7 @@ class TestSandboxDataOperationPerformance:
         companies = await sandbox_client.get_entities("Companies", QueryOptions(top=1))
 
         if companies.get("value"):
-            company_id = companies["value"][0]["DataAreaId"]
+            company_id = companies["value"][0]["DataArea"]
 
             times = []
             for _ in range(3):
@@ -230,7 +230,7 @@ class TestSandboxDataOperationPerformance:
                 duration = time.time() - start_time
                 times.append(duration)
 
-                assert company["DataAreaId"] == company_id
+                assert company["DataArea"] == company_id
 
             avg_time = sum(times) / len(times)
             performance_metrics["timings"]["entity_by_key_avg"] = avg_time
