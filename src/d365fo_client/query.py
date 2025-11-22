@@ -14,6 +14,30 @@ class QueryBuilder:
     """Utility class for building OData queries"""
 
     @staticmethod
+    def merge_query_strings(base_query: str, additional_query: str) -> str:
+        """Merge two query strings properly.
+
+        Args:
+            base_query: Base query string (may or may not start with ?)
+            additional_query: Additional query string to merge (may or may not start with ?)
+
+        Returns:
+            Merged query string with proper separators
+        """
+        # Normalize by removing leading ? from both
+        base = base_query.lstrip("?")
+        additional = additional_query.lstrip("?")
+
+        if not base and not additional:
+            return ""
+        elif not base:
+            return f"?{additional}"
+        elif not additional:
+            return f"?{base}"
+        else:
+            return f"?{base}&{additional}"
+
+    @staticmethod
     def build_query_string(options: Optional[QueryOptions] = None) -> str:
         """Build OData query string from options
 
@@ -78,6 +102,21 @@ class QueryBuilder:
         return params
 
     @staticmethod
+    def has_data_area_id_in_key(key: Union[str, Dict[str, Any]]) -> bool:
+        """Check if dataAreaId is present in the key.
+
+        Args:
+            key: Entity key value (string for simple keys, dict for composite keys)
+
+        Returns:
+            True if dataAreaId is present in the key, False otherwise
+        """
+        if isinstance(key, dict):
+            # Check if any key name is dataAreaId (case-insensitive)
+            return any(k.lower() == "dataareaid" for k in key.keys())
+        return False
+
+    @staticmethod
     def encode_key(
         key: Union[str, Dict[str, Any]],
         entity_schema: Optional["PublicEntityInfo"] = None,
@@ -106,6 +145,7 @@ class QueryBuilder:
         entity_name: str,
         key: Optional[Union[str, Dict[str, Any]]] = None,
         entity_schema: Optional["PublicEntityInfo"] = None,
+        add_cross_company: bool = False,
     ) -> str:
         """Build entity URL with optional schema-aware key encoding.
 
@@ -114,19 +154,27 @@ class QueryBuilder:
             entity_name: Entity set name
             key: Optional entity key (string for simple keys, dict for composite keys)
             entity_schema: Optional entity schema for type-aware key encoding
+            add_cross_company: If True, adds cross-company=true to query string (auto-detected if False)
 
         Returns:
-            Complete entity URL with properly encoded keys
+            Complete entity URL with properly encoded keys and cross-company parameter if needed
         """
         base = f"{base_url.rstrip('/')}/data/{entity_name}"
         if key:
             encoded_key = QueryBuilder.encode_key(key, entity_schema)
             if isinstance(key, dict):
                 # For composite keys, formatting is handled by ODataSerializer
-                return f"{base}({encoded_key})"
+                url = f"{base}({encoded_key})"
             else:
                 # For simple string keys, wrap in quotes
-                return f"{base}('{encoded_key}')"
+                url = f"{base}('{encoded_key}')"
+
+            # Add cross-company parameter if dataAreaId is in the key
+            # (unless explicitly disabled via add_cross_company=False)
+            if add_cross_company or QueryBuilder.has_data_area_id_in_key(key):
+                url += "?cross-company=true"
+
+            return url
         return base
 
     @staticmethod
@@ -136,6 +184,7 @@ class QueryBuilder:
         entity_name: Optional[str] = None,
         entity_key: Optional[Union[str, Dict[str, Any]]] = None,
         entity_schema: Optional["PublicEntityInfo"] = None,
+        add_cross_company: bool = False,
     ) -> str:
         """Build action URL with optional schema-aware key encoding.
 
@@ -145,9 +194,10 @@ class QueryBuilder:
             entity_name: Optional entity name for bound actions
             entity_key: Optional entity key for bound actions (string for simple keys, dict for composite keys)
             entity_schema: Optional entity schema for type-aware key encoding
+            add_cross_company: If True, adds cross-company=true to query string (auto-detected if False)
 
         Returns:
-            Complete action URL with properly encoded keys
+            Complete action URL with properly encoded keys and cross-company parameter if needed
         """
         base = base_url.rstrip("/")
 
@@ -164,10 +214,17 @@ class QueryBuilder:
             encoded_key = QueryBuilder.encode_key(entity_key, entity_schema)
             if isinstance(entity_key, dict):
                 # For composite keys, formatting is handled by ODataSerializer
-                return f"{base}/data/{entity_name}({encoded_key}){action_path}"
+                url = f"{base}/data/{entity_name}({encoded_key}){action_path}"
             else:
                 # For simple string keys, wrap in quotes
-                return f"{base}/data/{entity_name}('{encoded_key}'){action_path}"
+                url = f"{base}/data/{entity_name}('{encoded_key}'){action_path}"
+
+            # Add cross-company parameter if dataAreaId is in the key
+            # (unless explicitly disabled via add_cross_company=False)
+            if add_cross_company or QueryBuilder.has_data_area_id_in_key(entity_key):
+                url += "?cross-company=true"
+
+            return url
         elif entity_name:
             # Bound action on entity set
             return f"{base}/data/{entity_name}{action_path}"

@@ -71,12 +71,22 @@ class CrudOperations:
             Entity data
         """
         session = await self.session_manager.get_session()
-        query_string = QueryBuilder.build_query_string(options)
+
         # Use schema-aware URL building for proper key encoding
+        # This will add cross-company=true if dataAreaId is in the key
         url = QueryBuilder.build_entity_url(
             self.base_url, entity_name, key, entity_schema
         )
-        url += query_string
+
+        # Build and merge query string from options
+        query_string = QueryBuilder.build_query_string(options)
+        if query_string:
+            # Merge query strings properly (handles ? and & separators)
+            if "?" in url:
+                # URL already has query params (e.g., cross-company)
+                url += query_string.replace("?", "&")
+            else:
+                url += query_string
 
         async with session.get(url) as response:
             if response.status == 200:
