@@ -1,14 +1,23 @@
 """Fixtures for integration testing."""
 
 import asyncio
+import os
+from pathlib import Path
 from typing import AsyncGenerator
 
 import pytest
 import pytest_asyncio
+from dotenv import load_dotenv
 
 from d365fo_client import FOClient, FOClientConfig
 
 from . import INTEGRATION_TEST_LEVEL, TEST_ENVIRONMENTS
+
+# Load .env file from project root if it exists
+env_file = Path(__file__).parent.parent.parent / ".env"
+if env_file.exists():
+    load_dotenv(env_file)
+    print(f"Loaded environment variables from {env_file}")
 
 
 @pytest_asyncio.fixture
