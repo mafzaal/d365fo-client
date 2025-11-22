@@ -1,6 +1,5 @@
 """Unit tests for cross-company parameter when dataAreaId is in composite keys."""
 
-import pytest
 
 from src.d365fo_client.query import QueryBuilder
 
@@ -39,10 +38,8 @@ class TestCrossCompanyInKeys:
     def test_build_entity_url_with_dataareaId_adds_cross_company(self):
         """Test that build_entity_url adds cross-company when dataAreaId is in key."""
         key = {"dataAreaId": "USMF", "CustomerAccount": "CUST001"}
-        url = QueryBuilder.build_entity_url(
-            "https://example.com", "CustomersV3", key
-        )
-        
+        url = QueryBuilder.build_entity_url("https://example.com", "CustomersV3", key)
+
         assert "cross-company=true" in url
         assert (
             url
@@ -52,28 +49,22 @@ class TestCrossCompanyInKeys:
     def test_build_entity_url_without_dataareaId_no_cross_company(self):
         """Test that build_entity_url doesn't add cross-company when dataAreaId is not in key."""
         key = {"CustomerAccount": "CUST001", "InvoiceId": "INV001"}
-        url = QueryBuilder.build_entity_url(
-            "https://example.com", "CustomersV3", key
-        )
-        
+        url = QueryBuilder.build_entity_url("https://example.com", "CustomersV3", key)
+
         assert "cross-company" not in url
 
     def test_build_entity_url_simple_key_no_cross_company(self):
         """Test that simple keys don't trigger cross-company."""
         key = "CUST001"
-        url = QueryBuilder.build_entity_url(
-            "https://example.com", "CustomersV3", key
-        )
-        
+        url = QueryBuilder.build_entity_url("https://example.com", "CustomersV3", key)
+
         assert "cross-company" not in url
         assert url == "https://example.com/data/CustomersV3('CUST001')"
 
     def test_build_entity_url_no_key_no_cross_company(self):
         """Test that URLs without keys don't have cross-company."""
-        url = QueryBuilder.build_entity_url(
-            "https://example.com", "CustomersV3"
-        )
-        
+        url = QueryBuilder.build_entity_url("https://example.com", "CustomersV3")
+
         assert "cross-company" not in url
         assert url == "https://example.com/data/CustomersV3"
 
@@ -83,7 +74,7 @@ class TestCrossCompanyInKeys:
         url = QueryBuilder.build_action_url(
             "https://example.com", "TestAction", "CustomersV3", key
         )
-        
+
         assert "cross-company=true" in url
         assert (
             url
@@ -96,7 +87,7 @@ class TestCrossCompanyInKeys:
         url = QueryBuilder.build_action_url(
             "https://example.com", "TestAction", "CustomersV3", key
         )
-        
+
         assert "cross-company" not in url
 
     def test_build_action_url_entity_set_bound_no_cross_company(self):
@@ -104,7 +95,7 @@ class TestCrossCompanyInKeys:
         url = QueryBuilder.build_action_url(
             "https://example.com", "TestAction", "CustomersV3"
         )
-        
+
         assert "cross-company" not in url
         assert (
             url
@@ -113,14 +104,11 @@ class TestCrossCompanyInKeys:
 
     def test_build_action_url_unbound_no_cross_company(self):
         """Test that unbound actions don't get cross-company."""
-        url = QueryBuilder.build_action_url(
-            "https://example.com", "TestAction"
-        )
-        
+        url = QueryBuilder.build_action_url("https://example.com", "TestAction")
+
         assert "cross-company" not in url
         assert (
-            url
-            == "https://example.com/data/Microsoft.Dynamics.DataEntities.TestAction"
+            url == "https://example.com/data/Microsoft.Dynamics.DataEntities.TestAction"
         )
 
     def test_multiple_key_fields_with_dataareaId(self):
@@ -134,7 +122,7 @@ class TestCrossCompanyInKeys:
         url = QueryBuilder.build_entity_url(
             "https://example.com", "SalesInvoiceLines", key
         )
-        
+
         assert "cross-company=true" in url
         # Check that all key parts are present
         assert "dataAreaId='USMF'" in url
@@ -145,10 +133,8 @@ class TestCrossCompanyInKeys:
     def test_dataareaId_uppercase_in_key(self):
         """Test that DATAAREAID (uppercase) is detected properly."""
         key = {"DATAAREAID": "USMF", "CustomerAccount": "CUST001"}
-        url = QueryBuilder.build_entity_url(
-            "https://example.com", "CustomersV3", key
-        )
-        
+        url = QueryBuilder.build_entity_url("https://example.com", "CustomersV3", key)
+
         assert "cross-company=true" in url
 
     def test_mixed_case_dataareaId_in_key(self):
@@ -159,7 +145,7 @@ class TestCrossCompanyInKeys:
             {"DataAreaID": "USMF"},
             {"DATAAREAId": "USMF"},
         ]
-        
+
         for key in test_cases:
             url = QueryBuilder.build_entity_url(
                 "https://example.com", "CustomersV3", key
@@ -174,7 +160,7 @@ class TestCrossCompanyInKeys:
         url = QueryBuilder.build_entity_url(
             "https://example.com", "CustomersV3", key, add_cross_company=True
         )
-        
+
         assert "cross-company=true" in url
 
     def test_explicit_add_cross_company_with_dataareaId(self):
@@ -183,7 +169,7 @@ class TestCrossCompanyInKeys:
         url = QueryBuilder.build_entity_url(
             "https://example.com", "CustomersV3", key, add_cross_company=True
         )
-        
+
         assert "cross-company=true" in url
         # Should only appear once
         assert url.count("cross-company=true") == 1
@@ -222,28 +208,29 @@ class TestCrossCompanyInKeys:
         """Test real-world scenario: composite key with dataAreaId and query options."""
         # This simulates what happens in get_entity when both key and options are present
         key = {"dataAreaId": "USMF", "CustomerAccount": "CUST001"}
-        
+
         # Build entity URL (will add cross-company)
-        url = QueryBuilder.build_entity_url(
-            "https://example.com", "CustomersV3", key
-        )
+        url = QueryBuilder.build_entity_url("https://example.com", "CustomersV3", key)
         assert "?cross-company=true" in url
-        
+
         # Simulate appending query options (like in get_entity)
         from src.d365fo_client.models import QueryOptions
+
         options = QueryOptions(select=["Name", "Phone"], top=10)
         query_string = QueryBuilder.build_query_string(options)
-        
+
         # Merge properly
         if "?" in url:
             final_url = url + query_string.replace("?", "&")
         else:
             final_url = url + query_string
-        
+
         # Should have both cross-company and the other parameters
         assert "cross-company=true" in final_url
         # Check for either URL-encoded or non-encoded versions
-        assert "$select=Name,Phone" in final_url or "%24select=Name%2CPhone" in final_url
+        assert (
+            "$select=Name,Phone" in final_url or "%24select=Name%2CPhone" in final_url
+        )
         assert "$top=10" in final_url or "%24top=10" in final_url
         # Should have proper separators
         assert "?cross-company=true&" in final_url

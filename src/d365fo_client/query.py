@@ -27,7 +27,7 @@ class QueryBuilder:
         # Normalize by removing leading ? from both
         base = base_query.lstrip("?")
         additional = additional_query.lstrip("?")
-        
+
         if not base and not additional:
             return ""
         elif not base:
@@ -168,12 +168,12 @@ class QueryBuilder:
             else:
                 # For simple string keys, wrap in quotes
                 url = f"{base}('{encoded_key}')"
-            
+
             # Add cross-company parameter if dataAreaId is in the key
             # (unless explicitly disabled via add_cross_company=False)
             if add_cross_company or QueryBuilder.has_data_area_id_in_key(key):
                 url += "?cross-company=true"
-            
+
             return url
         return base
 
@@ -218,12 +218,12 @@ class QueryBuilder:
             else:
                 # For simple string keys, wrap in quotes
                 url = f"{base}/data/{entity_name}('{encoded_key}'){action_path}"
-            
+
             # Add cross-company parameter if dataAreaId is in the key
             # (unless explicitly disabled via add_cross_company=False)
             if add_cross_company or QueryBuilder.has_data_area_id_in_key(entity_key):
                 url += "?cross-company=true"
-            
+
             return url
         elif entity_name:
             # Bound action on entity set
