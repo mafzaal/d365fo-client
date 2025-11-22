@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.5] - 2025-11-22
+
+### Added
+- **Cross-Company Query Support**: Automatic cross-company query handling for dataAreaId filtering
+  - Automatically adds `cross-company=true` parameter when filter contains dataAreaId
+  - Cross-company support for composite keys with dataAreaId
+  - New unit tests for cross-company key handling and query building
+  - Demo examples showcasing cross-company query functionality
+
+### Improved
+- **Test Suite Organization**: Major refactoring and cleanup of unit tests
+  - Removed 3 redundant test files (test_get_application_version.py, test_json_service.py, test_version_methods.py) fully covered by integration tests
+  - Removed non-applicable test method from test_enhanced_auth.py
+  - Added pytest filterwarnings to suppress expected coroutine warnings
+  - Enhanced test documentation with comprehensive cleanup summary
+  - Improved test consistency by standardizing on 'DataArea' field naming
+- **Integration Testing**: Enhanced sandbox client fixture with environment variable fallback
+  - Increased timeout threshold for cold metadata download in performance tests
+  - Improved MCP CRUD tools tests for better data entity handling
+- **Metadata Sync**: Enhanced logging and error handling for metadata synchronization operations
+- **Code Quality**: Applied comprehensive code formatting across all example scripts and test files
+
+### Removed
+- **Deprecated MCP Server**: Completed migration to FastMCP architecture
+  - Removed legacy D365FOMCPServer class and associated tools (~5,200 lines of code)
+  - Deleted 15 obsolete test files related to deprecated MCP server functionality
+  - Removed 5 example scripts demonstrating deprecated server features
+  - Maintained backward compatibility with command alias (`d365fo-mcp-server` still works)
+  - Updated documentation to reflect FastMCP-only architecture
+
+### Fixed
+- **Test Warnings**: Resolved RuntimeWarning issues in unit tests
+  - Fixed unawaited coroutine warnings from FOClient background sync worker
+  - Fixed example_usage coroutine warnings in main function tests
+  - Added proper mocking for SessionManager to prevent background task creation
+  - Configured pytest to filter expected async warnings
+
+### Dependencies
+- **Core Dependencies**: Updated aiohttp from 3.13.1 to 3.13.2
+- **MCP Framework**: Updated mcp from 1.18.0 to 1.21.1 (through 1.19.0, 1.21.0)
+- **Development Tools**: 
+  - Updated ruff from 0.14.1 to 0.14.5 (through 0.14.2, 0.14.4)
+  - Updated black from 25.9.0 to 25.11.0
+  - Updated cachetools from 6.2.1 to 6.2.2
+  - Updated pydantic-settings from 2.11.0 to 2.12.0
+  - Updated pytest-asyncio from 1.2.0 to 1.3.0
+  - Updated pytest from 8.4.2 to 9.0.1
+- **CI Actions**:
+  - Updated actions/download-artifact from 5 to 6
+  - Updated actions/upload-artifact from 4 to 5
+
+### Documentation
+- **Test Documentation**: Added comprehensive unit test cleanup summary
+- **Architecture Documentation**: Updated documentation to reflect FastMCP-only architecture
+- **Command Usage**: Updated README and Docker documentation for simplified command structure
+
 ## [0.3.4] - 2025-10-26
 
 ### Added
