@@ -1,6 +1,5 @@
 """Unit tests for cross-company parameter when dataAreaId is in composite keys."""
 
-
 from src.d365fo_client.query import QueryBuilder
 
 
