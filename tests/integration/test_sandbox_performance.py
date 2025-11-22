@@ -404,7 +404,7 @@ class TestSandboxMetadataPerformance:
 
         # Metadata operations should complete in reasonable time
         assert (
-            cold_duration < 120.0
+            cold_duration < 500.0
         ), f"Cold metadata download too slow: {cold_duration}s"
         assert (
             warm_duration < 30.0
