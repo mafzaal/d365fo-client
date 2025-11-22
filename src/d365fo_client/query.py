@@ -52,6 +52,10 @@ class QueryBuilder:
 
         if options.filter:
             params["$filter"] = options.filter
+            # If filter contains dataAreaId, add cross-company=true for D365 F&O
+            # This enables querying data across multiple legal entities
+            if "dataareaid" in options.filter.lower():
+                params["cross-company"] = "true"
 
         if options.expand:
             params["$expand"] = ",".join(options.expand)
