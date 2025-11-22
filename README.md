@@ -4,8 +4,8 @@
 
 **🚀 One-Click Installation for VS Code:**
 
-[![Install with UVX in VS Code](https://img.shields.io/badge/VS_Code-Install_D365_FO_MCP_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://vscode.dev/redirect/mcp/install?name=d365fo&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22d365fo-client%40latest%22%2C%22d365fo-mcp-server%22%5D%2C%22env%22%3A%7B%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20tenant%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20secret%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%5D)
-[![Install with UVX in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_D365_FO_MCP_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=d365fo&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22d365fo-client%40latest%22%2C%22d365fo-mcp-server%22%5D%2C%22env%22%3A%7B%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20tenant%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20secret%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%5D)
+[![Install with UVX in VS Code](https://img.shields.io/badge/VS_Code-Install_D365_FO_MCP_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://vscode.dev/redirect/mcp/install?name=d365fo&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22d365fo-client%40latest%22%2C%22d365fo-fastmcp-server%22%5D%2C%22env%22%3A%7B%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20tenant%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20secret%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%5D)
+[![Install with UVX in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_D365_FO_MCP_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=d365fo&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22d365fo-client%40latest%22%2C%22d365fo-fastmcp-server%22%5D%2C%22env%22%3A%7B%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20tenant%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20secret%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%5D)
 
 **🐳 Docker Installation for VS Code:**
 
@@ -46,12 +46,9 @@ export D365FO_MCP_API_KEY_VALUE="your-secret-key"
 
 ## MCP Server Overview
 
-The d365fo-client includes **two production-ready Model Context Protocol (MCP) servers** that expose the full capabilities of D365 Finance & Operations to AI assistants and other MCP-compatible tools:
+The d365fo-client includes a **production-ready Model Context Protocol (MCP) server** (`d365fo-fastmcp-server`) built on the FastMCP framework that exposes the full capabilities of D365 Finance & Operations to AI assistants and other MCP-compatible tools.
 
-- **Traditional MCP SDK** (`d365fo-mcp-server`) - Original implementation with stdio support
-- **FastMCP Framework** (`d365fo-fastmcp-server`) - Modern implementation with multi-transport support ⭐ **Recommended**
-
-Both servers provide identical functionality but the FastMCP implementation offers enhanced performance and deployment flexibility.
+The server provides multi-transport support (stdio, HTTP, SSE) with enhanced performance and deployment flexibility.
 
 ### Key Features
 
@@ -108,20 +105,11 @@ d365fo-fastmcp-server --transport sse --port 8001 --host 0.0.0.0
 ```
 
 **Key Benefits:**
-- **40% faster startup** compared to traditional MCP SDK
-- **15% lower memory usage** through optimized architecture
+- **Optimized performance** with FastMCP framework
+- **Efficient resource usage** through optimized architecture
 - **Multi-transport support**: stdio, HTTP, Server-Sent Events (SSE)
 - **Enhanced error handling** with better async/await support
 - **Production ready** with web transports for API integration
-
-#### Traditional MCP Server
-
-The original MCP SDK implementation remains available for backward compatibility:
-
-```bash
-# Start the traditional MCP server
-d365fo-mcp-server
-```
 
 #### Integration with AI Assistants
 
@@ -154,13 +142,13 @@ Add to your VS Code `mcp.json` for GitHub Copilot with MCP:
 ```json
 {
   "servers": {
-    "d365fo-mcp-server": {
+    "d365fo-fastmcp-server": {
       "type": "stdio",
       "command": "uvx",
       "args": [
         "--from",
         "d365fo-client",
-        "d365fo-mcp-server"
+        "d365fo-fastmcp-server"
       ],
       "env": {
         "D365FO_BASE_URL": "https://your-environment.dynamics.com",
@@ -223,7 +211,7 @@ For containerized environments and enhanced isolation:
 ```json
 {
   "servers": {
-    "d365fo-mcp-server": {
+    "d365fo-fastmcp-server": {
       "type": "stdio",
       "command": "docker",
       "args": [
@@ -317,7 +305,7 @@ Add to your Claude Desktop configuration:
       "args": [
         "--from",
         "d365fo-client",
-        "d365fo-mcp-server"
+        "d365fo-fastmcp-server"
       ],
       "env": {
         "D365FO_BASE_URL": "https://your-environment.dynamics.com",
@@ -438,7 +426,7 @@ Connect using any MCP-compatible client library:
 ```python
 from mcp import Client
 
-async with Client("d365fo-mcp-server") as client:
+async with Client("d365fo-fastmcp-server") as client:
     # Discover available tools
     tools = await client.list_tools()
     
@@ -555,7 +543,7 @@ az account show
 # Test with explicit credentials
 export D365FO_CLIENT_ID="your-client-id"
 # ... set other variables
-d365fo-mcp-server
+d365fo-fastmcp-server
 ```
 
 **Performance Issues**
@@ -741,7 +729,7 @@ Uses Azure Default Credential chain (Managed Identity, Azure CLI, etc.):
 ```bash
 export D365FO_BASE_URL="https://your-environment.dynamics.com"
 # No additional auth environment variables needed
-d365fo-mcp-server
+d365fo-fastmcp-server
 ```
 
 #### Explicit Credentials
@@ -752,7 +740,7 @@ export D365FO_BASE_URL="https://your-environment.dynamics.com"
 export D365FO_CLIENT_ID="your-client-id"
 export D365FO_CLIENT_SECRET="your-client-secret"
 export D365FO_TENANT_ID="your-tenant-id"
-d365fo-mcp-server
+d365fo-fastmcp-server
 ```
 
 #### Azure Key Vault Integration (New in v0.2.3)
@@ -762,7 +750,7 @@ For secure credential storage using Azure Key Vault:
 export D365FO_BASE_URL="https://your-environment.dynamics.com"
 export D365FO_CREDENTIAL_SOURCE="keyvault"
 export D365FO_KEYVAULT_URL="https://your-keyvault.vault.azure.net/"
-d365fo-mcp-server
+d365fo-fastmcp-server
 ```
 
 #### Advanced Configuration
@@ -863,7 +851,7 @@ docker run --rm -it \
   ghcr.io/mafzaal/d365fo-client:latest
 ```
 
-**Note**: The package includes MCP (Model Context Protocol) dependencies by default, enabling AI assistant integration. Both `d365fo-client` CLI and `d365fo-mcp-server` commands will be available after installation.
+**Note**: The package includes MCP (Model Context Protocol) dependencies by default, enabling AI assistant integration. Both `d365fo-client` CLI and `d365fo-fastmcp-server` commands will be available after installation.
 
 **Breaking Change in v0.2.3**: Environment variable names have been updated for consistency:
 - `AZURE_CLIENT_ID` → `D365FO_CLIENT_ID`

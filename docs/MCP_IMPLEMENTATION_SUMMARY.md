@@ -7,9 +7,10 @@ Successfully implemented a comprehensive Model Context Protocol (MCP) server for
 ## Implementation Status
 
 ### ✅ Core Architecture
-- **D365FOMCPServer**: Main server implementing MCP protocol
+- **FastD365FOMCPServer**: Main server built on FastMCP framework with multi-transport support
 - **D365FOClientManager**: Connection pooling and session management
-- **Configuration Management**: Environment variables and profile support
+- **Mixin-based Tools**: 49 tools organized across 9 functional mixins for better maintainability
+- **Configuration Management**: Pydantic settings with environment variables and profile support
 - **Error Handling**: Comprehensive error responses with context
 
 ### ✅ Resource Handlers (4 types)
@@ -130,7 +131,7 @@ Successfully implemented a comprehensive Model Context Protocol (MCP) server for
 ```bash
 # Install and run
 pip install d365fo-client
-d365fo-mcp-server
+d365fo-fastmcp-server
 ```
 
 #### Environment Configuration
@@ -143,9 +144,9 @@ export D365FO_TENANT_ID="optional-with-default-creds"
 
 #### Programmatic Usage
 ```python
-from d365fo_client.mcp import D365FOMCPServer
+from d365fo_client.mcp import FastD365FOMCPServer
 
-server = D365FOMCPServer(config)
+server = FastD365FOMCPServer()
 await server.run()
 ```
 

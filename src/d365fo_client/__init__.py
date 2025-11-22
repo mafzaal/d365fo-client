@@ -172,7 +172,7 @@ from .labels import resolve_labels_generic, resolve_labels_generic_with_cache
 from .main import main
 
 # MCP Server
-from .mcp import D365FOClientManager, D365FOMCPServer, FastD365FOMCPServer
+from .mcp import D365FOClientManager, FastD365FOMCPServer
 
 # V2 Metadata Cache (recommended - now the only implementation)
 from .metadata_v2 import MetadataCacheV2, VersionAwareSearchEngine
@@ -259,7 +259,6 @@ __all__ = [
     "CLIProfile",
     "EnvironmentProfile",
     # MCP Server
-    "D365FOMCPServer",
     "FastD365FOMCPServer",
     "D365FOClientManager",
     # Entry point

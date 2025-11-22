@@ -93,7 +93,8 @@ d365fo-client/
 
 ### Package Entry Points
 - **CLI**: `d365fo-client` command (via `d365fo_client.main:main`)
-- **MCP Server**: `d365fo-mcp-server` command (via `d365fo_client.mcp.main:main`)
+- **MCP Server**: `d365fo-fastmcp-server` command (via `d365fo_client.mcp.fastmcp_main:main`)
+  - Note: `d365fo-mcp-server` is maintained as an alias for backward compatibility
 - **Python API**: `from d365fo_client import D365FOClient, FOClientConfig`
 
 ## Key Development Practices

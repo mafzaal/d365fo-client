@@ -47,7 +47,7 @@ Default profile: development
 SUCCESS: All profiles loaded correctly
 
 # MCP Server Initialization Test ✅
-❯ python -c "from src.d365fo_client.mcp.server import D365FOMCPServer; server = D365FOMCPServer()"
+❯ python -c "from d365fo_client.mcp import FastD365FOMCPServer; server = FastD365FOMCPServer()"
 MCP Server initialized successfully
 ```
 
