@@ -1,9 +1,16 @@
 """Data Management Framework (DMF) operations for D365 F&O client."""
 
+import json
 import logging
 from typing import Any, Dict, List, Optional
 
 from .exceptions import DMFError
+from .models import (
+    DMFExecutionStatus,
+    DMFExecutionSummary,
+    DMFExportOptions,
+    DMFImportOptions,
+)
 from .session import SessionManager
 
 logger = logging.getLogger(__name__)
@@ -439,7 +446,10 @@ class DmfOperations:
             Error details as JSON string
         """
         params = {"executionId": execution_id}
-        return await self._call_action("GetExecutionErrors", params)
+        result = await self._call_action("GetExecutionErrors", params)
+        if isinstance(result, dict) and "value" in result:
+            return result["value"]
+        return result
 
     async def get_import_target_error_keys_file_url(
         self, execution_id: str, entity_name: str
@@ -500,7 +510,19 @@ class DmfOperations:
             Azure Blob Storage write URL with SAS token
         """
         params = {"uniqueFileName": unique_file_name}
-        return await self._call_action("GetAzureWriteUrl", params)
+        result = await self._call_action("GetAzureWriteUrl", params)
+        
+        # Parse nested JSON response if needed
+        if isinstance(result, dict) and "value" in result:
+            try:
+                import json
+                inner_json = json.loads(result["value"])
+                return inner_json.get("BlobUrl", "")
+            except (json.JSONDecodeError, TypeError):
+                self.logger.warning("Failed to parse inner JSON from GetAzureWriteUrl")
+                return result.get("value", "")
+        
+        return result
 
     async def get_entity_sequence(self, list_of_data_entities: str) -> str:
         """Get recommended entity execution sequence.
@@ -512,7 +534,10 @@ class DmfOperations:
             Recommended execution sequence (JSON)
         """
         params = {"listOfDataEntities": list_of_data_entities}
-        return await self._call_action("GetEntitySequence", params)
+        result = await self._call_action("GetEntitySequence", params)
+        if isinstance(result, dict) and "value" in result:
+            return result["value"]
+        return result
 
     async def reset_version_token(
         self, definition_group_id: str, entity_name: str, source_name: str

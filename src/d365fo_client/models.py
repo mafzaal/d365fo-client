@@ -948,3 +948,134 @@ class VersionDetectionResult:
             "modules_count": self.modules_count,
             "cache_hit": self.cache_hit,
         }
+
+
+# ============================================================================
+# Data Management Framework (DMF) Models
+# ============================================================================
+
+
+class DMFExecutionStatus(StrEnum):
+    """Status of DMF execution"""
+
+    UNKNOWN = "Unknown"
+    NOT_RUN = "NotRun"
+    EXECUTING = "Executing"
+    SUCCEEDED = "Succeeded"
+    PARTIALLY_SUCCEEDED = "PartiallySucceeded"
+    FAILED = "Failed"
+    CANCELED = "Canceled"
+
+
+@dataclass
+class DMFExportOptions:
+    """Options for DMF export operations"""
+
+    definition_group_id: str
+    package_name: str
+    execution_id: str = ""
+    re_execute: bool = False
+    legal_entity_id: str = ""
+    entity_list: str = ""
+    export_preview_count: int = 100
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "definitionGroupId": self.definition_group_id,
+            "packageName": self.package_name,
+            "executionId": self.execution_id,
+            "reExecute": self.re_execute,
+            "legalEntityId": self.legal_entity_id,
+            "entityList": self.entity_list,
+            "exportPreviewCount": self.export_preview_count,
+        }
+
+
+@dataclass
+class DMFImportOptions:
+    """Options for DMF import operations"""
+
+    package_url: str
+    definition_group_id: str
+    execution_id: str = ""
+    execute: bool = True
+    overwrite: bool = False
+    legal_entity_id: str = ""
+    import_batch_group_id: str = ""
+    fail_on_error: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "packageUrl": self.package_url,
+            "definitionGroupId": self.definition_group_id,
+            "executionId": self.execution_id,
+            "execute": self.execute,
+            "overwrite": self.overwrite,
+            "legalEntityId": self.legal_entity_id,
+            "importBatchGroupId": self.import_batch_group_id,
+            "failOnError": self.fail_on_error,
+        }
+
+
+@dataclass
+class DMFExecutionSummary:
+    """Summary of DMF execution"""
+
+    execution_id: str
+    status: DMFExecutionStatus
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    total_records: int = 0
+    records_created: int = 0
+    records_updated: int = 0
+    records_failed: int = 0
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "DMFExecutionSummary":
+        """Create from dictionary response"""
+        status_str = data.get("Status", "Unknown")
+        try:
+            status = DMFExecutionStatus(status_str)
+        except ValueError:
+            status = DMFExecutionStatus.UNKNOWN
+
+        start_time = None
+        if data.get("StartTime"):
+            try:
+                start_time = datetime.fromisoformat(
+                    data["StartTime"].replace("Z", "+00:00")
+                )
+            except ValueError:
+                pass
+
+        end_time = None
+        if data.get("EndTime"):
+            try:
+                end_time = datetime.fromisoformat(
+                    data["EndTime"].replace("Z", "+00:00")
+                )
+            except ValueError:
+                pass
+
+        return cls(
+            execution_id=data.get("ExecutionId", ""),
+            status=status,
+            start_time=start_time,
+            end_time=end_time,
+            total_records=data.get("TotalRecords", 0),
+            records_created=data.get("RecordsCreated", 0),
+            records_updated=data.get("RecordsUpdated", 0),
+            records_failed=data.get("RecordsFailed", 0),
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "execution_id": self.execution_id,
+            "status": self.status,
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "total_records": self.total_records,
+            "records_created": self.records_created,
+            "records_updated": self.records_updated,
+            "records_failed": self.records_failed,
+        }
