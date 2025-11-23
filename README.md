@@ -1,6 +1,19 @@
 # Dynamics 365 Finance & Operations MCP Server
 
+<div align="center">
+  <img src="logo.png" alt="D365FO MCP Server Logo" width="200" />
+  <br />
+  <br />
+</div>
+
+<!-- mcp-name: io.github.mafzaal/d365fo-client -->
+
 **Production-ready Model Context Protocol (MCP) server** that exposes the full capabilities of Microsoft Dynamics 365 Finance & Operations (D365 F&O) to AI assistants and other MCP-compatible tools. This enables sophisticated Dynamics 365 integration workflows through standardized protocol interactions.
+
+[![GitHub watchers](https://img.shields.io/github/watchers/mafzaal/d365fo-client.svg?style=social&label=Watch)](https://github.com/mafzaal/d365fo-client/watchers)
+[![GitHub forks](https://img.shields.io/github/forks/mafzaal/d365fo-client.svg?style=social&label=Fork)](https://github.com/mafzaal/d365fo-client/fork)
+[![GitHub stars](https://img.shields.io/github/stars/mafzaal/d365fo-client?style=social&label=Star)](https://github.com/mafzaal/d365fo-client/stargazers)
+
 
 **🚀 One-Click Installation for VS Code:**
 
@@ -10,7 +23,7 @@
 **🐳 Docker Installation for VS Code:**
 
 [![Install with Docker in VS Code](https://img.shields.io/badge/VS_Code-Install_D365_FO_MCP_Server_(Docker)-2496ED?style=flat-square&logo=docker&logoColor=white)](https://vscode.dev/redirect/mcp/install?name=d365fo-docker&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22--rm%22%2C%22-i%22%2C%22-v%22%2C%22d365fo-mcp%3A%2Fhome%2Fmcp_user%2F%22%2C%22-e%22%2C%22D365FO_CLIENT_ID%3D%24%7Binput%3Aclient_id%7D%22%2C%22-e%22%2C%22D365FO_CLIENT_SECRET%3D%24%7Binput%3Aclient_secret%7D%22%2C%22-e%22%2C%22D365FO_TENANT_ID%3D%24%7Binput%3Atenant_id%7D%22%2C%22ghcr.io%2Fmafzaal%2Fd365fo-client%3Alatest%22%5D%2C%22env%22%3A%7B%22D365FO_LOG_LEVEL%22%3A%22DEBUG%22%2C%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Tenant%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20Secret%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%5D)
-[![Install with Docker in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_D365_FO_MCP_Server_(Docker)-2496ED?style=flat-square&logo=docker&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=d365fo-docker&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22--rm%22%2C%22-i%22%2C%22-v%22%2C%22d365fo-mcp%3A%2Fhome%2Fmcp_user%2F%22%2C%22-e%22%2C%22D365FO_CLIENT_ID%3D%24%7Binput%3Aclient_id%7D%22%2C%22-e%22%2C%22D365FO_CLIENT_SECRET%3D%24%7Binput%3Aclient_secret%7D%22%2C%22-e%22%2C%22D365FO_TENANT_ID%3D%24%7Binput%3Atenant_id%7D%22%2C%22ghcr.io%2Fmafzaal%2Fd365fo-client%3Alatest%22%5D%2C%22env%22%3A%7B%22D365FO_LOG_LEVEL%22%3A%22DEBUG%22%2C%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Tenant%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20Secret%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%5D)
+[![Install with Docker in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_D365_FO_MCP_Server_(Docker)-24bfa5?style=flat-square&logo=docker&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=d365fo-docker&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22--rm%22%2C%22-i%22%2C%22-v%22%2C%22d365fo-mcp%3A%2Fhome%2Fmcp_user%2F%22%2C%22-e%22%2C%22D365FO_CLIENT_ID%3D%24%7Binput%3Aclient_id%7D%22%2C%22-e%22%2C%22D365FO_CLIENT_SECRET%3D%24%7Binput%3Aclient_secret%7D%22%2C%22-e%22%2C%22D365FO_TENANT_ID%3D%24%7Binput%3Atenant_id%7D%22%2C%22ghcr.io%2Fmafzaal%2Fd365fo-client%3Alatest%22%5D%2C%22env%22%3A%7B%22D365FO_LOG_LEVEL%22%3A%22DEBUG%22%2C%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Tenant%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20Secret%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%5D)
 
 **☁️ Deploy to Azure Container Apps:**
 
@@ -127,27 +140,6 @@ Add to your VS Code `mcp.json` for GitHub Copilot with MCP:
       "args": [
         "--from",
         "d365fo-client@latest",
-        "d365fo-fastmcp-server"
-      ],
-      "env": {
-        "D365FO_BASE_URL": "https://your-environment.dynamics.com",
-        "D365FO_LOG_LEVEL": "INFO"
-      }
-    }
-  }
-}
-```
-
-**Traditional MCP Server (Alternative):**
-```json
-{
-  "servers": {
-    "d365fo-fastmcp-server": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": [
-        "--from",
-        "d365fo-client",
         "d365fo-fastmcp-server"
       ],
       "env": {

@@ -78,6 +78,7 @@ Categories to look for in d365fo-client commits:
 ### 5. Update Version Numbers
 Update in exact order:
 1. **pyproject.toml**: Change `version = "X.Y.Z"` (around line 3)
+2. **server.json**: Update `version` field (around line 11) AND `packages[0].version` field (around line 18)
 
 ### 6. Quality Checks
 - Ensure version numbers match across all files
@@ -87,6 +88,7 @@ Update in exact order:
 
 ## File Locations
 - **Version source**: `pyproject.toml` (line ~3, within `[project]` section)
+- **MCP server config**: `server.json` (line ~11 for `version` field, line ~18 for `packages[0].version` field)
 - **Changelog**: `CHANGELOG.md` (top of file, follows "Keep a Changelog" format)
 - **Package structure**: 
   - Main package: `src/d365fo_client/`
@@ -114,6 +116,7 @@ git log --oneline v0.2.2..v0.2.3 --pretty=format:"%h %s"
 3. Determine: MINOR bump → 0.3.0 (or PATCH → 0.2.4 for smaller changes)
 4. Update CHANGELOG.md with new 0.3.0 section
 5. Update pyproject.toml version to 0.3.0
+6. Update server.json version fields (both `version` and `packages[0].version`) to 0.3.0
 
 ## d365fo-client Specific Considerations
 - **MCP Server**: Changes to MCP tools/resources typically warrant MINOR version bump
@@ -137,6 +140,8 @@ git log --oneline v0.2.2..v0.2.3 --pretty=format:"%h %s"
 ✅ CHANGELOG.md has new version entry with proper date (YYYY-MM-DD format)
 ✅ All changes from git history are documented appropriately
 ✅ Version number updated in pyproject.toml (line ~3)
+✅ Version numbers updated in server.json (both `version` and `packages[0].version` fields)
+✅ All version numbers match across pyproject.toml and server.json
 ✅ Semantic versioning logic is correctly applied
 ✅ Changelog follows "Keep a Changelog" format with appropriate sections
 ✅ MCP server and CLI changes are properly categorized

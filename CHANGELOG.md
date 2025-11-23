@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6] - 2025-11-23
+
+### Added
+- **MCP Server Definition**: Added official MCP server definition file (server.json) for enhanced discoverability
+  - Comprehensive server metadata including name, description, title, website, and repository information
+  - Package registry configurations for both PyPI (uvx) and OCI (Docker) installation methods
+  - Environment variable definitions with security and requirement specifications
+  - Runtime arguments configuration for Docker deployment
+- **Branding Assets**: Added professional logo files in multiple formats for project branding
+  - Full-size logo (logo.png) for general use
+  - Small logo (logo-small.png) optimized for compact displays
+  - Dark theme logo (logo-dark.png) for dark mode interfaces
+
+### Improved
+- **Documentation**: Enhanced README.md with visual branding and improved structure
+  - Added centered logo display at the top of README
+  - Added GitHub social badges (watch, fork, star) for community engagement
+  - Improved color scheme for VS Code Insiders Docker installation badge
+  - Removed redundant MCP server configuration example section
+
+### Documentation
+- Updated .gitignore to include logo cache files and MCP server definition artifacts
+
 ## [0.3.5] - 2025-11-22
 
 ### Added

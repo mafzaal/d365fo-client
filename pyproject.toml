@@ -1,7 +1,7 @@
 [project]
 name = "d365fo-client"
-version = "0.3.5"
-description = "Microsoft Dynamics 365 Finance & Operations client"
+version = "0.3.6"
+description = "Microsoft Dynamics 365 Finance & Operations client and MCP server"
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Muhammad Afzaal", email = "mo@thedataguy.pro" }]
