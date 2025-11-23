@@ -33,7 +33,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     
     - name: Install uv
-      uses: astral-sh/setup-uv@v6
+      uses: astral-sh/setup-uv@v7
       with:
         enable-cache: true
     
@@ -64,7 +64,7 @@ jobs:
         python-version: "3.13"
     
     - name: Install uv
-      uses: astral-sh/setup-uv@v6
+      uses: astral-sh/setup-uv@v7
       with:
         enable-cache: true
     
@@ -79,7 +79,7 @@ jobs:
         uv run twine check dist/*
     
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: dist
         path: dist/
@@ -93,7 +93,7 @@ jobs:
     
     steps:
     - name: Download build artifacts
-      uses: actions/download-artifact@v5
+      uses: actions/download-artifact@v6
       with:
         name: dist
         path: dist/

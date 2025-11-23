@@ -46,7 +46,10 @@ def skip_if_not_level(required_level: str):
 # Test environment configurations
 TEST_ENVIRONMENTS = {
     "sandbox": {
-        "base_url": os.getenv("D365FO_SANDBOX_BASE_URL", "https://usnconeboxax1aos.cloud.onebox.dynamics.com"),
+        "base_url": os.getenv(
+            "D365FO_SANDBOX_BASE_URL",
+            "https://usnconeboxax1aos.cloud.onebox.dynamics.com",
+        ),
         "requires_auth": True,
         "description": "D365 F&O test/sandbox environment",
     },

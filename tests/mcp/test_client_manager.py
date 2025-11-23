@@ -1,6 +1,5 @@
 """Tests for MCP client manager functionality."""
 
-
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock
 
@@ -20,7 +19,6 @@ class TestD365FOClientManager:
         config = {"default_environment": {"base_url": "https://test.dynamics.com"}}
         manager = D365FOClientManager()
 
-
         assert manager._client_pool == {}
         assert manager._session_lock is not None
 
@@ -37,21 +35,20 @@ class TestD365FOClientManager:
             },
         }
 
-
         manager = D365FOClientManager()
 
         # Test default profile
-        default_config:Optional[FOClientConfig] = manager._build_client_config("default")
+        default_config: Optional[FOClientConfig] = manager._build_client_config(
+            "default"
+        )
         assert default_config is not None
         assert (
             default_config.base_url
             == "https://usnconeboxax1aos.cloud.onebox.dynamics.com"
         )
 
-
         # Test specific profile
         test_config = manager._build_client_config("test")
         assert test_config is not None
         assert test_config.base_url == "https://test.dynamics.com"
         assert test_config.timeout == 120
-

@@ -1,13 +1,41 @@
 """OData query utilities for D365 F&O client."""
 
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 from urllib.parse import quote, urlencode
 
 from .models import QueryOptions
+from .odata_serializer import ODataSerializer
+
+if TYPE_CHECKING:
+    from .models import PublicEntityInfo
 
 
 class QueryBuilder:
     """Utility class for building OData queries"""
+
+    @staticmethod
+    def merge_query_strings(base_query: str, additional_query: str) -> str:
+        """Merge two query strings properly.
+
+        Args:
+            base_query: Base query string (may or may not start with ?)
+            additional_query: Additional query string to merge (may or may not start with ?)
+
+        Returns:
+            Merged query string with proper separators
+        """
+        # Normalize by removing leading ? from both
+        base = base_query.lstrip("?")
+        additional = additional_query.lstrip("?")
+
+        if not base and not additional:
+            return ""
+        elif not base:
+            return f"?{additional}"
+        elif not additional:
+            return f"?{base}"
+        else:
+            return f"?{base}&{additional}"
 
     @staticmethod
     def build_query_string(options: Optional[QueryOptions] = None) -> str:
@@ -48,6 +76,10 @@ class QueryBuilder:
 
         if options.filter:
             params["$filter"] = options.filter
+            # If filter contains dataAreaId, add cross-company=true for D365 F&O
+            # This enables querying data across multiple legal entities
+            if "dataareaid" in options.filter.lower():
+                params["cross-company"] = "true"
 
         if options.expand:
             params["$expand"] = ",".join(options.expand)
@@ -70,51 +102,79 @@ class QueryBuilder:
         return params
 
     @staticmethod
-    def encode_key(key: Union[str, Dict[str, Any]]) -> str:
-        """Encode entity key for URL
+    def has_data_area_id_in_key(key: Union[str, Dict[str, Any]]) -> bool:
+        """Check if dataAreaId is present in the key.
 
         Args:
             key: Entity key value (string for simple keys, dict for composite keys)
 
         Returns:
-            URL-encoded key
+            True if dataAreaId is present in the key, False otherwise
         """
         if isinstance(key, dict):
-            # Format composite key: key1=value1,key2=value2
-            key_parts = []
-            for key_name, key_value in key.items():
-                encoded_value = quote(str(key_value), safe="")
-                key_parts.append(f"{key_name}='{encoded_value}'")
-            return ",".join(key_parts)
+            # Check if any key name is dataAreaId (case-insensitive)
+            return any(k.lower() == "dataareaid" for k in key.keys())
+        return False
+
+    @staticmethod
+    def encode_key(
+        key: Union[str, Dict[str, Any]],
+        entity_schema: Optional["PublicEntityInfo"] = None,
+    ) -> str:
+        """Encode entity key for URL with optional schema-aware serialization.
+
+        Args:
+            key: Entity key value (string for simple keys, dict for composite keys)
+            entity_schema: Optional entity schema for type-aware serialization
+
+        Returns:
+            URL-encoded key with proper data type handling
+        """
+        if isinstance(key, dict):
+            # Serialize values according to their data types
+            serialized_dict = ODataSerializer.serialize_key_dict(key, entity_schema)
+            # Format as composite key with proper quoting
+            return ODataSerializer.format_composite_key(serialized_dict, entity_schema)
         else:
-            # Simple string key
-            return quote(str(key), safe="")
+            # Simple key - serialize as string type
+            return ODataSerializer.serialize_value(str(key), "String", "Edm.String")
 
     @staticmethod
     def build_entity_url(
         base_url: str,
         entity_name: str,
         key: Optional[Union[str, Dict[str, Any]]] = None,
+        entity_schema: Optional["PublicEntityInfo"] = None,
+        add_cross_company: bool = False,
     ) -> str:
-        """Build entity URL
+        """Build entity URL with optional schema-aware key encoding.
 
         Args:
             base_url: Base F&O URL
             entity_name: Entity set name
             key: Optional entity key (string for simple keys, dict for composite keys)
+            entity_schema: Optional entity schema for type-aware key encoding
+            add_cross_company: If True, adds cross-company=true to query string (auto-detected if False)
 
         Returns:
-            Complete entity URL
+            Complete entity URL with properly encoded keys and cross-company parameter if needed
         """
         base = f"{base_url.rstrip('/')}/data/{entity_name}"
         if key:
-            encoded_key = QueryBuilder.encode_key(key)
+            encoded_key = QueryBuilder.encode_key(key, entity_schema)
             if isinstance(key, dict):
-                # For composite keys, don't wrap in additional quotes
-                return f"{base}({encoded_key})"
+                # For composite keys, formatting is handled by ODataSerializer
+                url = f"{base}({encoded_key})"
             else:
                 # For simple string keys, wrap in quotes
-                return f"{base}('{encoded_key}')"
+                url = f"{base}('{encoded_key}')"
+
+            # Add cross-company parameter if dataAreaId is in the key
+            # (unless explicitly disabled via add_cross_company=False)
+            if add_cross_company or QueryBuilder.has_data_area_id_in_key(key):
+                url += "?cross-company=true"
+
+            return url
         return base
 
     @staticmethod
@@ -123,17 +183,21 @@ class QueryBuilder:
         action_name: str,
         entity_name: Optional[str] = None,
         entity_key: Optional[Union[str, Dict[str, Any]]] = None,
+        entity_schema: Optional["PublicEntityInfo"] = None,
+        add_cross_company: bool = False,
     ) -> str:
-        """Build action URL
+        """Build action URL with optional schema-aware key encoding.
 
         Args:
             base_url: Base F&O URL
             action_name: Action name
             entity_name: Optional entity name for bound actions
             entity_key: Optional entity key for bound actions (string for simple keys, dict for composite keys)
+            entity_schema: Optional entity schema for type-aware key encoding
+            add_cross_company: If True, adds cross-company=true to query string (auto-detected if False)
 
         Returns:
-            Complete action URL
+            Complete action URL with properly encoded keys and cross-company parameter if needed
         """
         base = base_url.rstrip("/")
 
@@ -147,13 +211,20 @@ class QueryBuilder:
 
         if entity_name and entity_key:
             # Bound action on specific entity
-            encoded_key = QueryBuilder.encode_key(entity_key)
+            encoded_key = QueryBuilder.encode_key(entity_key, entity_schema)
             if isinstance(entity_key, dict):
-                # For composite keys, don't wrap in additional quotes
-                return f"{base}/data/{entity_name}({encoded_key}){action_path}"
+                # For composite keys, formatting is handled by ODataSerializer
+                url = f"{base}/data/{entity_name}({encoded_key}){action_path}"
             else:
                 # For simple string keys, wrap in quotes
-                return f"{base}/data/{entity_name}('{encoded_key}'){action_path}"
+                url = f"{base}/data/{entity_name}('{encoded_key}'){action_path}"
+
+            # Add cross-company parameter if dataAreaId is in the key
+            # (unless explicitly disabled via add_cross_company=False)
+            if add_cross_company or QueryBuilder.has_data_area_id_in_key(entity_key):
+                url += "?cross-company=true"
+
+            return url
         elif entity_name:
             # Bound action on entity set
             return f"{base}/data/{entity_name}{action_path}"

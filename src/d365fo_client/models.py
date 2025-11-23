@@ -12,12 +12,13 @@ from .utils import get_default_cache_directory
 
 if TYPE_CHECKING:
     from typing import ForwardRef
+
     from .credential_sources import CredentialSource
 
 
 def _ensure_str_for_json(field):
     """Ensure field is JSON-serializable as string.
-    
+
     StrEnum fields automatically serialize as strings, but this handles
     the edge case where a field might be None or already a string.
     """
@@ -148,6 +149,7 @@ class FOClientConfig:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         from dataclasses import asdict
+
         data = asdict(self)
 
         # Handle credential_source serialization
@@ -163,11 +165,17 @@ class FOClientConfig:
         migrated_data = cls._migrate_legacy_credentials(data.copy())
 
         # Handle credential_source deserialization
-        if "credential_source" in migrated_data and migrated_data["credential_source"] is not None:
+        if (
+            "credential_source" in migrated_data
+            and migrated_data["credential_source"] is not None
+        ):
             from .credential_sources import CredentialSource
+
             credential_source_data = migrated_data["credential_source"]
             try:
-                migrated_data["credential_source"] = CredentialSource.from_dict(credential_source_data)
+                migrated_data["credential_source"] = CredentialSource.from_dict(
+                    credential_source_data
+                )
             except Exception:
                 migrated_data["credential_source"] = None
 
@@ -181,7 +189,13 @@ class FOClientConfig:
     def _migrate_legacy_credentials(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         """Migrate legacy credential fields to credential_source."""
         # Check for legacy credential fields
-        legacy_fields = ["client_id", "client_secret", "tenant_id", "auth_mode", "use_default_credentials"]
+        legacy_fields = [
+            "client_id",
+            "client_secret",
+            "tenant_id",
+            "auth_mode",
+            "use_default_credentials",
+        ]
         has_legacy_creds = any(field in data for field in legacy_fields)
 
         if has_legacy_creds and "credential_source" not in data:
@@ -197,6 +211,7 @@ class FOClientConfig:
             if not use_default and has_explicit_creds:
                 # Create environment credential source for backward compatibility
                 from .credential_sources import EnvironmentCredentialSource
+
                 data["credential_source"] = EnvironmentCredentialSource().to_dict()
             # If use_default or no explicit creds, credential_source remains None (default creds)
 
@@ -460,7 +475,9 @@ class EnumerationInfo:
 class RelationConstraintInfo:
     """Base relation constraint information"""
 
-    constraint_type: str = field(init=False)  # "Referential"|"Fixed"|"RelatedFixed" - set by __post_init__ in subclasses
+    constraint_type: str = field(
+        init=False
+    )  # "Referential"|"Fixed"|"RelatedFixed" - set by __post_init__ in subclasses
 
     def to_dict(self) -> Dict[str, Any]:
         return {"constraint_type": self.constraint_type}
@@ -694,6 +711,51 @@ class SearchResults:
 
 
 # ============================================================================
+# JSON Service Models
+# ============================================================================
+
+
+@dataclass
+class JsonServiceRequest:
+    """Request for D365 F&O JSON service endpoint"""
+
+    service_group: str
+    service_name: str
+    operation_name: str
+    parameters: Optional[Dict[str, Any]] = None
+
+    def get_endpoint_path(self) -> str:
+        """Get the endpoint path for the service"""
+        return f"/api/services/{self.service_group}/{self.service_name}/{self.operation_name}"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "service_group": self.service_group,
+            "service_name": self.service_name,
+            "operation_name": self.operation_name,
+            "parameters": self.parameters,
+        }
+
+
+@dataclass
+class JsonServiceResponse:
+    """Response from D365 F&O JSON service endpoint"""
+
+    success: bool
+    data: Any
+    status_code: int
+    error_message: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "success": self.success,
+            "data": self.data,
+            "status_code": self.status_code,
+            "error_message": self.error_message,
+        }
+
+
+# ============================================================================
 # Enhanced V2 Models for Advanced Metadata Caching
 # ============================================================================
 
@@ -886,5 +948,3 @@ class VersionDetectionResult:
             "modules_count": self.modules_count,
             "cache_hit": self.cache_hit,
         }
-
-

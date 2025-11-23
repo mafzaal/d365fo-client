@@ -12,7 +12,6 @@ async def example_usage():
     """Example usage of the F&O client with label functionality"""
     config = FOClientConfig(
         base_url="https://usnconeboxax1aos.cloud.onebox.dynamics.com",
-
         verify_ssl=False,
         use_label_cache=True,
         label_cache_expiry_minutes=60,
@@ -236,6 +235,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
     _add_metadata_commands(subparsers)
     _add_entity_commands(subparsers)
     _add_action_commands(subparsers)
+    _add_service_commands(subparsers)
     _add_config_commands(subparsers)
 
     return parser
@@ -447,6 +447,62 @@ def _add_config_commands(subparsers) -> None:
     # set-default subcommand
     default_parser = config_subs.add_parser("set-default", help="Set default profile")
     default_parser.add_argument("profile_name", help="Profile name")
+
+
+def _add_service_commands(subparsers) -> None:
+    """Add JSON service commands."""
+    service_parser = subparsers.add_parser("service", help="JSON service operations")
+    service_subs = service_parser.add_subparsers(
+        dest="service_subcommand", help="Service subcommands"
+    )
+
+    # call subcommand - generic service call
+    call_parser = service_subs.add_parser(
+        "call", help="Call a generic JSON service endpoint"
+    )
+    call_parser.add_argument(
+        "service_group", help="Service group name (e.g., 'SysSqlDiagnosticService')"
+    )
+    call_parser.add_argument(
+        "service_name", help="Service name (e.g., 'SysSqlDiagnosticServiceOperations')"
+    )
+    call_parser.add_argument(
+        "operation_name", help="Operation name (e.g., 'GetAxSqlExecuting')"
+    )
+    call_parser.add_argument(
+        "--parameters",
+        help="JSON string with parameters to send in POST body",
+    )
+
+    # sql-diagnostic subcommand - convenience wrapper for SQL diagnostic operations
+    sql_parser = service_subs.add_parser(
+        "sql-diagnostic", help="Call SQL diagnostic service operations"
+    )
+    sql_parser.add_argument(
+        "operation",
+        choices=[
+            "GetAxSqlExecuting",
+            "GetAxSqlResourceStats",
+            "GetAxSqlBlocking",
+            "GetAxSqlLockInfo",
+            "GetAxSqlDisabledIndexes",
+        ],
+        help="SQL diagnostic operation to execute",
+    )
+    sql_parser.add_argument(
+        "--since-minutes",
+        type=int,
+        default=10,
+        help="For GetAxSqlResourceStats: get stats for last N minutes (default: 10)",
+    )
+    sql_parser.add_argument(
+        "--start-time",
+        help="For GetAxSqlResourceStats: start time (ISO format)",
+    )
+    sql_parser.add_argument(
+        "--end-time",
+        help="For GetAxSqlResourceStats: end time (ISO format)",
+    )
 
 
 def main() -> None:

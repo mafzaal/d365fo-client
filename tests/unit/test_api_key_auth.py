@@ -3,8 +3,8 @@
 import pytest
 from pydantic import SecretStr
 
-from d365fo_client.mcp.auth_server.auth.providers.apikey import APIKeyVerifier
 from d365fo_client.mcp.auth_server.auth.auth import AccessToken
+from d365fo_client.mcp.auth_server.auth.providers.apikey import APIKeyVerifier
 
 
 class TestAPIKeyVerifier:
@@ -41,8 +41,7 @@ class TestAPIKeyVerifier:
     async def test_verify_token_with_scopes(self):
         """Test token verification includes required scopes."""
         provider = APIKeyVerifier(
-            api_key=SecretStr("test-key"),
-            required_scopes=["read", "write"]
+            api_key=SecretStr("test-key"), required_scopes=["read", "write"]
         )
 
         token = await provider.verify_token("test-key")

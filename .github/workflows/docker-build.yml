@@ -33,6 +33,17 @@ jobs:
       uses: docker/metadata-action@v5
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          # Tag with 'latest' only for main branch
+          type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+          # Tag with version for version tags (v1.0.0, v1.0.0-rc1, etc)
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          # Tag with branch name for branch builds (main, develop, feature-xyz, etc)
+          type=ref,event=branch
+          # Tag with PR number for pull request builds (pr-123)
+          type=ref,event=pr
         labels: |
           org.opencontainers.image.title=${{ env.IMAGE_NAME }}
           org.opencontainers.image.description="This is a Docker image for the ${{ env.IMAGE_NAME }} project"
@@ -52,8 +63,6 @@ jobs:
       uses: docker/build-push-action@v6.18.0
       with:
         context: .
-        push: true 
-        tags: |
-          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          ${{ steps.meta.outputs.tags }}
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}

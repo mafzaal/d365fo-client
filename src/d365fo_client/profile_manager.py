@@ -14,6 +14,7 @@ import yaml
 from .config import ConfigManager
 from .models import FOClientConfig
 from .profiles import Profile
+
 if TYPE_CHECKING:
     from .credential_sources import CredentialSource
 
@@ -111,9 +112,13 @@ class ProfileManager:
 
             # Handle legacy credential parameters by creating credential_source
             effective_credential_source = credential_source
-            if effective_credential_source is None and any([auth_mode, client_id, client_secret, tenant_id]):
-                effective_credential_source = self._create_credential_source_from_legacy(
-                    auth_mode, client_id, client_secret, tenant_id
+            if effective_credential_source is None and any(
+                [auth_mode, client_id, client_secret, tenant_id]
+            ):
+                effective_credential_source = (
+                    self._create_credential_source_from_legacy(
+                        auth_mode, client_id, client_secret, tenant_id
+                    )
                 )
 
             # Create unified profile
@@ -129,7 +134,7 @@ class ProfileManager:
                 metadata_cache_dir=cache_dir,  # Map cache_dir parameter to metadata_cache_dir field
                 description=description,
                 output_format="table",  # Default for CLI compatibility
-                credential_source=effective_credential_source
+                credential_source=effective_credential_source,
             )
 
             self.config_manager.save_profile(profile)
@@ -207,7 +212,7 @@ class ProfileManager:
 
     def reload_config(self) -> None:
         """Reload configuration from file.
-        
+
         This is useful when profiles have been modified and we need
         to refresh the in-memory configuration data.
         """
@@ -346,7 +351,7 @@ class ProfileManager:
                     # Create profile directly using Profile.create_from_dict
                     # This handles all fields including credential_source properly
                     profile = Profile.create_from_dict(name, profile_data)
-                    
+
                     # Save the profile directly via config manager
                     self.config_manager.save_profile(profile)
                     results[name] = True
@@ -367,7 +372,7 @@ class ProfileManager:
         auth_mode: Optional[str],
         client_id: Optional[str],
         client_secret: Optional[str],
-        tenant_id: Optional[str]
+        tenant_id: Optional[str],
     ) -> Optional["CredentialSource"]:
         """Create credential source from legacy credential parameters.
 
@@ -387,9 +392,14 @@ class ProfileManager:
         # If we have explicit credentials, create environment credential source
         if all([client_id, client_secret, tenant_id]):
             from .credential_sources import EnvironmentCredentialSource
-            logger.info("Converting legacy credentials to environment credential source")
+
+            logger.info(
+                "Converting legacy credentials to environment credential source"
+            )
             return EnvironmentCredentialSource()
 
         # If we have partial credentials, log warning and use default
-        logger.warning("Incomplete legacy credentials provided, using default credentials")
+        logger.warning(
+            "Incomplete legacy credentials provided, using default credentials"
+        )
         return None

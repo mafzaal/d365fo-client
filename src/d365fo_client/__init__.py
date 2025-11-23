@@ -172,15 +172,10 @@ from .labels import resolve_labels_generic, resolve_labels_generic_with_cache
 from .main import main
 
 # MCP Server
-from .mcp import D365FOClientManager, D365FOMCPServer, FastD365FOMCPServer
+from .mcp import D365FOClientManager, FastD365FOMCPServer
 
 # V2 Metadata Cache (recommended - now the only implementation)
 from .metadata_v2 import MetadataCacheV2, VersionAwareSearchEngine
-
-# Provide backward compatibility with immediate import errors
-
-
-
 from .models import (
     ActionInfo,
     DataEntityInfo,
@@ -205,6 +200,9 @@ from .utils import (
     get_user_cache_dir,
 )
 
+# Provide backward compatibility with immediate import errors
+
+
 # Legacy aliases for backward compatibility
 CLIProfile = Profile
 EnvironmentProfile = Profile
@@ -214,9 +212,8 @@ __all__ = [
     # Main client
     "FOClient",
     "create_client",
-
     # V2 caching (now the primary implementation)
-    "MetadataCacheV2", 
+    "MetadataCacheV2",
     "VersionAwareSearchEngine",
     "resolve_labels_generic",
     # Configuration and models
@@ -253,13 +250,12 @@ __all__ = [
     "CLIManager",
     # Settings
     "D365FOSettings",
-    "get_settings", 
+    "get_settings",
     "reset_settings",
     # Legacy aliases
     "CLIProfile",
     "EnvironmentProfile",
     # MCP Server
-    "D365FOMCPServer",
     "FastD365FOMCPServer",
     "D365FOClientManager",
     # Entry point

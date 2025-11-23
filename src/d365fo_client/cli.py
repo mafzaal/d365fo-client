@@ -99,6 +99,7 @@ class CLIManager:
             "metadata": self._handle_metadata_commands,
             "entity": self._handle_entity_commands,
             "action": self._handle_action_commands,
+            "service": self._handle_service_commands,
         }
 
         command = getattr(args, "command", None)
@@ -533,8 +534,10 @@ class CLIManager:
             profile_list = []
             for name, profile in profiles.items():
                 # Determine auth mode based on credential source
-                auth_mode = "default" if profile.credential_source is None else "explicit"
-                
+                auth_mode = (
+                    "default" if profile.credential_source is None else "explicit"
+                )
+
                 profile_info = {
                     "name": name,
                     "base_url": profile.base_url,
@@ -567,7 +570,7 @@ class CLIManager:
 
             # Convert profile to dict for display
             auth_mode = "default" if profile.credential_source is None else "explicit"
-            
+
             profile_dict = {
                 "name": profile.name,
                 "base_url": profile.base_url,
@@ -581,7 +584,9 @@ class CLIManager:
 
             # Only show credential source info if it exists
             if profile.credential_source:
-                profile_dict["credential_source"] = profile.credential_source.source_type
+                profile_dict["credential_source"] = (
+                    profile.credential_source.source_type
+                )
 
             output = self.output_formatter.format_output(profile_dict)
             print(output)
@@ -615,11 +620,12 @@ class CLIManager:
             client_id = getattr(args, "client_id", None)
             client_secret = getattr(args, "client_secret", None)
             tenant_id = getattr(args, "tenant_id", None)
-            
+
             # Create credential source from legacy parameters if needed
             credential_source = None
             if auth_mode != "default" and all([client_id, client_secret, tenant_id]):
                 from .credential_sources import EnvironmentCredentialSource
+
                 credential_source = EnvironmentCredentialSource()
 
             # Create new profile
@@ -692,6 +698,141 @@ class CLIManager:
 
         except Exception as e:
             print(format_error_message(f"Error setting default profile: {e}"))
+            return 1
+
+    async def _handle_service_commands(self, args: argparse.Namespace) -> int:
+        """Handle JSON service commands."""
+        subcommand = getattr(args, "service_subcommand", None)
+
+        if subcommand == "call":
+            return await self._handle_service_call(args)
+        elif subcommand == "sql-diagnostic":
+            return await self._handle_service_sql_diagnostic(args)
+        else:
+            print(format_error_message(f"Unknown service subcommand: {subcommand}"))
+            return 1
+
+    async def _handle_service_call(self, args: argparse.Namespace) -> int:
+        """Handle generic JSON service call command."""
+        try:
+            service_group = getattr(args, "service_group", "")
+            service_name = getattr(args, "service_name", "")
+            operation_name = getattr(args, "operation_name", "")
+
+            # Parse parameters from JSON string if provided
+            parameters = None
+            parameters_str = getattr(args, "parameters", None)
+            if parameters_str:
+                try:
+                    parameters = json.loads(parameters_str)
+                except json.JSONDecodeError as e:
+                    print(format_error_message(f"Invalid JSON in parameters: {e}"))
+                    return 1
+
+            # Call the service
+            response = await self.client.post_json_service(
+                service_group=service_group,
+                service_name=service_name,
+                operation_name=operation_name,
+                parameters=parameters,
+            )
+
+            # Format and display response
+            if response.success:
+                result = {
+                    "success": True,
+                    "statusCode": response.status_code,
+                    "data": response.data,
+                    "serviceGroup": service_group,
+                    "serviceName": service_name,
+                    "operationName": operation_name,
+                }
+                output = self.output_formatter.format_output(result)
+                print(output)
+                return 0
+            else:
+                error_result = {
+                    "success": False,
+                    "statusCode": response.status_code,
+                    "error": response.error_message,
+                    "serviceGroup": service_group,
+                    "serviceName": service_name,
+                    "operationName": operation_name,
+                }
+                output = self.output_formatter.format_output(error_result)
+                print(output)
+                return 1
+
+        except Exception as e:
+            print(format_error_message(f"Error calling service: {e}"))
+            return 1
+
+    async def _handle_service_sql_diagnostic(self, args: argparse.Namespace) -> int:
+        """Handle SQL diagnostic service call command."""
+        try:
+            operation = getattr(args, "operation", "")
+
+            # Prepare parameters based on operation
+            parameters = {}
+
+            if operation == "GetAxSqlResourceStats":
+                since_minutes = getattr(args, "since_minutes", 10)
+                start_time = getattr(args, "start_time", None)
+                end_time = getattr(args, "end_time", None)
+
+                if start_time and end_time:
+                    parameters = {
+                        "start": start_time,
+                        "end": end_time,
+                    }
+                else:
+                    # Use since_minutes to calculate start/end
+                    from datetime import datetime, timedelta, timezone
+
+                    end = datetime.now(timezone.utc)
+                    start = end - timedelta(minutes=since_minutes)
+                    parameters = {
+                        "start": start.isoformat(),
+                        "end": end.isoformat(),
+                    }
+
+            # Call the SQL diagnostic service
+            response = await self.client.post_json_service(
+                service_group="SysSqlDiagnosticService",
+                service_name="SysSqlDiagnosticServiceOperations",
+                operation_name=operation,
+                parameters=parameters if parameters else None,
+            )
+
+            # Format and display response
+            if response.success:
+                result = {
+                    "success": True,
+                    "statusCode": response.status_code,
+                    "operation": operation,
+                    "data": response.data,
+                }
+
+                # Add summary information
+                if isinstance(response.data, list):
+                    result["recordCount"] = len(response.data)
+
+                output = self.output_formatter.format_output(result)
+                print(output)
+                return 0
+            else:
+                error_result = {
+                    "success": False,
+                    "statusCode": response.status_code,
+                    "operation": operation,
+                    "error": response.error_message,
+                }
+                output = self.output_formatter.format_output(error_result)
+                print(output)
+                return 1
+
+        except Exception as e:
+            print(format_error_message(f"Error calling SQL diagnostic service: {e}"))
             return 1
 
     def _handle_error(self, error: Exception, verbose: bool = False) -> None:

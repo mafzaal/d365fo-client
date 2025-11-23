@@ -3,18 +3,18 @@
 import logging
 from typing import Optional
 
+from ...sync_models import SyncStatus, SyncStrategy
 from .base_tools_mixin import BaseToolsMixin
-from ...sync_models import SyncStrategy, SyncStatus
 
 logger = logging.getLogger(__name__)
 
 
 class SyncToolsMixin(BaseToolsMixin):
     """Metadata synchronization tools for FastMCP server."""
-    
+
     def register_sync_tools(self):
         """Register all sync tools with FastMCP."""
-        
+
         @self.mcp.tool()
         async def d365fo_start_sync(
             strategy: str = "full_without_labels",
@@ -41,11 +41,11 @@ class SyncToolsMixin(BaseToolsMixin):
                 # Initialize metadata first to ensure all components are available
                 await client.initialize_metadata()
 
-                if not hasattr(client, 'sync_session_manager'):
+                if not hasattr(client, "sync_session_manager"):
                     error_response = {
                         "success": False,
                         "error": "Sync session management not available in this client version",
-                        "message": "Upgrade to session-based sync manager to access sync functionality"
+                        "message": "Upgrade to session-based sync manager to access sync functionality",
                     }
                     return error_response
 
@@ -55,15 +55,20 @@ class SyncToolsMixin(BaseToolsMixin):
 
                 # Auto-detect version if not provided
                 if global_version_id is None:
-                    if not hasattr(client, 'metadata_cache') or client.metadata_cache is None:
+                    if (
+                        not hasattr(client, "metadata_cache")
+                        or client.metadata_cache is None
+                    ):
                         error_response = {
                             "success": False,
                             "error": "Metadata cache not available in this client version",
-                            "message": "Cannot auto-detect version without metadata cache"
+                            "message": "Cannot auto-detect version without metadata cache",
                         }
                         return error_response
 
-                    sync_needed, detected_version_id = await client.metadata_cache.check_version_and_sync()
+                    sync_needed, detected_version_id = (
+                        await client.metadata_cache.check_version_and_sync()
+                    )
                     if detected_version_id is None:
                         raise ValueError("Could not detect global version ID")
                     global_version_id = detected_version_id
@@ -73,16 +78,28 @@ class SyncToolsMixin(BaseToolsMixin):
                     session_id = await client.sync_session_manager.start_sync_session(
                         global_version_id=global_version_id,
                         strategy=strategy_enum,
-                        initiated_by="mcp"
+                        initiated_by="mcp",
                     )
 
                 response = {
                     "success": True,
-                    "session_id": session_id if sync_needed or strategy_enum == SyncStrategy.LABELS_ONLY else None,
+                    "session_id": (
+                        session_id
+                        if sync_needed or strategy_enum == SyncStrategy.LABELS_ONLY
+                        else None
+                    ),
                     "global_version_id": global_version_id,
                     "strategy": strategy,
-                    "message": f"Sync session {session_id} started successfully" if sync_needed or strategy_enum == SyncStrategy.LABELS_ONLY else f"Metadata already up to date at version {global_version_id}, no sync needed",
-                    "instructions": f"Use d365fo_get_sync_progress with session_id '{session_id}' to monitor progress" if sync_needed or strategy_enum == SyncStrategy.LABELS_ONLY else None
+                    "message": (
+                        f"Sync session {session_id} started successfully"
+                        if sync_needed or strategy_enum == SyncStrategy.LABELS_ONLY
+                        else f"Metadata already up to date at version {global_version_id}, no sync needed"
+                    ),
+                    "instructions": (
+                        f"Use d365fo_get_sync_progress with session_id '{session_id}' to monitor progress"
+                        if sync_needed or strategy_enum == SyncStrategy.LABELS_ONLY
+                        else None
+                    ),
                 }
 
                 return response
@@ -96,8 +113,8 @@ class SyncToolsMixin(BaseToolsMixin):
                     "arguments": {
                         "strategy": strategy,
                         "global_version_id": global_version_id,
-                        "profile": profile
-                    }
+                        "profile": profile,
+                    },
                 }
                 return error_response
 
@@ -120,11 +137,11 @@ class SyncToolsMixin(BaseToolsMixin):
                 # Initialize metadata to ensure sync session manager is available
                 await client.initialize_metadata()
 
-                if not hasattr(client, 'sync_session_manager'):
+                if not hasattr(client, "sync_session_manager"):
                     error_response = {
                         "success": False,
                         "error": "Sync session management not available in this client version",
-                        "session_id": session_id
+                        "session_id": session_id,
                     }
                     return error_response
 
@@ -135,7 +152,7 @@ class SyncToolsMixin(BaseToolsMixin):
                     error_response = {
                         "success": False,
                         "error": f"Session {session_id} not found",
-                        "session_id": session_id
+                        "session_id": session_id,
                     }
                     return error_response
 
@@ -150,8 +167,8 @@ class SyncToolsMixin(BaseToolsMixin):
                         "current_activity": session.current_activity,
                         "estimated_remaining_seconds": session.estimate_remaining_time(),
                         "is_running": session.status == SyncStatus.RUNNING,
-                        "can_cancel": session.can_cancel
-                    }
+                        "can_cancel": session.can_cancel,
+                    },
                 }
 
                 return response
@@ -162,7 +179,7 @@ class SyncToolsMixin(BaseToolsMixin):
                     "success": False,
                     "error": str(e),
                     "tool": "d365fo_get_sync_progress",
-                    "arguments": {"session_id": session_id, "profile": profile}
+                    "arguments": {"session_id": session_id, "profile": profile},
                 }
                 return error_response
 
@@ -183,22 +200,24 @@ class SyncToolsMixin(BaseToolsMixin):
                 # Initialize metadata to ensure sync session manager is available
                 await client.initialize_metadata()
 
-                if not hasattr(client, 'sync_session_manager'):
+                if not hasattr(client, "sync_session_manager"):
                     error_response = {
                         "success": False,
                         "error": "Sync session management not available in this client version",
-                        "session_id": session_id
+                        "session_id": session_id,
                     }
                     return error_response
 
                 # Cancel session
-                cancelled = await client.sync_session_manager.cancel_sync_session(session_id)
+                cancelled = await client.sync_session_manager.cancel_sync_session(
+                    session_id
+                )
 
                 response = {
                     "success": cancelled,
                     "session_id": session_id,
                     "message": f"Session {session_id} {'cancelled' if cancelled else 'could not be cancelled'}",
-                    "details": "Session may not be cancellable if already completed or failed"
+                    "details": "Session may not be cancellable if already completed or failed",
                 }
 
                 return response
@@ -209,7 +228,7 @@ class SyncToolsMixin(BaseToolsMixin):
                     "success": False,
                     "error": str(e),
                     "tool": "d365fo_cancel_sync",
-                    "arguments": {"session_id": session_id, "profile": profile}
+                    "arguments": {"session_id": session_id, "profile": profile},
                 }
                 return error_response
 
@@ -229,11 +248,11 @@ class SyncToolsMixin(BaseToolsMixin):
                 # Initialize metadata to ensure sync session manager is available
                 await client.initialize_metadata()
 
-                if not hasattr(client, 'sync_session_manager'):
+                if not hasattr(client, "sync_session_manager"):
                     error_response = {
                         "success": False,
                         "error": "Sync session management not available in this client version",
-                        "message": "Upgrade to session-based sync manager to access session listing"
+                        "message": "Upgrade to session-based sync manager to access session listing",
                     }
                     return error_response
 
@@ -242,13 +261,21 @@ class SyncToolsMixin(BaseToolsMixin):
 
                 response = {
                     "success": True,
-                    "active_sessions": [session.to_dict() for session in active_sessions],
+                    "active_sessions": [
+                        session.to_dict() for session in active_sessions
+                    ],
                     "total_count": len(active_sessions),
-                    "running_count": len([s for s in active_sessions if s.status == SyncStatus.RUNNING]),
+                    "running_count": len(
+                        [s for s in active_sessions if s.status == SyncStatus.RUNNING]
+                    ),
                     "summary": {
-                        "has_running_sessions": any(s.status == SyncStatus.RUNNING for s in active_sessions),
-                        "latest_session": active_sessions[-1].to_dict() if active_sessions else None
-                    }
+                        "has_running_sessions": any(
+                            s.status == SyncStatus.RUNNING for s in active_sessions
+                        ),
+                        "latest_session": (
+                            active_sessions[-1].to_dict() if active_sessions else None
+                        ),
+                    },
                 }
 
                 return response
@@ -259,7 +286,7 @@ class SyncToolsMixin(BaseToolsMixin):
                     "success": False,
                     "error": str(e),
                     "tool": "d365fo_list_sync_sessions",
-                    "arguments": {"profile": profile}
+                    "arguments": {"profile": profile},
                 }
                 return error_response
 
@@ -285,11 +312,11 @@ class SyncToolsMixin(BaseToolsMixin):
                 # Initialize metadata to ensure sync session manager is available
                 await client.initialize_metadata()
 
-                if not hasattr(client, 'sync_session_manager'):
+                if not hasattr(client, "sync_session_manager"):
                     error_response = {
                         "success": False,
                         "error": "Sync session management not available in this client version",
-                        "message": "Upgrade to session-based sync manager to access history"
+                        "message": "Upgrade to session-based sync manager to access history",
                     }
                     return error_response
 
@@ -301,11 +328,26 @@ class SyncToolsMixin(BaseToolsMixin):
                     "history": [session.to_dict() for session in history],
                     "total_count": len(history),
                     "summary": {
-                        "successful_syncs": len([s for s in history if s.status == SyncStatus.COMPLETED]),
-                        "failed_syncs": len([s for s in history if s.status == SyncStatus.FAILED]),
-                        "cancelled_syncs": len([s for s in history if s.status == SyncStatus.CANCELLED]),
-                        "average_duration": sum(s.duration_seconds for s in history if s.duration_seconds) / len([s for s in history if s.duration_seconds]) if history else 0
-                    }
+                        "successful_syncs": len(
+                            [s for s in history if s.status == SyncStatus.COMPLETED]
+                        ),
+                        "failed_syncs": len(
+                            [s for s in history if s.status == SyncStatus.FAILED]
+                        ),
+                        "cancelled_syncs": len(
+                            [s for s in history if s.status == SyncStatus.CANCELLED]
+                        ),
+                        "average_duration": (
+                            sum(
+                                s.duration_seconds
+                                for s in history
+                                if s.duration_seconds
+                            )
+                            / len([s for s in history if s.duration_seconds])
+                            if history
+                            else 0
+                        ),
+                    },
                 }
 
                 return response
@@ -316,6 +358,6 @@ class SyncToolsMixin(BaseToolsMixin):
                     "success": False,
                     "error": str(e),
                     "tool": "d365fo_get_sync_history",
-                    "arguments": {"limit": limit, "profile": profile}
+                    "arguments": {"limit": limit, "profile": profile},
                 }
                 return error_response

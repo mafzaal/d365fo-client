@@ -6,9 +6,9 @@ for better organization. This module provides a backwards-compatible import.
 
 import warnings
 
-
-from ..providers.jwt import JWKData, JWKSData, RSAKeyPair
+from ..providers.jwt import JWKData, JWKSData
 from ..providers.jwt import JWTVerifier as BearerAuthProvider
+from ..providers.jwt import RSAKeyPair
 
 # Re-export for backwards compatibility
 __all__ = ["BearerAuthProvider", "RSAKeyPair", "JWKData", "JWKSData"]

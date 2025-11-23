@@ -7,6 +7,198 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.6] - 2025-11-23
+
+### Added
+- **MCP Server Definition**: Added official MCP server definition file (server.json) for enhanced discoverability
+  - Comprehensive server metadata including name, description, title, website, and repository information
+  - Package registry configurations for both PyPI (uvx) and OCI (Docker) installation methods
+  - Environment variable definitions with security and requirement specifications
+  - Runtime arguments configuration for Docker deployment
+- **Branding Assets**: Added professional logo files in multiple formats for project branding
+  - Full-size logo (logo.png) for general use
+  - Small logo (logo-small.png) optimized for compact displays
+  - Dark theme logo (logo-dark.png) for dark mode interfaces
+
+### Improved
+- **Documentation**: Enhanced README.md with visual branding and improved structure
+  - Added centered logo display at the top of README
+  - Added GitHub social badges (watch, fork, star) for community engagement
+  - Improved color scheme for VS Code Insiders Docker installation badge
+  - Removed redundant MCP server configuration example section
+
+### Documentation
+- Updated .gitignore to include logo cache files and MCP server definition artifacts
+
+## [0.3.5] - 2025-11-22
+
+### Added
+- **Cross-Company Query Support**: Automatic cross-company query handling for dataAreaId filtering
+  - Automatically adds `cross-company=true` parameter when filter contains dataAreaId
+  - Cross-company support for composite keys with dataAreaId
+  - New unit tests for cross-company key handling and query building
+  - Demo examples showcasing cross-company query functionality
+
+### Improved
+- **Test Suite Organization**: Major refactoring and cleanup of unit tests
+  - Removed 3 redundant test files (test_get_application_version.py, test_json_service.py, test_version_methods.py) fully covered by integration tests
+  - Removed non-applicable test method from test_enhanced_auth.py
+  - Added pytest filterwarnings to suppress expected coroutine warnings
+  - Enhanced test documentation with comprehensive cleanup summary
+  - Improved test consistency by standardizing on 'DataArea' field naming
+- **Integration Testing**: Enhanced sandbox client fixture with environment variable fallback
+  - Increased timeout threshold for cold metadata download in performance tests
+  - Improved MCP CRUD tools tests for better data entity handling
+- **Metadata Sync**: Enhanced logging and error handling for metadata synchronization operations
+- **Code Quality**: Applied comprehensive code formatting across all example scripts and test files
+
+### Removed
+- **Deprecated MCP Server**: Completed migration to FastMCP architecture
+  - Removed legacy D365FOMCPServer class and associated tools (~5,200 lines of code)
+  - Deleted 15 obsolete test files related to deprecated MCP server functionality
+  - Removed 5 example scripts demonstrating deprecated server features
+  - Maintained backward compatibility with command alias (`d365fo-mcp-server` still works)
+  - Updated documentation to reflect FastMCP-only architecture
+
+### Fixed
+- **Test Warnings**: Resolved RuntimeWarning issues in unit tests
+  - Fixed unawaited coroutine warnings from FOClient background sync worker
+  - Fixed example_usage coroutine warnings in main function tests
+  - Added proper mocking for SessionManager to prevent background task creation
+  - Configured pytest to filter expected async warnings
+
+### Dependencies
+- **Core Dependencies**: Updated aiohttp from 3.13.1 to 3.13.2
+- **MCP Framework**: Updated mcp from 1.18.0 to 1.21.1 (through 1.19.0, 1.21.0)
+- **Development Tools**: 
+  - Updated ruff from 0.14.1 to 0.14.5 (through 0.14.2, 0.14.4)
+  - Updated black from 25.9.0 to 25.11.0
+  - Updated cachetools from 6.2.1 to 6.2.2
+  - Updated pydantic-settings from 2.11.0 to 2.12.0
+  - Updated pytest-asyncio from 1.2.0 to 1.3.0
+  - Updated pytest from 8.4.2 to 9.0.1
+- **CI Actions**:
+  - Updated actions/download-artifact from 5 to 6
+  - Updated actions/upload-artifact from 4 to 5
+
+### Documentation
+- **Test Documentation**: Added comprehensive unit test cleanup summary
+- **Architecture Documentation**: Updated documentation to reflect FastMCP-only architecture
+- **Command Usage**: Updated README and Docker documentation for simplified command structure
+
+## [0.3.4] - 2025-10-26
+
+### Added
+- **SRS Report Download Tools**: New comprehensive MCP tools for downloading various report types from D365 Finance & Operations
+  - `d365fo_download_customer_invoice` tool for customer invoice PDFs
+  - `d365fo_download_free_text_invoice` tool for free text invoice PDFs
+  - `d365fo_download_debit_credit_note` tool for credit/debit note PDFs
+  - `d365fo_download_sales_confirmation` tool for sales confirmation PDFs
+  - `d365fo_download_purchase_order` tool for purchase order PDFs
+  - `d365fo_download_srs_report` tool for generic SRS report downloads
+  - Enhanced D365FO client with SRS download capabilities and auto-generated file paths
+  - Comprehensive integration tests for SRS download functionality with PDF validation
+  - Example scripts and documentation for SRS operations
+
+### Improved
+- **Integration Testing**: Enhanced integration testing fixtures and MCP CRUD tools
+  - Updated sandbox_client fixture to fallback to default profile when environment variable is not set
+  - Renamed TestableBaseToolsMixin to BaseToolsMixinWrapper to avoid pytest collection warnings
+  - Modified MCP CRUD tools tests to use 'DataArea' instead of 'DataAreaId' for consistency
+  - Improved cleanup process in mcp_server fixture to close all client connections and avoid warnings
+
+### Documentation
+- **FastMCP Architecture**: Updated documentation to reflect 49 comprehensive tools across 9 categories
+- **Agent Guidelines**: Enhanced AI agent guide (AGENTS.md) with comprehensive tool reference and workflow patterns
+- **Project Instructions**: Updated copilot instructions to reflect current mixin-based architecture
+- **SRS Documentation**: Added comprehensive SRS implementation documentation and usage examples
+
+### Dependencies
+- **Core Dependencies**: Updated aiohttp from 3.13.0 to 3.13.1
+- **MCP Framework**: Updated mcp from 1.17.0 to 1.18.0  
+- **Development Tools**: Updated uvicorn from 0.37.0 to 0.38.0, ruff from 0.14.0 to 0.14.1
+
+## [0.3.3] - 2025-10-19
+
+### Fixed
+- **OData Key Formatting**: Fixed OData date/time key formatting for D365 F&O compatibility
+  - **BREAKING**: Date/time types in OData keys no longer use quotes (aligns with D365 F&O OData spec)
+  - OData queries with date/time keys now work correctly with D365 F&O
+  - Enhanced test coverage with comprehensive mock support for session manager
+- **Docker Deployment**: Updated deployment script to use 'latest' Docker image tag
+- **Docker Build**: Updated Docker build tags comments for clarity and removed unused SHA tagging
+
+### Improved
+- **Cache Organization**: Updated cache configuration to use shared base directory across environments
+  - **BREAKING**: Cache directory structure changed to shared base with environment subdirectories
+  - Integration tests now use environment-specific cache organization
+- **Unit Testing**: Enhanced unit tests with proper SessionManager mocking to avoid initialization issues
+
+### Dependencies
+- **GitHub Actions**: Bump astral-sh/setup-uv from 6 to 7
+- **Azure Dependencies**: Updated azure-core to 1.36.0, charset-normalizer to 3.4.4, pydantic to 2.12.2
+
+## [0.3.2] - 2025-10-12
+
+### Added
+- **JSON Service Tools**: New MCP tools for calling D365 F&O JSON services
+  - `d365fo_call_json_service` tool for generic JSON service operations
+  - `d365fo_call_sql_diagnostic_service` tool for SQL diagnostic operations
+  - JsonServiceRequest and JsonServiceResponse models for structured requests
+  - Comprehensive examples in `examples/json_service_examples.py`
+- **Enhanced QueryBuilder**: Advanced OData query building with schema awareness
+  - Automatic type detection and serialization for entity properties
+  - Support for datetime, enum, boolean, and numeric types
+  - Special character handling and proper encoding
+  - Composite key discovery and validation
+- **Azure Container Apps Deployment**: Production-ready deployment templates
+  - Azure Container Apps deployment script (`deploy-aca.sh`)
+  - ARM template for infrastructure as code (`azure-deploy.json`)
+  - Support for multiple authentication modes (API key, client credentials, default Azure credentials)
+  - Comprehensive deployment documentation in README
+- **CLI JSON Service Support**: New CLI commands for JSON service operations
+  - `d365fo-client json-service call` command
+  - `d365fo-client json-service sql-diagnostic` command
+
+### Improved
+- **OData Serialization**: Enhanced entity validation and serialization
+  - New `ODataSerializer` class for type-safe serialization
+  - Better handling of datetime, enum, and special data types
+  - Improved error messages for validation failures
+- **CRUD Operations**: Enhanced MCP CRUD tools with better error handling
+  - Improved query validation and execution
+  - Better support for composite keys
+  - Enhanced error messages and diagnostics
+- **Docker Workflow**: Intelligent Docker tagging strategy
+  - Branch-based tags for on-demand builds (develop, feature branches)
+  - SHA-based tags with branch prefix
+  - Conditional `:latest` tag (only applied to main branch)
+  - Semantic versioning support (v1.2.3 → :1.2.3, :1.2, :1)
+
+### Fixed
+- **Docker Build Workflow**: Removed duplicate push and tags entries
+- **Profile Creation**: Enhanced warnings for profile creation in FastMCP server
+
+### Dependencies
+- Bumped `ruff` from 0.13.2 to 0.13.3
+- Bumped `authlib` from 1.6.4 to 1.6.5
+- Bumped `isort` from 6.0.1 to 6.1.0
+- Bumped `mcp` from 1.15.0 to 1.16.0
+
+### Documentation
+- Added comprehensive Docker build workflow guide
+- Enhanced Azure deployment instructions with Bash script and ARM template options
+- Added entity validation test documentation (`tests/integration/ENTITY_VALIDATION_TESTS.md`)
+- New QueryBuilder enhancement summary (`docs/QUERYBUILDER_ENHANCEMENT_SUMMARY.md`)
+- New JSON service implementation documentation (`docs/FASTMCP_JSON_SERVICE_IMPLEMENTATION_COMPLETE.md`)
+
+### Testing
+- Added integration tests for entity validation and OData serialization
+- Added integration tests for MCP CRUD tools
+- Added unit tests for enhanced QueryBuilder with schema awareness
+- Added comprehensive JSON service unit tests
+- Expanded sandbox integration tests
+
 ## [0.3.1] - 2025-10-01
 
 ### Added

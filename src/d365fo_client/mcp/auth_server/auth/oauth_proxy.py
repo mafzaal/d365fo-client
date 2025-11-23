@@ -45,10 +45,10 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse
 from starlette.routing import Route
 
-from .auth import OAuthProvider
-from .auth import TokenVerifier
-from .redirect_validation import validate_redirect_uri
 from d365fo_client.mcp.utilities.logging import get_logger
+
+from .auth import OAuthProvider, TokenVerifier
+from .redirect_validation import validate_redirect_uri
 
 if TYPE_CHECKING:
     pass
@@ -343,9 +343,9 @@ class OAuthProxy(OAuthProvider):
         self._refresh_to_access: dict[str, str] = {}
 
         # OAuth transaction storage for IdP callback forwarding
-        self._oauth_transactions: dict[
-            str, dict[str, Any]
-        ] = {}  # txn_id -> transaction_data
+        self._oauth_transactions: dict[str, dict[str, Any]] = (
+            {}
+        )  # txn_id -> transaction_data
         self._client_codes: dict[str, dict[str, Any]] = {}  # client_code -> code_data
 
         # Use the provided token validator

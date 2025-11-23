@@ -8,17 +8,13 @@ from mcp.server.auth.middleware.bearer_auth import (
     BearerAuthBackend,
     RequireAuthMiddleware,
 )
-from mcp.server.auth.provider import (
-    AccessToken as _SDKAccessToken,
-)
+from mcp.server.auth.provider import AccessToken as _SDKAccessToken
 from mcp.server.auth.provider import (
     AuthorizationCode,
     OAuthAuthorizationServerProvider,
     RefreshToken,
 )
-from mcp.server.auth.provider import (
-    TokenVerifier as TokenVerifierProtocol,
-)
+from mcp.server.auth.provider import TokenVerifier as TokenVerifierProtocol
 from mcp.server.auth.routes import (
     create_auth_routes,
     create_protected_resource_routes,

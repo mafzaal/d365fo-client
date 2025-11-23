@@ -10,10 +10,10 @@ logger = logging.getLogger(__name__)
 
 class LabelToolsMixin(BaseToolsMixin):
     """Label retrieval tools for FastMCP server."""
-    
+
     def register_label_tools(self):
         """Register all label tools with FastMCP."""
-        
+
         @self.mcp.tool()
         async def d365fo_get_label(
             labelId: str,

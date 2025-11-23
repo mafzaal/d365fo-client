@@ -4,9 +4,10 @@ These tests validate error handling and exception scenarios against actual D365 
 testing real API error responses, status codes, and recovery mechanisms.
 """
 
+from typing import Any, Dict, Type
+
 import pytest
 import pytest_asyncio
-from typing import Dict, Any, Type
 
 from d365fo_client import FOClient
 from d365fo_client.models import QueryOptions
@@ -30,7 +31,10 @@ class TestSandboxEntityErrors:
 
         # Error message should indicate the entity doesn't exist
         error_str = str(error).lower()
-        assert any(keyword in error_str for keyword in ["not found", "doesn't exist", "invalid", "unknown"])
+        assert any(
+            keyword in error_str
+            for keyword in ["not found", "doesn't exist", "invalid", "unknown"]
+        )
 
     @pytest.mark.asyncio
     async def test_nonexistent_entity_by_key_error(self, sandbox_client: FOClient):
@@ -43,7 +47,10 @@ class TestSandboxEntityErrors:
 
         # Should get appropriate error for missing key
         error_str = str(error).lower()
-        assert any(keyword in error_str for keyword in ["not found", "invalid", "doesn't exist"])
+        assert any(
+            keyword in error_str
+            for keyword in ["not found", "invalid", "doesn't exist"]
+        )
 
     @pytest.mark.asyncio
     async def test_invalid_entity_name_patterns(self, sandbox_client: FOClient):
@@ -67,8 +74,7 @@ class TestSandboxEntityErrors:
             # Test with invalid filter syntax
             with pytest.raises(Exception):
                 await sandbox_client.get_entities(
-                    "Companies",
-                    QueryOptions(filter="invalid filter syntax @@@ error")
+                    "Companies", QueryOptions(filter="invalid filter syntax @@@ error")
                 )
 
         except Exception:
@@ -79,8 +85,7 @@ class TestSandboxEntityErrors:
             # Test with invalid select fields
             with pytest.raises(Exception):
                 await sandbox_client.get_entities(
-                    "Companies",
-                    QueryOptions(select="NonExistentField123456")
+                    "Companies", QueryOptions(select="NonExistentField123456")
                 )
 
         except Exception:
@@ -121,9 +126,16 @@ class TestSandboxActionErrors:
 
         # Error should indicate action doesn't exist
         error_str = str(error).lower()
-        assert any(keyword in error_str for keyword in [
-            "not found", "doesn't exist", "invalid", "unknown", "action"
-        ])
+        assert any(
+            keyword in error_str
+            for keyword in [
+                "not found",
+                "doesn't exist",
+                "invalid",
+                "unknown",
+                "action",
+            ]
+        )
 
     @pytest.mark.asyncio
     async def test_action_with_invalid_parameters(self, sandbox_client: FOClient):
@@ -133,7 +145,7 @@ class TestSandboxActionErrors:
             with pytest.raises(Exception):
                 await sandbox_client.call_action(
                     "GetApplicationVersion",
-                    parameters={"InvalidParameter": "InvalidValue"}
+                    parameters={"InvalidParameter": "InvalidValue"},
                 )
         except Exception:
             # Some systems might ignore extra parameters
@@ -164,7 +176,9 @@ class TestSandboxMetadataErrors:
         """Test invalid metadata operations."""
         # Test searching for non-existent entity info
         try:
-            entity_info = await sandbox_client.get_public_entity_info("NonExistentEntity123456")
+            entity_info = await sandbox_client.get_public_entity_info(
+                "NonExistentEntity123456"
+            )
             # Some systems return None instead of raising exception
             assert entity_info is None
         except Exception:
@@ -256,6 +270,7 @@ class TestSandboxConnectionErrors:
     async def test_connection_timeout_handling(self, performance_metrics):
         """Test handling of connection timeouts."""
         import os
+
         from d365fo_client import FOClientConfig
 
         if not os.getenv("D365FO_SANDBOX_BASE_URL"):
@@ -264,7 +279,7 @@ class TestSandboxConnectionErrors:
         # Create client with very short timeout
         config = FOClientConfig(
             base_url=os.getenv("D365FO_SANDBOX_BASE_URL"),
-            use_default_credentials=True,
+            credential_source=None,  # Use Azure Default Credentials
             verify_ssl=False,
             timeout=1,  # Very short timeout
         )
@@ -280,15 +295,15 @@ class TestSandboxConnectionErrors:
 
         except Exception as e:
             # Timeout exception is expected
-            performance_metrics["errors"].append({
-                "operation": "short_timeout_test",
-                "error": str(e)
-            })
+            performance_metrics["errors"].append(
+                {"operation": "short_timeout_test", "error": str(e)}
+            )
             # Verify it's a timeout-related error
             error_str = str(e).lower()
-            assert any(keyword in error_str for keyword in [
-                "timeout", "timed out", "connection", "time"
-            ])
+            assert any(
+                keyword in error_str
+                for keyword in ["timeout", "timed out", "connection", "time"]
+            )
 
     @pytest.mark.asyncio
     async def test_invalid_base_url_error(self):
@@ -306,7 +321,7 @@ class TestSandboxConnectionErrors:
             try:
                 config = FOClientConfig(
                     base_url=invalid_url,
-                    use_default_credentials=True,
+                    credential_source=None,  # Use Azure Default Credentials
                     timeout=5,
                 )
 
@@ -322,6 +337,7 @@ class TestSandboxConnectionErrors:
     async def test_authentication_failure_scenarios(self):
         """Test authentication failure scenarios."""
         import os
+
         from d365fo_client import FOClientConfig
 
         if not os.getenv("D365FO_SANDBOX_BASE_URL"):
@@ -359,11 +375,9 @@ class TestSandboxDataValidationErrors:
             {"top": 0},
             {"skip": 0},
             {"top": 0, "skip": 0},
-
             # Test large values
             {"top": 10000},
             {"skip": 10000},
-
             # Test negative values (should fail)
             {"top": -1},
             {"skip": -1},
@@ -400,7 +414,9 @@ class TestSandboxDataValidationErrors:
         # Create a mix of valid and invalid operations
         tasks = [
             sandbox_client.get_entities("Companies", QueryOptions(top=1)),  # Valid
-            sandbox_client.get_entities("NonExistentEntity", QueryOptions(top=1)),  # Invalid
+            sandbox_client.get_entities(
+                "NonExistentEntity", QueryOptions(top=1)
+            ),  # Invalid
             sandbox_client.test_connection(),  # Valid
             sandbox_client.call_action("NonExistentAction"),  # Invalid
             sandbox_client.get_entity("Companies", "INVALID_KEY"),  # Invalid
@@ -475,8 +491,14 @@ class TestSandboxErrorRecovery:
     async def test_error_information_quality(self, sandbox_client: FOClient):
         """Test that errors provide useful information."""
         test_cases = [
-            ("invalid_entity", lambda: sandbox_client.get_entities("NonExistentEntity")),
-            ("invalid_key", lambda: sandbox_client.get_entity("Companies", "INVALID_KEY")),
+            (
+                "invalid_entity",
+                lambda: sandbox_client.get_entities("NonExistentEntity"),
+            ),
+            (
+                "invalid_key",
+                lambda: sandbox_client.get_entity("Companies", "INVALID_KEY"),
+            ),
             ("invalid_action", lambda: sandbox_client.call_action("NonExistentAction")),
         ]
 
@@ -492,8 +514,11 @@ class TestSandboxErrorRecovery:
 
                 # Error should not be generic
                 generic_messages = ["error", "exception", "failed"]
-                assert not all(generic in error_str.lower() for generic in generic_messages), \
-                    f"Too generic error message for {test_name}: {error_str}"
+                assert not all(
+                    generic in error_str.lower() for generic in generic_messages
+                ), f"Too generic error message for {test_name}: {error_str}"
 
                 # Should contain some context about what failed
-                assert len(error_str) > 10, f"Error message too short for {test_name}: {error_str}"
+                assert (
+                    len(error_str) > 10
+                ), f"Error message too short for {test_name}: {error_str}"

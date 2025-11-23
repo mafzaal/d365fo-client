@@ -28,7 +28,7 @@ export D365FO_BASE_URL="https://your-d365fo-environment.dynamics.com"
 ### Running the MCP Server
 ```bash
 # Start the MCP server with stdio transport
-d365fo-mcp-server
+d365fo-fastmcp-server
 ```
 
 ## Architecture
@@ -118,15 +118,27 @@ The server supports multiple authentication methods:
 src/d365fo_client/mcp/
 ├── __init__.py           # Package exports
 ├── server.py             # Main MCP server  
+├── fastmcp_server.py     # FastMCP server (recommended)
 ├── client_manager.py     # D365FO client management
 ├── models.py             # MCP-specific data models
 ├── main.py               # Entry point script
+├── fastmcp_main.py       # FastMCP entry point
 ├── resources/            # Resource handlers
 │   ├── entity_handler.py
 │   ├── metadata_handler.py
 │   ├── environment_handler.py
 │   └── query_handler.py
-└── tools/                # Tool handlers
+├── mixins/               # FastMCP tool mixins (recommended)
+│   ├── connection_tools_mixin.py
+│   ├── crud_tools_mixin.py
+│   ├── metadata_tools_mixin.py
+│   ├── label_tools_mixin.py
+│   ├── profile_tools_mixin.py
+│   ├── database_tools_mixin.py
+│   ├── sync_tools_mixin.py
+│   ├── srs_tools_mixin.py
+│   └── performance_tools_mixin.py
+└── tools/                # Legacy tool handlers (deprecated)
     ├── connection_tools.py
     ├── crud_tools.py
     ├── metadata_tools.py
@@ -162,7 +174,7 @@ pytest tests/test_mcp_server.py --cov=d365fo_client.mcp
 ### Debug Mode
 ```bash
 export D365FO_LOG_LEVEL=DEBUG
-d365fo-mcp-server
+d365fo-fastmcp-server
 ```
 
 ## Contributing

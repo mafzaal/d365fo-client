@@ -43,3 +43,6 @@ example_cache/metadata.db
 enhanced_cache_demo/metadata_v2.db
 test_stats_cache/metadata.db
 example_cache/metadata_v2.db
+Reports/
+.mcpregistry_github_token
+.mcpregistry_registry_token

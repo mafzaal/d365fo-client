@@ -51,6 +51,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.13-slim-bookworm
 
+LABEL io.modelcontextprotocol.server.name="io.github.mafzaal/d365fo-client"
+
 
 # Copy SQLite installation from uv build stage
 COPY --from=uv /usr/local /usr/local
@@ -77,4 +79,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 USER mcp_user
 
 # Use our entrypoint script to handle CMD execution with proper validation
-CMD ["d365fo-mcp-server"]
+CMD ["d365fo-fastmcp-server"]

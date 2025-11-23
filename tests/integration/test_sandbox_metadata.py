@@ -4,9 +4,10 @@ These tests validate metadata operations against actual D365 F&O sandbox environ
 testing real metadata structure, entity discovery, and schema validation.
 """
 
+from typing import Any, Dict, List
+
 import pytest
 import pytest_asyncio
-from typing import List, Dict, Any
 
 from d365fo_client import FOClient
 from d365fo_client.models import QueryOptions
@@ -72,7 +73,9 @@ class TestSandboxEntityMetadata:
             # Check for fields that should be present
             required_fields = ["DataServiceEnabled", "EntityCategory", "IsReadOnly"]
             for field in required_fields:
-                assert field in entity, f"Required field {field} missing from entity metadata"
+                assert (
+                    field in entity
+                ), f"Required field {field} missing from entity metadata"
 
             # Validate field types
             assert isinstance(entity["DataServiceEnabled"], bool)
@@ -96,7 +99,9 @@ class TestSandboxEntityMetadata:
         # Test skip parameter
         result_all = await sandbox_client.get_data_entities(QueryOptions(top=10))
         if len(result_all["value"]) > 5:
-            result_skip = await sandbox_client.get_data_entities(QueryOptions(top=5, skip=5))
+            result_skip = await sandbox_client.get_data_entities(
+                QueryOptions(top=5, skip=5)
+            )
 
             # Should get different entities when skipping
             if result_skip["value"]:
@@ -181,7 +186,9 @@ class TestSandboxEntityMetadata:
                 continue
 
         # Should find at least some entities
-        assert len(found_entities) > 0, f"No entities found for search patterns: {search_patterns}"
+        assert (
+            len(found_entities) > 0
+        ), f"No entities found for search patterns: {search_patterns}"
 
     @pytest.mark.asyncio
     async def test_entity_search_case_sensitivity(self, sandbox_client: FOClient):
@@ -206,7 +213,9 @@ class TestSandboxEntityMetadata:
                 # Results should be similar (within reasonable range)
                 min_results = min(non_zero_results)
                 max_results = max(non_zero_results)
-                assert max_results <= min_results * 2, "Case sensitivity affecting results significantly"
+                assert (
+                    max_results <= min_results * 2
+                ), "Case sensitivity affecting results significantly"
 
 
 @skip_if_not_level("sandbox")
@@ -243,7 +252,9 @@ class TestSandboxMetadataEnumerations:
         # Test pagination if we have enough enumerations
         full_result = await sandbox_client.get_public_enumerations(QueryOptions(top=10))
         if len(full_result["value"]) > 3:
-            skip_result = await sandbox_client.get_public_enumerations(QueryOptions(top=3, skip=3))
+            skip_result = await sandbox_client.get_public_enumerations(
+                QueryOptions(top=3, skip=3)
+            )
 
             if skip_result["value"]:
                 # Pagination should work
@@ -261,7 +272,7 @@ class TestSandboxLabelOperations:
         """Test retrieving label text for actual label IDs."""
         # Common label patterns in D365
         test_labels = [
-            "@SYS1",        # System labels usually exist
+            "@SYS1",  # System labels usually exist
             "@SYS2",
             "@SYS10",
             "@ApplicationCommon1",  # Application common labels
@@ -288,12 +299,7 @@ class TestSandboxLabelOperations:
     async def test_get_labels_batch_operation(self, sandbox_client: FOClient):
         """Test batch label retrieval."""
         # Test with a mix of potentially existing and non-existing labels
-        label_ids = [
-            "@SYS1",
-            "@SYS2",
-            "@NonExistentLabel123456",
-            "@SYS10"
-        ]
+        label_ids = ["@SYS1", "@SYS2", "@NonExistentLabel123456", "@SYS10"]
 
         try:
             labels = await sandbox_client.get_labels_batch(label_ids)
@@ -328,8 +334,8 @@ class TestSandboxLabelOperations:
                     # Should be valid Unicode string
                     assert isinstance(label_text, str)
                     # Should be encodable/decodable
-                    encoded = label_text.encode('utf-8')
-                    decoded = encoded.decode('utf-8')
+                    encoded = label_text.encode("utf-8")
+                    decoded = encoded.decode("utf-8")
                     assert decoded == label_text
             except Exception:
                 # Label might not exist
@@ -362,20 +368,23 @@ class TestSandboxMetadataIntegration:
 
                     try:
                         data_result = await sandbox_client.get_entities(
-                            collection_name,
-                            QueryOptions(top=1)
+                            collection_name, QueryOptions(top=1)
                         )
                         assert "value" in data_result
 
                         # Step 5: Validate that metadata matches data structure
                         if data_result["value"]:
                             data_fields = set(data_result["value"][0].keys())
-                            metadata_fields = {prop.name for prop in entity_info.properties}
+                            metadata_fields = {
+                                prop.name for prop in entity_info.properties
+                            }
 
                             # Some metadata fields should match data fields
                             # (allowing for system fields in data that might not be in metadata)
                             common_fields = data_fields.intersection(metadata_fields)
-                            assert len(common_fields) > 0, "No common fields between metadata and data"
+                            assert (
+                                len(common_fields) > 0
+                            ), "No common fields between metadata and data"
 
                     except Exception:
                         # Entity might not be accessible for data operations
@@ -395,8 +404,12 @@ class TestSandboxMetadataIntegration:
         public_entities = await sandbox_client.get_public_entities(QueryOptions(top=10))
 
         # Extract entity names
-        data_entity_names = {e.get("Name", "") for e in data_entities["value"] if e.get("Name")}
-        public_entity_names = {e.get("Name", "") for e in public_entities["value"] if e.get("Name")}
+        data_entity_names = {
+            e.get("Name", "") for e in data_entities["value"] if e.get("Name")
+        }
+        public_entity_names = {
+            e.get("Name", "") for e in public_entities["value"] if e.get("Name")
+        }
 
         # There should be some overlap between the two APIs
         common_entities = data_entity_names.intersection(public_entity_names)
@@ -425,17 +438,30 @@ class TestSandboxMetadataIntegration:
         successful = sum(1 for r in results if not isinstance(r, Exception))
 
         # Most operations should succeed
-        assert successful >= len(tasks) // 2, f"Too many metadata operations failed: {len(tasks) - successful} failures"
+        assert (
+            successful >= len(tasks) // 2
+        ), f"Too many metadata operations failed: {len(tasks) - successful} failures"
 
     @pytest.mark.asyncio
-    async def test_metadata_performance_characteristics(self, sandbox_client: FOClient, performance_metrics):
+    async def test_metadata_performance_characteristics(
+        self, sandbox_client: FOClient, performance_metrics
+    ):
         """Test metadata operation performance characteristics."""
         import time
 
         operations = [
-            ("get_data_entities", lambda: sandbox_client.get_data_entities(QueryOptions(top=10))),
-            ("get_public_entities", lambda: sandbox_client.get_public_entities(QueryOptions(top=10))),
-            ("test_metadata_connection", lambda: sandbox_client.test_metadata_connection()),
+            (
+                "get_data_entities",
+                lambda: sandbox_client.get_data_entities(QueryOptions(top=10)),
+            ),
+            (
+                "get_public_entities",
+                lambda: sandbox_client.get_public_entities(QueryOptions(top=10)),
+            ),
+            (
+                "test_metadata_connection",
+                lambda: sandbox_client.test_metadata_connection(),
+            ),
         ]
 
         for name, operation in operations:
@@ -446,7 +472,11 @@ class TestSandboxMetadataIntegration:
                 performance_metrics["timings"][f"metadata_{name}"] = duration
 
                 # Metadata operations should complete in reasonable time
-                assert duration < 30.0, f"Metadata operation {name} took too long: {duration}s"
+                assert (
+                    duration < 30.0
+                ), f"Metadata operation {name} took too long: {duration}s"
 
             except Exception as e:
-                performance_metrics["errors"].append({"operation": f"metadata_{name}", "error": str(e)})
+                performance_metrics["errors"].append(
+                    {"operation": f"metadata_{name}", "error": str(e)}
+                )

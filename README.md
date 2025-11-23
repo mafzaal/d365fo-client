@@ -1,16 +1,29 @@
 # Dynamics 365 Finance & Operations MCP Server
 
+<div align="center">
+  <img src="logo.png" alt="D365FO MCP Server Logo" width="200" />
+  <br />
+  <br />
+</div>
+
+<!-- mcp-name: io.github.mafzaal/d365fo-client -->
+
 **Production-ready Model Context Protocol (MCP) server** that exposes the full capabilities of Microsoft Dynamics 365 Finance & Operations (D365 F&O) to AI assistants and other MCP-compatible tools. This enables sophisticated Dynamics 365 integration workflows through standardized protocol interactions.
+
+[![GitHub watchers](https://img.shields.io/github/watchers/mafzaal/d365fo-client.svg?style=social&label=Watch)](https://github.com/mafzaal/d365fo-client/watchers)
+[![GitHub forks](https://img.shields.io/github/forks/mafzaal/d365fo-client.svg?style=social&label=Fork)](https://github.com/mafzaal/d365fo-client/fork)
+[![GitHub stars](https://img.shields.io/github/stars/mafzaal/d365fo-client?style=social&label=Star)](https://github.com/mafzaal/d365fo-client/stargazers)
+
 
 **🚀 One-Click Installation for VS Code:**
 
-[![Install with UVX in VS Code](https://img.shields.io/badge/VS_Code-Install_D365_FO_MCP_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://vscode.dev/redirect/mcp/install?name=d365fo&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22d365fo-client%40latest%22%2C%22d365fo-mcp-server%22%5D%2C%22env%22%3A%7B%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20tenant%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20secret%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%5D)
-[![Install with UVX in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_D365_FO_MCP_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=d365fo&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22d365fo-client%40latest%22%2C%22d365fo-mcp-server%22%5D%2C%22env%22%3A%7B%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20tenant%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20secret%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%5D)
+[![Install with UVX in VS Code](https://img.shields.io/badge/VS_Code-Install_D365_FO_MCP_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://vscode.dev/redirect/mcp/install?name=d365fo&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22d365fo-client%40latest%22%2C%22d365fo-fastmcp-server%22%5D%2C%22env%22%3A%7B%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20tenant%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20secret%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%5D)
+[![Install with UVX in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_D365_FO_MCP_Server-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=d365fo&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22--from%22%2C%22d365fo-client%40latest%22%2C%22d365fo-fastmcp-server%22%5D%2C%22env%22%3A%7B%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20tenant%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20ID%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22The%20secret%20of%20the%20client%20to%20connect%20to%22%2C%22password%22%3Atrue%7D%5D)
 
 **🐳 Docker Installation for VS Code:**
 
 [![Install with Docker in VS Code](https://img.shields.io/badge/VS_Code-Install_D365_FO_MCP_Server_(Docker)-2496ED?style=flat-square&logo=docker&logoColor=white)](https://vscode.dev/redirect/mcp/install?name=d365fo-docker&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22--rm%22%2C%22-i%22%2C%22-v%22%2C%22d365fo-mcp%3A%2Fhome%2Fmcp_user%2F%22%2C%22-e%22%2C%22D365FO_CLIENT_ID%3D%24%7Binput%3Aclient_id%7D%22%2C%22-e%22%2C%22D365FO_CLIENT_SECRET%3D%24%7Binput%3Aclient_secret%7D%22%2C%22-e%22%2C%22D365FO_TENANT_ID%3D%24%7Binput%3Atenant_id%7D%22%2C%22ghcr.io%2Fmafzaal%2Fd365fo-client%3Alatest%22%5D%2C%22env%22%3A%7B%22D365FO_LOG_LEVEL%22%3A%22DEBUG%22%2C%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Tenant%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20Secret%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%5D)
-[![Install with Docker in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_D365_FO_MCP_Server_(Docker)-2496ED?style=flat-square&logo=docker&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=d365fo-docker&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22--rm%22%2C%22-i%22%2C%22-v%22%2C%22d365fo-mcp%3A%2Fhome%2Fmcp_user%2F%22%2C%22-e%22%2C%22D365FO_CLIENT_ID%3D%24%7Binput%3Aclient_id%7D%22%2C%22-e%22%2C%22D365FO_CLIENT_SECRET%3D%24%7Binput%3Aclient_secret%7D%22%2C%22-e%22%2C%22D365FO_TENANT_ID%3D%24%7Binput%3Atenant_id%7D%22%2C%22ghcr.io%2Fmafzaal%2Fd365fo-client%3Alatest%22%5D%2C%22env%22%3A%7B%22D365FO_LOG_LEVEL%22%3A%22DEBUG%22%2C%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Tenant%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20Secret%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%5D)
+[![Install with Docker in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Install_D365_FO_MCP_Server_(Docker)-24bfa5?style=flat-square&logo=docker&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=d365fo-docker&quality=insiders&config=%7B%22type%22%3A%22stdio%22%2C%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22--rm%22%2C%22-i%22%2C%22-v%22%2C%22d365fo-mcp%3A%2Fhome%2Fmcp_user%2F%22%2C%22-e%22%2C%22D365FO_CLIENT_ID%3D%24%7Binput%3Aclient_id%7D%22%2C%22-e%22%2C%22D365FO_CLIENT_SECRET%3D%24%7Binput%3Aclient_secret%7D%22%2C%22-e%22%2C%22D365FO_TENANT_ID%3D%24%7Binput%3Atenant_id%7D%22%2C%22ghcr.io%2Fmafzaal%2Fd365fo-client%3Alatest%22%5D%2C%22env%22%3A%7B%22D365FO_LOG_LEVEL%22%3A%22DEBUG%22%2C%22D365FO_CLIENT_ID%22%3A%22%24%7Binput%3Aclient_id%7D%22%2C%22D365FO_CLIENT_SECRET%22%3A%22%24%7Binput%3Aclient_secret%7D%22%2C%22D365FO_TENANT_ID%22%3A%22%24%7Binput%3Atenant_id%7D%22%7D%7D&inputs=%5B%7B%22id%22%3A%22tenant_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Tenant%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_id%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20ID%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%2C%7B%22id%22%3A%22client_secret%22%2C%22type%22%3A%22promptString%22%2C%22description%22%3A%22Azure%20AD%20Client%20Secret%20for%20D365%20F%26O%20authentication%22%2C%22password%22%3Atrue%7D%5D)
 
 **☁️ Deploy to Azure Container Apps:**
 
@@ -46,16 +59,13 @@ export D365FO_MCP_API_KEY_VALUE="your-secret-key"
 
 ## MCP Server Overview
 
-The d365fo-client includes **two production-ready Model Context Protocol (MCP) servers** that expose the full capabilities of D365 Finance & Operations to AI assistants and other MCP-compatible tools:
+The d365fo-client includes a **production-ready Model Context Protocol (MCP) server** (`d365fo-fastmcp-server`) built on the FastMCP framework that exposes the full capabilities of D365 Finance & Operations to AI assistants and other MCP-compatible tools.
 
-- **Traditional MCP SDK** (`d365fo-mcp-server`) - Original implementation with stdio support
-- **FastMCP Framework** (`d365fo-fastmcp-server`) - Modern implementation with multi-transport support ⭐ **Recommended**
-
-Both servers provide identical functionality but the FastMCP implementation offers enhanced performance and deployment flexibility.
+The server provides multi-transport support (stdio, HTTP, SSE) with enhanced performance and deployment flexibility.
 
 ### Key Features
 
-- **34 comprehensive tools** covering all major D365 F&O operations across 7 functional categories
+- **49 comprehensive tools** covering all major D365 F&O operations across 9 functional categories
 - **12 resource types** with comprehensive metadata exposure and discovery capabilities
 - **2 prompt templates** for advanced workflow assistance
 - **Multi-transport support** (FastMCP): stdio, HTTP, Server-Sent Events (SSE)
@@ -108,20 +118,11 @@ d365fo-fastmcp-server --transport sse --port 8001 --host 0.0.0.0
 ```
 
 **Key Benefits:**
-- **40% faster startup** compared to traditional MCP SDK
-- **15% lower memory usage** through optimized architecture
+- **Optimized performance** with FastMCP framework
+- **Efficient resource usage** through optimized architecture
 - **Multi-transport support**: stdio, HTTP, Server-Sent Events (SSE)
 - **Enhanced error handling** with better async/await support
 - **Production ready** with web transports for API integration
-
-#### Traditional MCP Server
-
-The original MCP SDK implementation remains available for backward compatibility:
-
-```bash
-# Start the traditional MCP server
-d365fo-mcp-server
-```
 
 #### Integration with AI Assistants
 
@@ -140,27 +141,6 @@ Add to your VS Code `mcp.json` for GitHub Copilot with MCP:
         "--from",
         "d365fo-client@latest",
         "d365fo-fastmcp-server"
-      ],
-      "env": {
-        "D365FO_BASE_URL": "https://your-environment.dynamics.com",
-        "D365FO_LOG_LEVEL": "INFO"
-      }
-    }
-  }
-}
-```
-
-**Traditional MCP Server (Alternative):**
-```json
-{
-  "servers": {
-    "d365fo-mcp-server": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": [
-        "--from",
-        "d365fo-client",
-        "d365fo-mcp-server"
       ],
       "env": {
         "D365FO_BASE_URL": "https://your-environment.dynamics.com",
@@ -223,7 +203,7 @@ For containerized environments and enhanced isolation:
 ```json
 {
   "servers": {
-    "d365fo-mcp-server": {
+    "d365fo-fastmcp-server": {
       "type": "stdio",
       "command": "docker",
       "args": [
@@ -317,7 +297,7 @@ Add to your Claude Desktop configuration:
       "args": [
         "--from",
         "d365fo-client",
-        "d365fo-mcp-server"
+        "d365fo-fastmcp-server"
       ],
       "env": {
         "D365FO_BASE_URL": "https://your-environment.dynamics.com",
@@ -438,7 +418,7 @@ Connect using any MCP-compatible client library:
 ```python
 from mcp import Client
 
-async with Client("d365fo-mcp-server") as client:
+async with Client("d365fo-fastmcp-server") as client:
     # Discover available tools
     tools = await client.list_tools()
     
@@ -555,7 +535,7 @@ az account show
 # Test with explicit credentials
 export D365FO_CLIENT_ID="your-client-id"
 # ... set other variables
-d365fo-mcp-server
+d365fo-fastmcp-server
 ```
 
 **Performance Issues**
@@ -577,19 +557,20 @@ export D365FO_MAX_CONCURRENT_REQUESTS="5"
 
 ### MCP Tools
 
-The server provides **34 comprehensive tools** organized into functional categories:
+The server provides **49 comprehensive tools** organized into functional categories:
 
 #### Connection & Environment Tools (2 tools)
 - **`d365fo_test_connection`** - Test connectivity and authentication with performance metrics and error diagnostics
 - **`d365fo_get_environment_info`** - Get comprehensive environment details including versions, configurations, and capabilities
 
-#### CRUD Operations Tools (6 tools)
+#### CRUD Operations Tools (7 tools)
 - **`d365fo_query_entities`** - Simplified OData querying with 'eq' filtering, wildcard patterns, field selection, and pagination
 - **`d365fo_get_entity_record`** - Retrieve specific records by key with expansion options and ETag support
 - **`d365fo_create_entity_record`** - Create new entity records with validation and business logic execution
 - **`d365fo_update_entity_record`** - Update existing records with partial updates and optimistic concurrency control
 - **`d365fo_delete_entity_record`** - Delete entity records with referential integrity checking and cascading rules
 - **`d365fo_call_action`** - Execute OData actions and functions for complex business operations
+- **`d365fo_call_json_service`** - Call generic JSON service endpoints with parameter support and response handling
 
 #### Metadata Discovery Tools (6 tools)
 - **`d365fo_search_entities`** - Search entities by pattern with category filtering and full-text search capabilities
@@ -603,7 +584,7 @@ The server provides **34 comprehensive tools** organized into functional categor
 - **`d365fo_get_label`** - Get single label text by ID with multi-language support and fallback options
 - **`d365fo_get_labels_batch`** - Get multiple labels efficiently with batch processing and performance optimization
 
-#### Profile Management Tools (10 tools)
+#### Profile Management Tools (14 tools)
 - **`d365fo_list_profiles`** - List all configured D365FO environment profiles with status information
 - **`d365fo_get_profile`** - Get detailed configuration information for specific profiles
 - **`d365fo_create_profile`** - Create new environment profiles with comprehensive authentication options
@@ -613,7 +594,11 @@ The server provides **34 comprehensive tools** organized into functional categor
 - **`d365fo_get_default_profile`** - Retrieve information about the currently configured default profile
 - **`d365fo_validate_profile`** - Validate profile configurations for completeness and security compliance
 - **`d365fo_test_profile_connection`** - Test connectivity and authentication for specific profiles
-- **`d365fo_get_profile_status`** - Get comprehensive status information for profiles
+- **`d365fo_clone_profile`** - Clone existing profiles with customization options for new environments
+- **`d365fo_search_profiles`** - Search profiles by pattern with filtering and sorting capabilities
+- **`d365fo_get_profile_names`** - Get simplified list of available profile names for quick reference
+- **`d365fo_import_profiles`** - Import profile configurations from external sources or backups
+- **`d365fo_export_profiles`** - Export profile configurations for backup or deployment purposes
 
 #### Database Analysis Tools (4 tools)
 - **`d365fo_execute_sql_query`** - Execute SELECT queries against metadata database with security validation
@@ -621,13 +606,29 @@ The server provides **34 comprehensive tools** organized into functional categor
 - **`d365fo_get_table_info`** - Get detailed information about specific database tables with sample data
 - **`d365fo_get_database_statistics`** - Generate database statistics and analytics for performance monitoring
 
-#### Synchronization Tools (4 tools)
+#### Synchronization Tools (5 tools)
 - **`d365fo_start_sync`** - Initiate metadata synchronization with various strategies and session tracking
 - **`d365fo_get_sync_progress`** - Monitor detailed progress of sync sessions with time estimates
 - **`d365fo_cancel_sync`** - Cancel running sync sessions with graceful cleanup
 - **`d365fo_list_sync_sessions`** - List all active sync sessions with status and progress information
+- **`d365fo_get_sync_history`** - Get history of completed sync sessions with success/failure status and statistics
+
+#### SRS Reporting Tools (6 tools)
+- **`d365fo_download_srs_report`** - Download SQL Server Reporting Services (SRS) reports with parameter support
+- **`d365fo_download_sales_confirmation`** - Download sales confirmation reports in various formats
+- **`d365fo_download_purchase_order`** - Download purchase order documents with formatting options
+- **`d365fo_download_customer_invoice`** - Download customer invoice reports with customization
+- **`d365fo_download_free_text_invoice`** - Download free text invoice documents
+- **`d365fo_download_debit_credit_note`** - Download debit and credit note reports
+
+#### Performance Monitoring Tools (3 tools)
+- **`d365fo_get_server_performance`** - Get server performance metrics and statistics
+- **`d365fo_get_server_config`** - Get server configuration information and system settings
+- **`d365fo_reset_performance_stats`** - Reset performance statistics and counters for fresh monitoring
 
 **📖 For detailed information about all MCP tools including usage examples and best practices, see the [Comprehensive MCP Tools Introduction](docs/MCP_TOOLS_COMPREHENSIVE_INTRODUCTION.md).**
+
+**🤖 For AI agents and assistants, see the [AI Agent Guide](AGENTS.md) for structured workflows, best practices, and automation patterns.**
 
 ### MCP Resources
 
@@ -720,7 +721,7 @@ Uses Azure Default Credential chain (Managed Identity, Azure CLI, etc.):
 ```bash
 export D365FO_BASE_URL="https://your-environment.dynamics.com"
 # No additional auth environment variables needed
-d365fo-mcp-server
+d365fo-fastmcp-server
 ```
 
 #### Explicit Credentials
@@ -731,7 +732,7 @@ export D365FO_BASE_URL="https://your-environment.dynamics.com"
 export D365FO_CLIENT_ID="your-client-id"
 export D365FO_CLIENT_SECRET="your-client-secret"
 export D365FO_TENANT_ID="your-tenant-id"
-d365fo-mcp-server
+d365fo-fastmcp-server
 ```
 
 #### Azure Key Vault Integration (New in v0.2.3)
@@ -741,7 +742,7 @@ For secure credential storage using Azure Key Vault:
 export D365FO_BASE_URL="https://your-environment.dynamics.com"
 export D365FO_CREDENTIAL_SOURCE="keyvault"
 export D365FO_KEYVAULT_URL="https://your-keyvault.vault.azure.net/"
-d365fo-mcp-server
+d365fo-fastmcp-server
 ```
 
 #### Advanced Configuration
@@ -803,11 +804,12 @@ export DEBUG="true"                                     # Enable debug mode
 - 🏷️ **Label Operations V2**: Multilingual label caching with performance improvements and async support
 - 🔍 **Advanced Querying**: Support for all OData query parameters ($select, $filter, $expand, etc.)
 - ⚡ **Action Execution**: Execute bound and unbound OData actions with comprehensive parameter handling
-- 🔒 **Authentication**: Azure AD integration with default credentials, service principal, and Azure Key Vault support
+- �️ **JSON Services**: Generic access to D365 F&O JSON service endpoints (/api/services pattern)
+- �🔒 **Authentication**: Azure AD integration with default credentials, service principal, and Azure Key Vault support
 - 💾 **Intelligent Caching**: Cross-environment cache sharing with module-based version detection
 - 🌐 **Async/Await**: Modern async/await patterns with optimized session management
 - 📝 **Type Hints**: Full type annotation support with enhanced data models
-- 🤖 **MCP Server**: Production-ready Model Context Protocol server with 12 tools and 4 resource types
+- 🤖 **MCP Server**: Production-ready Model Context Protocol server with 49 tools and 4 resource types
 - 🖥️ **Comprehensive CLI**: Hierarchical command-line interface for all D365 F&O operations
 - 🧪 **Multi-tier Testing**: Mock, sandbox, and live integration testing framework (17/17 tests passing)
 - 📋 **Metadata Scripts**: PowerShell and Python utilities for entity, enumeration, and action discovery
@@ -841,7 +843,7 @@ docker run --rm -it \
   ghcr.io/mafzaal/d365fo-client:latest
 ```
 
-**Note**: The package includes MCP (Model Context Protocol) dependencies by default, enabling AI assistant integration. Both `d365fo-client` CLI and `d365fo-mcp-server` commands will be available after installation.
+**Note**: The package includes MCP (Model Context Protocol) dependencies by default, enabling AI assistant integration. Both `d365fo-client` CLI and `d365fo-fastmcp-server` commands will be available after installation.
 
 **Breaking Change in v0.2.3**: Environment variable names have been updated for consistency:
 - `AZURE_CLIENT_ID` → `D365FO_CLIENT_ID`
@@ -912,6 +914,18 @@ d365fo-client labels resolve "@SYS13342"
 
 # Search labels by pattern
 d365fo-client labels search "customer" --language "en-US"
+```
+
+#### JSON Service Operations
+```bash
+# Call SQL diagnostic services  
+d365fo-client service sql-diagnostic GetAxSqlExecuting
+d365fo-client service sql-diagnostic GetAxSqlResourceStats --since-minutes 5
+d365fo-client service sql-diagnostic GetAxSqlBlocking --output json
+
+# Generic JSON service calls
+d365fo-client service call SysSqlDiagnosticService SysSqlDiagnosticServiceOperations GetAxSqlExecuting
+d365fo-client service call YourServiceGroup YourServiceName YourOperation --parameters '{"param1":"value1"}'
 ```
 
 ### Global Options
@@ -1170,6 +1184,76 @@ result = await client.post_data("/data/CustomersV3('US-001')/calculateBalance", 
 })
 ```
 
+### JSON Service Operations
+
+```python
+# Basic JSON service call (no parameters)
+response = await client.post_json_service(
+    service_group="SysSqlDiagnosticService",
+    service_name="SysSqlDiagnosticServiceOperations",
+    operation_name="GetAxSqlExecuting"
+)
+
+if response.success:
+    print(f"Found {len(response.data)} executing SQL statements")
+    print(f"Status: HTTP {response.status_code}")
+else:
+    print(f"Error: {response.error_message}")
+
+# JSON service call with parameters
+from datetime import datetime, timezone, timedelta
+
+end_time = datetime.now(timezone.utc)
+start_time = end_time - timedelta(minutes=10)
+
+response = await client.post_json_service(
+    service_group="SysSqlDiagnosticService",
+    service_name="SysSqlDiagnosticServiceOperations",
+    operation_name="GetAxSqlResourceStats",
+    parameters={
+        "start": start_time.isoformat(),
+        "end": end_time.isoformat()
+    }
+)
+
+# Using JsonServiceRequest object for better structure
+from d365fo_client.models import JsonServiceRequest
+
+request = JsonServiceRequest(
+    service_group="SysSqlDiagnosticService",
+    service_name="SysSqlDiagnosticServiceOperations",
+    operation_name="GetAxSqlBlocking"
+)
+
+response = await client.call_json_service(request)
+print(f"Service endpoint: {request.get_endpoint_path()}")
+
+# Multiple SQL diagnostic operations
+operations = ["GetAxSqlExecuting", "GetAxSqlBlocking", "GetAxSqlLockInfo"]
+for operation in operations:
+    response = await client.post_json_service(
+        service_group="SysSqlDiagnosticService",
+        service_name="SysSqlDiagnosticServiceOperations",
+        operation_name=operation
+    )
+    
+    if response.success:
+        count = len(response.data) if isinstance(response.data, list) else 1
+        print(f"{operation}: {count} records")
+
+# Custom service call template
+response = await client.post_json_service(
+    service_group="YourServiceGroup",
+    service_name="YourServiceName",
+    operation_name="YourOperation",
+    parameters={
+        "parameter1": "value1",
+        "parameter2": 123,
+        "parameter3": True
+    }
+)
+```
+
 ### Metadata Operations
 
 ```python
@@ -1308,7 +1392,8 @@ d365fo-client/
 │           ├── server.py        # Core MCP server implementation
 │           ├── client_manager.py# D365FO client connection pooling
 │           ├── models.py        # MCP-specific data models
-│           ├── tools/           # MCP tool implementations (12 tools)
+│           ├── mixins/          # FastMCP tool mixins (49 tools)
+│           ├── tools/           # Legacy MCP tools (deprecated)
 │           │   ├── connection_tools.py
 │           │   ├── crud_tools.py
 │           │   ├── metadata_tools.py

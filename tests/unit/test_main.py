@@ -12,9 +12,7 @@ from d365fo_client.models import LabelInfo, PublicEntityInfo, QueryOptions
 
 # Filter out known coroutine warnings from background tasks and module imports
 warnings.filterwarnings(
-    "ignore",
-    message="coroutine.*was never awaited",
-    category=RuntimeWarning
+    "ignore", message="coroutine.*was never awaited", category=RuntimeWarning
 )
 
 
@@ -29,7 +27,9 @@ def test_config_from_string():
     """Test creating FOClient with string URL."""
     with (
         patch("d365fo_client.auth.DefaultAzureCredential"),
-        patch.object(FOClient, "_trigger_background_sync_if_needed", new_callable=AsyncMock),
+        patch.object(
+            FOClient, "_trigger_background_sync_if_needed", new_callable=AsyncMock
+        ),
     ):
         client = FOClient("https://test.dynamics.com")
         assert isinstance(client.config, FOClientConfig)
@@ -45,7 +45,10 @@ def test_config_from_dict():
     }
     with (
         patch("d365fo_client.auth.DefaultAzureCredential"),
-        patch.object(FOClient, "_trigger_background_sync_if_needed", new_callable=AsyncMock),
+        patch("d365fo_client.session.SessionManager"),
+        patch.object(
+            FOClient, "_trigger_background_sync_if_needed", new_callable=AsyncMock
+        ),
     ):
         client = FOClient(config_dict)
         assert client.config.base_url == "https://test.dynamics.com"
@@ -178,7 +181,10 @@ def test_main_function_version():
     from d365fo_client.main import main
 
     # Test version argument - this should exit cleanly
-    with patch("sys.argv", ["d365fo-client", "--version"]):
+    with (
+        patch("sys.argv", ["d365fo-client", "--version"]),
+        patch("d365fo_client.main.example_usage"),  # Mock to prevent coroutine creation
+    ):
         with pytest.raises(SystemExit) as exc_info:
             main()
         assert exc_info.value.code == 0  # Should exit with success code
@@ -189,7 +195,10 @@ def test_main_function_help():
     from d365fo_client.main import main
 
     # Test help argument - this should exit cleanly
-    with patch("sys.argv", ["d365fo-client", "--help"]):
+    with (
+        patch("sys.argv", ["d365fo-client", "--help"]),
+        patch("d365fo_client.main.example_usage"),  # Mock to prevent coroutine creation
+    ):
         with pytest.raises(SystemExit) as exc_info:
             main()
         assert exc_info.value.code == 0  # Should exit with success code
@@ -225,6 +234,7 @@ class TestEnhancedFOClient:
 
         with (
             patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch("d365fo_client.session.SessionManager"),
             patch.object(FOClient, "_ensure_metadata_initialized"),
             patch.object(FOClient, "_get_from_cache_first") as mock_cache_first,
         ):
@@ -261,6 +271,7 @@ class TestEnhancedFOClient:
 
         with (
             patch("d365fo_client.auth.DefaultAzureCredential"),
+            patch("d365fo_client.session.SessionManager"),
             patch.object(FOClient, "_ensure_metadata_initialized"),
             patch.object(FOClient, "_get_from_cache_first") as mock_cache_first,
         ):
@@ -297,7 +308,9 @@ class TestEnhancedFOClient:
 
         with (
             patch("d365fo_client.auth.DefaultAzureCredential"),
-            patch.object(FOClient, "_trigger_background_sync_if_needed", new_callable=AsyncMock),
+            patch.object(
+                FOClient, "_trigger_background_sync_if_needed", new_callable=AsyncMock
+            ),
         ):
             client = FOClient(config)
 
@@ -366,4 +379,5 @@ class TestEnhancedFOClient:
                 assert call_args[0][0] == 123  # global_version_id
                 # Check that strategy is FULL when force_refresh=True
                 from d365fo_client.sync_models import SyncStrategy
+
                 assert call_args[0][1] == SyncStrategy.FULL

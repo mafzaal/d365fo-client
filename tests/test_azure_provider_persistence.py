@@ -8,14 +8,17 @@ error handling, and edge cases.
 
 import json
 import tempfile
-import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
+from mcp.shared.auth import OAuthClientInformationFull
 from pydantic import AnyUrl
 
-from mcp.shared.auth import OAuthClientInformationFull
-
-from d365fo_client.mcp.auth_server.auth.providers.azure import AzureProvider, AzureProviderSettings
+from d365fo_client.mcp.auth_server.auth.providers.azure import (
+    AzureProvider,
+    AzureProviderSettings,
+)
 
 
 class TestAzureProviderPersistence:
@@ -57,7 +60,9 @@ class TestAzureProviderPersistence:
         settings = {**minimal_settings, "clients_storage_path": temp_storage_dir}
         return AzureProvider(**settings)
 
-    def test_save_clients_creates_directory(self, azure_provider, sample_client_data, temp_storage_dir):
+    def test_save_clients_creates_directory(
+        self, azure_provider, sample_client_data, temp_storage_dir
+    ):
         """Test that _save_clients creates the storage directory if it doesn't exist."""
         # Remove the directory to test creation
         storage_path = Path(temp_storage_dir)
@@ -72,7 +77,9 @@ class TestAzureProviderPersistence:
         assert storage_path.exists()
         assert (storage_path / "clients.json").exists()
 
-    def test_save_clients_success(self, azure_provider, sample_client_data, temp_storage_dir):
+    def test_save_clients_success(
+        self, azure_provider, sample_client_data, temp_storage_dir
+    ):
         """Test successful client data saving."""
         # Add test client
         client_id = "test-client-123"
@@ -94,7 +101,7 @@ class TestAzureProviderPersistence:
         assert client_data["client_id"] == sample_client_data.client_id
         assert client_data["client_name"] == sample_client_data.client_name
         assert client_data["scope"] == sample_client_data.scope
-        
+
         # Verify redirect_uris are properly serialized as strings
         assert isinstance(client_data["redirect_uris"], list)
         assert all(isinstance(uri, str) for uri in client_data["redirect_uris"])
@@ -109,7 +116,9 @@ class TestAzureProviderPersistence:
         # Should not raise an error, just log a warning
         provider._save_clients()  # Should complete without error
 
-    def test_save_clients_individual_client_error(self, azure_provider, sample_client_data, temp_storage_dir):
+    def test_save_clients_individual_client_error(
+        self, azure_provider, sample_client_data, temp_storage_dir
+    ):
         """Test save_clients handles individual client serialization errors gracefully."""
         # Add a good client
         good_client = sample_client_data
@@ -131,13 +140,15 @@ class TestAzureProviderPersistence:
         assert "good-client" in saved_data
         assert "bad-client" not in saved_data
 
-    def test_save_clients_atomic_write(self, azure_provider, sample_client_data, temp_storage_dir):
+    def test_save_clients_atomic_write(
+        self, azure_provider, sample_client_data, temp_storage_dir
+    ):
         """Test that save_clients uses atomic write operations."""
         # Add test client
         azure_provider._clients["test"] = sample_client_data
 
         json_path = Path(temp_storage_dir) / "clients.json"
-        temp_path = json_path.with_suffix('.tmp')
+        temp_path = json_path.with_suffix(".tmp")
 
         # Mock to verify temporary file usage
         original_replace = Path.replace
@@ -147,21 +158,21 @@ class TestAzureProviderPersistence:
             replace_called.append((str(self), str(target)))
             return original_replace(self, target)
 
-        with patch.object(Path, 'replace', mock_replace):
+        with patch.object(Path, "replace", mock_replace):
             azure_provider._save_clients()
 
         # Verify atomic rename was used
         assert len(replace_called) == 1
-        assert replace_called[0][0].endswith('.tmp')
+        assert replace_called[0][0].endswith(".tmp")
         assert replace_called[0][1] == str(json_path)
 
-    def test_load_clients_success(self, azure_provider, sample_client_data, temp_storage_dir):
+    def test_load_clients_success(
+        self, azure_provider, sample_client_data, temp_storage_dir
+    ):
         """Test successful client data loading."""
         # Create test data file
         client_id = "test-client-123"
-        test_data = {
-            client_id: sample_client_data.model_dump(mode="json")
-        }
+        test_data = {client_id: sample_client_data.model_dump(mode="json")}
 
         json_path = Path(temp_storage_dir) / "clients.json"
         with json_path.open("w") as f:
@@ -180,7 +191,9 @@ class TestAzureProviderPersistence:
 
         # Verify redirect_uris are properly restored as AnyUrl objects
         assert len(loaded_client.redirect_uris) == len(sample_client_data.redirect_uris)
-        for loaded_uri, original_uri in zip(loaded_client.redirect_uris, sample_client_data.redirect_uris):
+        for loaded_uri, original_uri in zip(
+            loaded_client.redirect_uris, sample_client_data.redirect_uris
+        ):
             assert str(loaded_uri) == str(original_uri)
 
     def test_load_clients_no_storage_path(self, minimal_settings):
@@ -215,7 +228,9 @@ class TestAzureProviderPersistence:
         azure_provider._load_clients()
         assert len(azure_provider._clients) == 0
 
-    def test_load_clients_individual_client_error(self, azure_provider, sample_client_data, temp_storage_dir):
+    def test_load_clients_individual_client_error(
+        self, azure_provider, sample_client_data, temp_storage_dir
+    ):
         """Test load_clients handles individual client validation errors gracefully."""
         # Create test data with one good and one bad client
         good_client_data = sample_client_data.model_dump(mode="json")
@@ -235,9 +250,13 @@ class TestAzureProviderPersistence:
 
         assert "good-client" in azure_provider._clients
         assert "bad-client" not in azure_provider._clients
-        assert isinstance(azure_provider._clients["good-client"], OAuthClientInformationFull)
+        assert isinstance(
+            azure_provider._clients["good-client"], OAuthClientInformationFull
+        )
 
-    def test_load_clients_non_string_client_id(self, azure_provider, sample_client_data, temp_storage_dir):
+    def test_load_clients_non_string_client_id(
+        self, azure_provider, sample_client_data, temp_storage_dir
+    ):
         """Test load_clients handles non-string client IDs gracefully."""
         # Create test data with non-string client ID
         good_client_data = sample_client_data.model_dump(mode="json")
@@ -257,10 +276,12 @@ class TestAzureProviderPersistence:
         assert "good-client" in azure_provider._clients
         assert len(azure_provider._clients) == 1
 
-    def test_round_trip_persistence(self, azure_provider, sample_client_data, temp_storage_dir):
+    def test_round_trip_persistence(
+        self, azure_provider, sample_client_data, temp_storage_dir
+    ):
         """Test complete save/load round trip."""
         client_id = "round-trip-test"
-        
+
         # Add client and save
         azure_provider._clients[client_id] = sample_client_data
         azure_provider._save_clients()
@@ -272,27 +293,33 @@ class TestAzureProviderPersistence:
         # Verify data integrity
         assert client_id in azure_provider._clients
         loaded_client = azure_provider._clients[client_id]
-        
+
         # Compare all important fields
         assert loaded_client.client_id == sample_client_data.client_id
         assert loaded_client.client_secret == sample_client_data.client_secret
         assert loaded_client.client_name == sample_client_data.client_name
         assert loaded_client.scope == sample_client_data.scope
         assert len(loaded_client.redirect_uris) == len(sample_client_data.redirect_uris)
-        
-        for loaded_uri, original_uri in zip(loaded_client.redirect_uris, sample_client_data.redirect_uris):
+
+        for loaded_uri, original_uri in zip(
+            loaded_client.redirect_uris, sample_client_data.redirect_uris
+        ):
             assert str(loaded_uri) == str(original_uri)
 
-    async def test_register_client_persistence(self, azure_provider, sample_client_data):
+    async def test_register_client_persistence(
+        self, azure_provider, sample_client_data
+    ):
         """Test that register_client properly persists the client data."""
         # Mock the super().register_client to avoid complex setup
-        with patch.object(azure_provider.__class__.__bases__[0], 'register_client') as mock_register:
+        with patch.object(
+            azure_provider.__class__.__bases__[0], "register_client"
+        ) as mock_register:
             mock_register.return_value = None
-            
+
             # Register client
             client_id = "register-test"
             azure_provider._clients[client_id] = sample_client_data
-            
+
             # This should trigger save
             await azure_provider.register_client(sample_client_data)
 
@@ -307,7 +334,7 @@ class TestAzureProviderPersistence:
             "init-test": {
                 "client_id": "init-client",
                 "redirect_uris": ["http://localhost:8080/"],
-                "client_name": "Init Test Client"
+                "client_name": "Init Test Client",
             }
         }
 
@@ -351,15 +378,19 @@ class TestAzureProviderPersistence:
             assert loaded_client.client_id == original_client.client_id
             assert loaded_client.client_name == original_client.client_name
 
-    async def test_error_handling_in_register_client(self, azure_provider, sample_client_data):
+    async def test_error_handling_in_register_client(
+        self, azure_provider, sample_client_data
+    ):
         """Test error handling when save fails during client registration."""
         # Mock _save_clients to raise an error
-        with patch.object(azure_provider, '_save_clients') as mock_save:
+        with patch.object(azure_provider, "_save_clients") as mock_save:
             mock_save.side_effect = OSError("Disk full")
-            
-            with patch.object(azure_provider.__class__.__bases__[0], 'register_client') as mock_register:
+
+            with patch.object(
+                azure_provider.__class__.__bases__[0], "register_client"
+            ) as mock_register:
                 mock_register.return_value = None
-                
+
                 # Should not raise despite save error
                 await azure_provider.register_client(sample_client_data)
 

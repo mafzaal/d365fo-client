@@ -1,7 +1,7 @@
 [project]
 name = "d365fo-client"
-version = "0.3.1"
-description = "Microsoft Dynamics 365 Finance & Operations client"
+version = "0.3.6"
+description = "Microsoft Dynamics 365 Finance & Operations client and MCP server"
 readme = "README.md"
 license = "MIT"
 authors = [{ name = "Muhammad Afzaal", email = "mo@thedataguy.pro" }]
@@ -18,7 +18,7 @@ dependencies = [
     "tabulate>=0.9.0",
     "pyyaml>=6.0",
     "mcp>=1.13.0",
-    "uvicorn[standard]>=0.32.0",
+    "uvicorn>=0.32.0",
     "pydantic-settings>=2.6.0",
     "authlib>=1.6.4",
     "httpx>=0.28.1",
@@ -73,6 +73,9 @@ python_functions = ["test_*"]
 addopts = "-v --tb=short"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "ignore:coroutine.*was never awaited:RuntimeWarning",
+]
 
 [tool.black]
 line-length = 88

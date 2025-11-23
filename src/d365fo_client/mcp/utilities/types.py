@@ -85,10 +85,16 @@ def get_cached_typeadapter(cls: T) -> TypeAdapter[T]:
                 if inspect.ismethod(cls):
                     actual_func = cls.__func__
                     code = actual_func.__code__  # ty: ignore[unresolved-attribute]
-                    globals_dict = actual_func.__globals__  # ty: ignore[unresolved-attribute]
+                    globals_dict = (
+                        actual_func.__globals__
+                    )  # ty: ignore[unresolved-attribute]
                     name = actual_func.__name__  # ty: ignore[unresolved-attribute]
-                    defaults = actual_func.__defaults__  # ty: ignore[unresolved-attribute]
-                    closure = actual_func.__closure__  # ty: ignore[unresolved-attribute]
+                    defaults = (
+                        actual_func.__defaults__
+                    )  # ty: ignore[unresolved-attribute]
+                    closure = (
+                        actual_func.__closure__
+                    )  # ty: ignore[unresolved-attribute]
                 else:
                     code = cls.__code__
                     globals_dict = cls.__globals__

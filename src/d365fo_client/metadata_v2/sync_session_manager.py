@@ -53,7 +53,7 @@ class SyncSessionManager:
         self,
         global_version_id: int,
         strategy: SyncStrategy = SyncStrategy.FULL_WITHOUT_LABELS,
-        initiated_by: str = "user"
+        initiated_by: str = "user",
     ) -> str:
         """Start new sync session and return session ID
 
@@ -70,9 +70,13 @@ class SyncSessionManager:
         """
         # Check if sync already running for this version
         for session in self._active_sessions.values():
-            if (session.global_version_id == global_version_id and 
-                session.status == SyncStatus.RUNNING):
-                raise ValueError(f"Sync already running for version {global_version_id}")
+            if (
+                session.global_version_id == global_version_id
+                and session.status == SyncStatus.RUNNING
+            ):
+                raise ValueError(
+                    f"Sync already running for version {global_version_id}"
+                )
 
         # Create new session
         session = SyncSession(
@@ -80,7 +84,7 @@ class SyncSessionManager:
             strategy=strategy,
             status=SyncStatus.PENDING,
             start_time=datetime.now(timezone.utc),
-            initiated_by=initiated_by
+            initiated_by=initiated_by,
         )
 
         # Initialize phases based on strategy
@@ -92,10 +96,14 @@ class SyncSessionManager:
         # Start background sync
         asyncio.create_task(self._execute_sync_session(session.session_id))
 
-        logger.info(f"Started sync session {session.session_id} for version {global_version_id} with strategy {strategy}")
+        logger.info(
+            f"Started sync session {session.session_id} for version {global_version_id} with strategy {strategy}"
+        )
         return session.session_id
 
-    def _initialize_phases(self, strategy: SyncStrategy) -> Dict[SyncPhase, SyncActivity]:
+    def _initialize_phases(
+        self, strategy: SyncStrategy
+    ) -> Dict[SyncPhase, SyncActivity]:
         """Initialize phases based on sync strategy"""
         phases = {}
 
@@ -108,7 +116,7 @@ class SyncSessionManager:
                 SyncPhase.ENUMERATIONS,
                 SyncPhase.LABELS,
                 SyncPhase.INDEXING,
-                SyncPhase.FINALIZING
+                SyncPhase.FINALIZING,
             ]
         elif strategy == SyncStrategy.FULL_WITHOUT_LABELS:
             phase_list = [
@@ -118,35 +126,34 @@ class SyncSessionManager:
                 SyncPhase.SCHEMAS,
                 SyncPhase.ENUMERATIONS,
                 SyncPhase.INDEXING,
-                SyncPhase.FINALIZING
+                SyncPhase.FINALIZING,
             ]
         elif strategy == SyncStrategy.ENTITIES_ONLY:
             phase_list = [
                 SyncPhase.INITIALIZING,
                 SyncPhase.VERSION_CHECK,
                 SyncPhase.ENTITIES,
-                SyncPhase.FINALIZING
+                SyncPhase.FINALIZING,
             ]
         elif strategy == SyncStrategy.LABELS_ONLY:
             phase_list = [
                 SyncPhase.INITIALIZING,
                 SyncPhase.VERSION_CHECK,
                 SyncPhase.LABELS,
-                SyncPhase.FINALIZING
+                SyncPhase.FINALIZING,
             ]
         elif strategy == SyncStrategy.SHARING_MODE:
             phase_list = [
                 SyncPhase.INITIALIZING,
                 SyncPhase.VERSION_CHECK,
-                SyncPhase.FINALIZING
+                SyncPhase.FINALIZING,
             ]
         else:
             phase_list = [SyncPhase.INITIALIZING, SyncPhase.FINALIZING]
 
         for phase in phase_list:
             phases[phase] = SyncActivity(
-                name=phase.value.replace('_', ' ').title(),
-                status=SyncStatus.PENDING
+                name=phase.value.replace("_", " ").title(), status=SyncStatus.PENDING
             )
 
         return phases
@@ -165,7 +172,9 @@ class SyncSessionManager:
             result = await self._sync_with_detailed_progress(session)
 
             session.result = result
-            session.status = SyncStatus.COMPLETED if result.success else SyncStatus.FAILED
+            session.status = (
+                SyncStatus.COMPLETED if result.success else SyncStatus.FAILED
+            )
             session.end_time = datetime.now(timezone.utc)
             session.progress_percent = 100.0
 
@@ -181,27 +190,31 @@ class SyncSessionManager:
 
     async def _sync_with_detailed_progress(self, session: SyncSession) -> SyncResult:
         """Execute sync with granular progress updates"""
-        
+
         # Phase 1: Initializing
-        await self._update_phase_progress(session, SyncPhase.INITIALIZING, SyncStatus.RUNNING)
+        await self._update_phase_progress(
+            session, SyncPhase.INITIALIZING, SyncStatus.RUNNING
+        )
         await asyncio.sleep(0.1)  # Simulate initialization
         await self._complete_phase(session, SyncPhase.INITIALIZING)
 
         # Phase 2: Version Check
-        await self._update_phase_progress(session, SyncPhase.VERSION_CHECK, SyncStatus.RUNNING)
-        
+        await self._update_phase_progress(
+            session, SyncPhase.VERSION_CHECK, SyncStatus.RUNNING
+        )
+
         # Update sync status in database
         await self.version_manager.update_sync_status(
             self.cache._environment_id, session.global_version_id, "syncing"
         )
-        
+
         await self._complete_phase(session, SyncPhase.VERSION_CHECK)
 
         if session.strategy == SyncStrategy.FULL:
             # Phase 3: Entities
             await self._sync_entities_with_progress(session)
 
-            # Phase 4: Schemas  
+            # Phase 4: Schemas
             await self._sync_schemas_with_progress(session)
 
             # Phase 5: Enumerations
@@ -217,7 +230,7 @@ class SyncSessionManager:
             # Phase 3: Entities
             await self._sync_entities_with_progress(session)
 
-            # Phase 4: Schemas  
+            # Phase 4: Schemas
             await self._sync_schemas_with_progress(session)
 
             # Phase 5: Enumerations
@@ -239,14 +252,24 @@ class SyncSessionManager:
             await self._sync_sharing_with_progress(session)
 
         # Final phase
-        await self._update_phase_progress(session, SyncPhase.FINALIZING, SyncStatus.RUNNING)
-        
+        await self._update_phase_progress(
+            session, SyncPhase.FINALIZING, SyncStatus.RUNNING
+        )
+
         # Mark cache sync completed if successful - get counts based on strategy
-        entity_count = session.phases.get(SyncPhase.ENTITIES, SyncActivity("", SyncStatus.PENDING)).items_processed
-        action_count = session.phases.get(SyncPhase.SCHEMAS, SyncActivity("", SyncStatus.PENDING)).items_processed
-        enumeration_count = session.phases.get(SyncPhase.ENUMERATIONS, SyncActivity("", SyncStatus.PENDING)).items_processed
-        label_count = session.phases.get(SyncPhase.LABELS, SyncActivity("", SyncStatus.PENDING)).items_processed
-        
+        entity_count = session.phases.get(
+            SyncPhase.ENTITIES, SyncActivity("", SyncStatus.PENDING)
+        ).items_processed
+        action_count = session.phases.get(
+            SyncPhase.SCHEMAS, SyncActivity("", SyncStatus.PENDING)
+        ).items_processed
+        enumeration_count = session.phases.get(
+            SyncPhase.ENUMERATIONS, SyncActivity("", SyncStatus.PENDING)
+        ).items_processed
+        label_count = session.phases.get(
+            SyncPhase.LABELS, SyncActivity("", SyncStatus.PENDING)
+        ).items_processed
+
         # Override counts to 0 for phases not included in the strategy
         if session.strategy == SyncStrategy.ENTITIES_ONLY:
             action_count = 0
@@ -261,7 +284,7 @@ class SyncSessionManager:
         elif session.strategy == SyncStrategy.SHARING_MODE:
             # For sharing mode, counts come from the copy operation
             pass
-        
+
         await self.cache.mark_sync_completed(
             session.global_version_id,
             entity_count,
@@ -269,16 +292,18 @@ class SyncSessionManager:
             enumeration_count,
             label_count,
         )
-        
+
         # Update version manager
-        duration_ms = int((datetime.now(timezone.utc) - session.start_time).total_seconds() * 1000)
+        duration_ms = int(
+            (datetime.now(timezone.utc) - session.start_time).total_seconds() * 1000
+        )
         await self.version_manager.update_sync_status(
             self.cache._environment_id,
             session.global_version_id,
             "completed",
             duration_ms,
         )
-        
+
         await self._complete_phase(session, SyncPhase.FINALIZING)
 
         return SyncResult(
@@ -288,7 +313,7 @@ class SyncSessionManager:
             entities_synced=entity_count,
             actions_synced=action_count,
             enumerations_synced=enumeration_count,
-            labels_synced=label_count
+            labels_synced=label_count,
         )
 
     async def _sync_entities_with_progress(self, session: SyncSession):
@@ -309,14 +334,16 @@ class SyncSessionManager:
                 # Collect label IDs from all entities (only if labels will be synced)
                 if self._should_collect_label_ids(session):
                     self._collect_label_ids_from_entities(session, entities)
-                
+
                 for i, entity in enumerate(entities):
                     activity.current_item = f"Processing {entity.name}"
                     activity.items_processed = i + 1
                     activity.progress_percent = ((i + 1) / len(entities)) * 100
 
                     # Store entity
-                    await self.cache.store_data_entities(session.global_version_id, [entity])
+                    await self.cache.store_data_entities(
+                        session.global_version_id, [entity]
+                    )
 
                     # Notify progress every 10 entities or at completion
                     if (i + 1) % 10 == 0 or i == len(entities) - 1:
@@ -347,14 +374,18 @@ class SyncSessionManager:
             if public_entities:
                 # Collect label IDs from all public entities and their fields/actions (only if labels will be synced)
                 if self._should_collect_label_ids(session):
-                    self._collect_label_ids_from_public_entities(session, public_entities)
-                
+                    self._collect_label_ids_from_public_entities(
+                        session, public_entities
+                    )
+
                 for i, entity in enumerate(public_entities):
                     activity.current_item = f"Processing schema for {entity.name}"
                     activity.items_processed = i + 1
                     activity.progress_percent = ((i + 1) / len(public_entities)) * 100
 
-                    await self.cache.store_public_entity_schema(session.global_version_id, entity)
+                    await self.cache.store_public_entity_schema(
+                        session.global_version_id, entity
+                    )
                     action_count += len(entity.actions)
 
                     # Notify progress every 5 entities
@@ -388,8 +419,10 @@ class SyncSessionManager:
                 # Collect label IDs from all enumerations and their members (only if labels will be synced)
                 if self._should_collect_label_ids(session):
                     self._collect_label_ids_from_enumerations(session, enumerations)
-                
-                await self.cache.store_enumerations(session.global_version_id, enumerations)
+
+                await self.cache.store_enumerations(
+                    session.global_version_id, enumerations
+                )
                 activity.items_processed = len(enumerations)
                 activity.progress_percent = 100.0
 
@@ -421,8 +454,10 @@ class SyncSessionManager:
             # Use collected label IDs from previous phases
             label_ids = list(session.collected_label_ids)
             activity.items_total = len(label_ids)
-            
-            logger.info(f"Processing {len(label_ids)} collected label IDs for version {session.global_version_id}")
+
+            logger.info(
+                f"Processing {len(label_ids)} collected label IDs for version {session.global_version_id}"
+            )
 
             label_count = 0
             if label_ids:
@@ -430,18 +465,22 @@ class SyncSessionManager:
                 batch_size = 50
                 for i in range(0, len(label_ids), batch_size):
                     labels_to_cache = []
-                    batch = label_ids[i:i + batch_size]
-                    
+                    batch = label_ids[i : i + batch_size]
+
                     activity.current_item = f"Fetching labels {i+1}-{min(i+batch_size, len(label_ids))} of {len(label_ids)}"
                     self._notify_progress(session.session_id)
-                    
+
                     # Fetch and store this batch of labels using label operations
-                    label_texts = await self.metadata_api.label_ops.get_labels_batch(batch)
+                    label_texts = await self.metadata_api.label_ops.get_labels_batch(
+                        batch
+                    )
 
                     for label_id, label_text in label_texts.items():
                         if label_text:  # Only cache labels that have actual text
                             labels_to_cache.append(
-                                LabelInfo(id=label_id, language="en-US", value=label_text)
+                                LabelInfo(
+                                    id=label_id, language="en-US", value=label_text
+                                )
                             )
                             label_count += 1
 
@@ -450,17 +489,23 @@ class SyncSessionManager:
                         await self.cache.set_labels_batch(
                             labels_to_cache, session.global_version_id
                         )
-                   
+
                     # Update progress
                     activity.items_processed = min(i + batch_size, len(label_ids))
-                    activity.progress_percent = (activity.items_processed / len(label_ids)) * 100
+                    activity.progress_percent = (
+                        activity.items_processed / len(label_ids)
+                    ) * 100
                     self._notify_progress(session.session_id)
             else:
-                logger.info(f"No label IDs collected for version {session.global_version_id}")
+                logger.info(
+                    f"No label IDs collected for version {session.global_version_id}"
+                )
                 activity.items_processed = 0
                 activity.progress_percent = 100.0
 
-            logger.info(f"Successfully synced {label_count} labels from {len(label_ids)} collected label IDs")
+            logger.info(
+                f"Successfully synced {label_count} labels from {len(label_ids)} collected label IDs"
+            )
             await self._complete_phase(session, phase)
 
         except Exception as e:
@@ -471,7 +516,7 @@ class SyncSessionManager:
 
     async def _sync_labels_only_with_progress(self, session: SyncSession):
         """Sync labels only with detailed progress reporting
-        
+
         This method efficiently collects missing labels from stored metadata using SQL queries,
         then fetches and caches the missing label texts.
         """
@@ -489,16 +534,22 @@ class SyncSessionManager:
 
         try:
             # Use SQL to efficiently find missing labels from stored metadata
-            missing_label_ids = await self._get_missing_label_ids_from_database(session.global_version_id)
-            
+            missing_label_ids = await self._get_missing_label_ids_from_database(
+                session.global_version_id
+            )
+
             if not missing_label_ids:
-                logger.info("No missing labels found, trying to collect from fresh metadata fetch...")
+                logger.info(
+                    "No missing labels found, trying to collect from fresh metadata fetch..."
+                )
                 # Fallback to collection from fresh metadata if no stored metadata
                 await self._collect_labels_from_fresh_metadata(session)
                 missing_label_ids = list(session.collected_label_ids)
-            
+
             activity.items_total = len(missing_label_ids)
-            logger.info(f"Found {len(missing_label_ids)} missing labels for version {session.global_version_id}")
+            logger.info(
+                f"Found {len(missing_label_ids)} missing labels for version {session.global_version_id}"
+            )
 
             label_count = 0
             if missing_label_ids:
@@ -506,18 +557,22 @@ class SyncSessionManager:
                 batch_size = 50
                 for i in range(0, len(missing_label_ids), batch_size):
                     labels_to_cache = []
-                    batch = missing_label_ids[i:i + batch_size]
-                    
+                    batch = missing_label_ids[i : i + batch_size]
+
                     activity.current_item = f"Fetching labels {i+1}-{min(i+batch_size, len(missing_label_ids))} of {len(missing_label_ids)}"
                     self._notify_progress(session.session_id)
-                    
+
                     # Fetch and store this batch of labels using label operations
-                    label_texts = await self.metadata_api.label_ops.get_labels_batch(batch)
+                    label_texts = await self.metadata_api.label_ops.get_labels_batch(
+                        batch
+                    )
 
                     for label_id, label_text in label_texts.items():
                         if label_text:  # Only cache labels that have actual text
                             labels_to_cache.append(
-                                LabelInfo(id=label_id, language="en-US", value=label_text)
+                                LabelInfo(
+                                    id=label_id, language="en-US", value=label_text
+                                )
                             )
                             label_count += 1
 
@@ -526,17 +581,25 @@ class SyncSessionManager:
                         await self.cache.set_labels_batch(
                             labels_to_cache, session.global_version_id
                         )
-                   
+
                     # Update progress
-                    activity.items_processed = min(i + batch_size, len(missing_label_ids))
-                    activity.progress_percent = (activity.items_processed / len(missing_label_ids)) * 100
+                    activity.items_processed = min(
+                        i + batch_size, len(missing_label_ids)
+                    )
+                    activity.progress_percent = (
+                        activity.items_processed / len(missing_label_ids)
+                    ) * 100
                     self._notify_progress(session.session_id)
             else:
-                logger.info(f"No missing labels found for version {session.global_version_id}")
+                logger.info(
+                    f"No missing labels found for version {session.global_version_id}"
+                )
                 activity.items_processed = 0
                 activity.progress_percent = 100.0
 
-            logger.info(f"Successfully synced {label_count} labels from {len(missing_label_ids)} missing label IDs")
+            logger.info(
+                f"Successfully synced {label_count} labels from {len(missing_label_ids)} missing label IDs"
+            )
             await self._complete_phase(session, phase)
 
         except Exception as e:
@@ -558,7 +621,7 @@ class SyncSessionManager:
             # TODO: Implement search index building
             # For now, just simulate
             await asyncio.sleep(0.5)
-            
+
             activity.progress_percent = 100.0
             self._notify_progress(session.session_id)
             await self._complete_phase(session, phase)
@@ -595,17 +658,23 @@ class SyncSessionManager:
             source_version = None
             for version in compatible_versions:
                 if version.global_version_id != session.global_version_id:
-                    if await self.cache._has_complete_metadata(version.global_version_id):
+                    if await self.cache._has_complete_metadata(
+                        version.global_version_id
+                    ):
                         source_version = version
                         break
 
             if not source_version:
                 # No compatible version, fall back to full sync
-                logger.info("No compatible version found for sharing, falling back to full sync")
+                logger.info(
+                    "No compatible version found for sharing, falling back to full sync"
+                )
                 await self._sync_entities_with_progress(session)
                 return
 
-            activity.current_item = f"Copying from version {source_version.global_version_id}"
+            activity.current_item = (
+                f"Copying from version {source_version.global_version_id}"
+            )
             self._notify_progress(session.session_id)
 
             # Copy metadata
@@ -624,7 +693,9 @@ class SyncSessionManager:
             activity.status = SyncStatus.FAILED
             raise
 
-    async def _update_phase_progress(self, session: SyncSession, phase: SyncPhase, status: SyncStatus):
+    async def _update_phase_progress(
+        self, session: SyncSession, phase: SyncPhase, status: SyncStatus
+    ):
         """Update phase progress"""
         if phase in session.phases:
             activity = session.phases[phase]
@@ -666,7 +737,15 @@ class SyncSessionManager:
                 current_phase=session.current_phase,
                 current_activity=session.current_activity,
                 initiated_by=session.initiated_by,
-                duration_seconds=int((datetime.now(timezone.utc) - session.start_time).total_seconds()) if session.start_time else None
+                duration_seconds=(
+                    int(
+                        (
+                            datetime.now(timezone.utc) - session.start_time
+                        ).total_seconds()
+                    )
+                    if session.start_time
+                    else None
+                ),
             )
             for session in self._active_sessions.values()
         ]
@@ -691,7 +770,9 @@ class SyncSessionManager:
 
         return False
 
-    def add_progress_callback(self, session_id: str, callback: Callable[[SyncSession], None]):
+    def add_progress_callback(
+        self, session_id: str, callback: Callable[[SyncSession], None]
+    ):
         """Add progress callback for specific session"""
         if session_id not in self._progress_callbacks:
             self._progress_callbacks[session_id] = []
@@ -725,32 +806,38 @@ class SyncSessionManager:
                 current_phase=session.current_phase,
                 current_activity=session.current_activity,
                 initiated_by=session.initiated_by,
-                duration_seconds=int((session.end_time - session.start_time).total_seconds()) if session.start_time and session.end_time else None
+                duration_seconds=(
+                    int((session.end_time - session.start_time).total_seconds())
+                    if session.start_time and session.end_time
+                    else None
+                ),
             )
-            
+
             self._session_history.append(summary)
-            
+
             # Limit history size
             if len(self._session_history) > self._max_history:
-                self._session_history = self._session_history[-self._max_history:]
-            
+                self._session_history = self._session_history[-self._max_history :]
+
             # Clean up callbacks
             self._progress_callbacks.pop(session_id, None)
 
-    async def _get_missing_label_ids_from_database(self, global_version_id: int) -> List[str]:
+    async def _get_missing_label_ids_from_database(
+        self, global_version_id: int
+    ) -> List[str]:
         """Get missing label IDs from database using efficient SQL query
-        
+
         This method uses SQL to find all label IDs that exist in metadata tables
         but are missing from the labels_cache table.
-        
+
         Args:
             global_version_id: Global version ID to check for missing labels
-            
+
         Returns:
             List of missing label IDs that need to be fetched
         """
         import aiosqlite
-        
+
         async with aiosqlite.connect(self.cache.db_path) as db:
             # Comprehensive SQL query to find missing labels from all metadata tables with label_id fields
             cursor = await db.execute(
@@ -775,64 +862,82 @@ class SyncSessionManager:
                 WHERE T2.label_id IS NULL
                 ORDER BY T1.label_id ASC
                 """,
-                (global_version_id, global_version_id, global_version_id, 
-                 global_version_id, global_version_id, global_version_id)
+                (
+                    global_version_id,
+                    global_version_id,
+                    global_version_id,
+                    global_version_id,
+                    global_version_id,
+                    global_version_id,
+                ),
             )
-            
+
             rows = await cursor.fetchall()
             missing_label_ids = [row[0] for row in rows if row[0]]
-            
-            logger.info(f"Found {len(missing_label_ids)} missing labels in database for version {global_version_id}")
+
+            logger.info(
+                f"Found {len(missing_label_ids)} missing labels in database for version {global_version_id}"
+            )
             return missing_label_ids
 
     async def _collect_labels_from_fresh_metadata(self, session: SyncSession):
         """Collect labels from fresh metadata fetch as fallback
-        
+
         This method is used when no stored metadata is available and we need
         to fetch fresh metadata to collect label IDs.
-        
+
         Args:
             session: Sync session to collect labels for
         """
         activity = session.phases[SyncPhase.LABELS]
-        
+
         try:
             activity.current_item = "Fetching entities to collect label IDs..."
             self._notify_progress(session.session_id)
-            
+
             # Fetch entities and collect their label IDs
             entities = await self._get_data_entities()
             if entities:
                 self._collect_label_ids_from_entities(session, entities)
-                activity.current_item = f"Collected label IDs from {len(entities)} entities"
+                activity.current_item = (
+                    f"Collected label IDs from {len(entities)} entities"
+                )
                 self._notify_progress(session.session_id)
 
-            # Fetch public entities and collect their label IDs  
+            # Fetch public entities and collect their label IDs
             try:
-                activity.current_item = "Fetching public entities to collect label IDs..."
+                activity.current_item = (
+                    "Fetching public entities to collect label IDs..."
+                )
                 self._notify_progress(session.session_id)
-                
+
                 public_entities = await self._get_public_entities()
                 if public_entities:
-                    self._collect_label_ids_from_public_entities(session, public_entities)
+                    self._collect_label_ids_from_public_entities(
+                        session, public_entities
+                    )
                     activity.current_item = f"Collected label IDs from {len(public_entities)} public entities"
                     self._notify_progress(session.session_id)
             except Exception as e:
-                logger.warning(f"Error fetching public entities for label collection: {e}")
+                logger.warning(
+                    f"Error fetching public entities for label collection: {e}"
+                )
 
             # Fetch enumerations and collect their label IDs
             try:
                 activity.current_item = "Fetching enumerations to collect label IDs..."
                 self._notify_progress(session.session_id)
-                
+
                 enumerations = await self._get_public_enumerations()
                 if enumerations:
                     self._collect_label_ids_from_enumerations(session, enumerations)
-                    activity.current_item = f"Collected label IDs from {len(enumerations)} enumerations"
+                    activity.current_item = (
+                        f"Collected label IDs from {len(enumerations)} enumerations"
+                    )
                     self._notify_progress(session.session_id)
             except Exception as e:
                 logger.warning(f"Error fetching enumerations for label collection: {e}")
-                
+
         except Exception as e:
             logger.error(f"Error collecting labels from fresh metadata: {e}")
             raise
@@ -850,26 +955,31 @@ class SyncSessionManager:
         if label_id and label_id.startswith("@"):
             session.collected_label_ids.add(label_id)
 
-    def _collect_label_ids_from_entities(self, session: SyncSession, entities: List[DataEntityInfo]):
+    def _collect_label_ids_from_entities(
+        self, session: SyncSession, entities: List[DataEntityInfo]
+    ):
         """Collect label IDs from data entities"""
         for entity in entities:
             self._collect_label_id(session, entity.label_id)
 
-    def _collect_label_ids_from_public_entities(self, session: SyncSession, public_entities: List[PublicEntityInfo]):
+    def _collect_label_ids_from_public_entities(
+        self, session: SyncSession, public_entities: List[PublicEntityInfo]
+    ):
         """Collect label IDs from public entities and their fields/actions"""
         for entity in public_entities:
             self._collect_label_id(session, entity.label_id)
-            
+
             # Collect from properties
             for property in entity.properties:
                 self._collect_label_id(session, property.label_id)
-           
 
-    def _collect_label_ids_from_enumerations(self, session: SyncSession, enumerations: List[EnumerationInfo]):
+    def _collect_label_ids_from_enumerations(
+        self, session: SyncSession, enumerations: List[EnumerationInfo]
+    ):
         """Collect label IDs from enumerations and their members"""
         for enum in enumerations:
             self._collect_label_id(session, enum.label_id)
-            
+
             # Collect from members
             for member in enum.members:
                 self._collect_label_id(session, member.label_id)
@@ -897,8 +1007,10 @@ class SyncSessionManager:
     async def _get_public_enumerations(self) -> List[EnumerationInfo]:
         """Get public enumerations with details"""
         try:
-            enumerations = await self.metadata_api.get_all_public_enumerations_with_details(
-                resolve_labels=False
+            enumerations = (
+                await self.metadata_api.get_all_public_enumerations_with_details(
+                    resolve_labels=False
+                )
             )
             return enumerations
         except Exception as e:
@@ -916,12 +1028,12 @@ class SyncSessionManager:
         try:
             # Extract label IDs from entities, schemas, and enumerations
             label_ids = set()
-            
+
             # From entities
             for entity in entities:
                 if entity.label_id:
                     label_ids.add(entity.label_id)
-            
+
             # From public entities (schemas)
             for entity in public_entities:
                 if entity.label_id:
@@ -929,7 +1041,7 @@ class SyncSessionManager:
                 for property in entity.properties:
                     if property.label_id:
                         label_ids.add(property.label_id)
-            
+
             # From enumerations
             for enum in enumerations:
                 if enum.label_id:
@@ -937,7 +1049,7 @@ class SyncSessionManager:
                 for member in enum.members:
                     if member.label_id:
                         label_ids.add(member.label_id)
-            
+
             # Fetch and store labels
             label_count = 0
             if label_ids:
@@ -945,14 +1057,16 @@ class SyncSessionManager:
                 if labels:
                     await self.cache.store_labels(global_version_id, labels)
                     label_count = len(labels)
-            
+
             return label_count
-            
+
         except Exception as e:
             logger.warning(f"Error syncing common labels: {e}")
             return 0
 
-    async def _copy_metadata_between_versions(self, source_version_id: int, target_version_id: int) -> Dict[str, int]:
+    async def _copy_metadata_between_versions(
+        self, source_version_id: int, target_version_id: int
+    ) -> Dict[str, int]:
         """Copy metadata between global versions"""
         import aiosqlite
 

@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 
 class PerformanceToolsMixin(BaseToolsMixin):
     """Performance monitoring and configuration tools for FastMCP server."""
-    
+
     def register_performance_tools(self):
         """Register all performance tools with FastMCP."""
-        
+
         @self.mcp.tool()
         async def d365fo_get_server_performance() -> dict:
             """Get FastMCP server performance statistics and health metrics.
@@ -83,7 +83,7 @@ class PerformanceToolsMixin(BaseToolsMixin):
             """
             try:
                 from ... import __version__
-                
+
                 config_info = {
                     "server_version": __version__,
                     "stateless_mode": self._stateless_mode,

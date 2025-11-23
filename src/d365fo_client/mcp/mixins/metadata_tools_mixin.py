@@ -2,8 +2,8 @@
 
 import logging
 import time
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional
 
 from .base_tools_mixin import BaseToolsMixin
 
@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 
 class MetadataToolsMixin(BaseToolsMixin):
     """Metadata search and discovery tools for FastMCP server."""
-    
+
     def register_metadata_tools(self):
         """Register all metadata tools with FastMCP."""
-        
+
         @self.mcp.tool()
         async def d365fo_search_entities(
             pattern: str,
@@ -85,8 +85,10 @@ class MetadataToolsMixin(BaseToolsMixin):
                 if len(filtered_entities) == 0:
                     try:
                         # Try FTS5 search if metadata cache is available
-                        if hasattr(client, 'metadata_cache') and client.metadata_cache:
-                            fts_suggestions = await self._try_fts_search(client, pattern)
+                        if hasattr(client, "metadata_cache") and client.metadata_cache:
+                            fts_suggestions = await self._try_fts_search(
+                                client, pattern
+                            )
                     except Exception:
                         pass  # Ignore errors in suggestion search
 
@@ -126,7 +128,9 @@ class MetadataToolsMixin(BaseToolsMixin):
                         "is_Read_Only": is_read_only,
                     },
                     "suggestions": suggestions if suggestions else None,
-                    "broaderMatches": broader_suggestions if broader_suggestions else None,
+                    "broaderMatches": (
+                        broader_suggestions if broader_suggestions else None
+                    ),
                     "ftsMatches": fts_suggestions if fts_suggestions else None,
                 }
 
@@ -134,15 +138,19 @@ class MetadataToolsMixin(BaseToolsMixin):
 
             except Exception as e:
                 logger.error(f"Search entities failed: {e}")
-                return self._create_error_response(e, "d365fo_search_entities", {
-                    "pattern": pattern,
-                    "entity_category": entity_category,
-                    "data_service_enabled": data_service_enabled,
-                    "data_management_enabled": data_management_enabled,
-                    "is_read_only": is_read_only,
-                    "limit": limit,
-                    "profile": profile
-                })
+                return self._create_error_response(
+                    e,
+                    "d365fo_search_entities",
+                    {
+                        "pattern": pattern,
+                        "entity_category": entity_category,
+                        "data_service_enabled": data_service_enabled,
+                        "data_management_enabled": data_management_enabled,
+                        "is_read_only": is_read_only,
+                        "limit": limit,
+                        "profile": profile,
+                    },
+                )
 
         @self.mcp.tool()
         async def d365fo_get_entity_schema(
@@ -179,13 +187,17 @@ class MetadataToolsMixin(BaseToolsMixin):
 
             except Exception as e:
                 logger.error(f"Get entity schema failed: {e}")
-                return self._create_error_response(e, "d365fo_get_entity_schema", {
-                    "entityName": entityName,
-                    "include_properties": include_properties,
-                    "resolve_labels": resolve_labels,
-                    "language": language,
-                    "profile": profile
-                })
+                return self._create_error_response(
+                    e,
+                    "d365fo_get_entity_schema",
+                    {
+                        "entityName": entityName,
+                        "include_properties": include_properties,
+                        "resolve_labels": resolve_labels,
+                        "language": language,
+                        "profile": profile,
+                    },
+                )
 
         @self.mcp.tool()
         async def d365fo_search_actions(
@@ -251,7 +263,9 @@ class MetadataToolsMixin(BaseToolsMixin):
                             "parameter_count": len(action.parameters),
                             "has_return_value": action.return_type is not None,
                             "return_type_name": (
-                                action.return_type.type_name if action.return_type else None
+                                action.return_type.type_name
+                                if action.return_type
+                                else None
                             ),
                             "is_bound": action.binding_kind != "Unbound",
                             "can_call_directly": action.binding_kind == "Unbound",
@@ -294,7 +308,9 @@ class MetadataToolsMixin(BaseToolsMixin):
                             ]
                         ),
                         "unique_entities": len(
-                            set(a.entity_name for a in filtered_actions if a.entity_name)
+                            set(
+                                a.entity_name for a in filtered_actions if a.entity_name
+                            )
                         ),
                     },
                 }
@@ -303,14 +319,18 @@ class MetadataToolsMixin(BaseToolsMixin):
 
             except Exception as e:
                 logger.error(f"Search actions failed: {e}")
-                return self._create_error_response(e, "d365fo_search_actions", {
-                    "pattern": pattern,
-                    "entityName": entityName,
-                    "bindingKind": bindingKind,
-                    "isFunction": isFunction,
-                    "limit": limit,
-                    "profile": profile
-                })
+                return self._create_error_response(
+                    e,
+                    "d365fo_search_actions",
+                    {
+                        "pattern": pattern,
+                        "entityName": entityName,
+                        "bindingKind": bindingKind,
+                        "isFunction": isFunction,
+                        "limit": limit,
+                        "profile": profile,
+                    },
+                )
 
         @self.mcp.tool()
         async def d365fo_search_enumerations(
@@ -320,7 +340,7 @@ class MetadataToolsMixin(BaseToolsMixin):
 
             IMPORTANT: When searching for enumerations, break down user requests into individual keywords and perform MULTIPLE searches:
 
-            1. Extract keywords from requests (e.g., \"customer status enums\" → \"customer\", \"status\")  
+            1. Extract keywords from requests (e.g., \"customer status enums\" → \"customer\", \"status\")
             2. Perform separate searches for each keyword using simple text matching
             3. Combine and analyze results from all searches
             4. Look for enums that match the combination of concepts
@@ -346,9 +366,7 @@ class MetadataToolsMixin(BaseToolsMixin):
                 start_time = time.time()
 
                 # Search for enumerations using the pattern
-                enumerations = await client.search_public_enumerations(
-                    pattern=pattern
-                )
+                enumerations = await client.search_public_enumerations(pattern=pattern)
 
                 # Convert EnumerationInfo objects to dictionaries for JSON serialization
                 enum_dicts = []
@@ -372,11 +390,11 @@ class MetadataToolsMixin(BaseToolsMixin):
 
             except Exception as e:
                 logger.error(f"Search enumerations failed: {e}")
-                return self._create_error_response(e, "d365fo_search_enumerations", {
-                    "pattern": pattern,
-                    "limit": limit,
-                    "profile": profile
-                })
+                return self._create_error_response(
+                    e,
+                    "d365fo_search_enumerations",
+                    {"pattern": pattern, "limit": limit, "profile": profile},
+                )
 
         @self.mcp.tool()
         async def d365fo_get_enumeration_fields(
@@ -424,12 +442,16 @@ class MetadataToolsMixin(BaseToolsMixin):
 
             except Exception as e:
                 logger.error(f"Get enumeration fields failed: {e}")
-                return self._create_error_response(e, "d365fo_get_enumeration_fields", {
-                    "enumeration_name": enumeration_name,
-                    "resolve_labels": resolve_labels,
-                    "language": language,
-                    "profile": profile
-                })
+                return self._create_error_response(
+                    e,
+                    "d365fo_get_enumeration_fields",
+                    {
+                        "enumeration_name": enumeration_name,
+                        "resolve_labels": resolve_labels,
+                        "language": language,
+                        "profile": profile,
+                    },
+                )
 
         @self.mcp.tool()
         async def d365fo_get_installed_modules(profile: str = "default") -> dict:
@@ -459,10 +481,10 @@ class MetadataToolsMixin(BaseToolsMixin):
 
             except Exception as e:
                 logger.error(f"Get installed modules failed: {e}")
-                return self._create_error_response(e, "d365fo_get_installed_modules", {
-                    "profile": profile
-                })
-    
+                return self._create_error_response(
+                    e, "d365fo_get_installed_modules", {"profile": profile}
+                )
+
     async def _try_fts_search(self, client, pattern: str) -> List[dict]:
         """Try FTS5 full-text search when regex search fails
 

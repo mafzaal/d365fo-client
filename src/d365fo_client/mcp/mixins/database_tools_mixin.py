@@ -7,6 +7,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import aiosqlite
+
 from .base_tools_mixin import BaseToolsMixin
 
 logger = logging.getLogger(__name__)
@@ -14,34 +15,35 @@ logger = logging.getLogger(__name__)
 
 class DatabaseQuerySafetyError(Exception):
     """Raised when a database query is deemed unsafe or invalid."""
+
     pass
 
 
 class DatabaseToolsMixin(BaseToolsMixin):
     """Database analysis and query tools for FastMCP server."""
-    
+
     def setup_database_tools(self):
         """Initialize database tools configuration."""
         # Query safety configuration
         self.max_results = 1000
         self.query_timeout_seconds = 30
-        self.allowed_operations = {'SELECT'}
-        self.blocked_tables = {'labels_cache'}  # Tables with potentially sensitive data
-        
+        self.allowed_operations = {"SELECT"}
+        self.blocked_tables = {"labels_cache"}  # Tables with potentially sensitive data
+
         # SQL injection protection patterns
         self.dangerous_patterns = [
-            r';\s*(DROP|DELETE|UPDATE|INSERT|ALTER|CREATE|TRUNCATE)',
-            r'UNION\s+SELECT',
-            r'--\s*[^\r\n]*',
-            r'/\*.*?\*/',
-            r'exec\s*\(',
-            r'sp_\w+',
-            r'xp_\w+',
+            r";\s*(DROP|DELETE|UPDATE|INSERT|ALTER|CREATE|TRUNCATE)",
+            r"UNION\s+SELECT",
+            r"--\s*[^\r\n]*",
+            r"/\*.*?\*/",
+            r"exec\s*\(",
+            r"sp_\w+",
+            r"xp_\w+",
         ]
-    
+
     def register_database_tools(self):
         """Register all database tools with FastMCP."""
-        
+
         @self.mcp.tool()
         async def d365fo_execute_sql_query(
             query: str,
@@ -92,21 +94,21 @@ class DatabaseToolsMixin(BaseToolsMixin):
             """
             try:
                 start_time = time.time()
-                
+
                 # Validate query safety
                 self._validate_query_safety(query)
-                
+
                 # Get database path
                 db_path = await self._get_database_path(profile)
-                
+
                 # Execute query
                 columns, rows = await self._execute_safe_query(query, db_path, limit)
-                
+
                 # Format results
                 formatted_results = self._format_query_results(columns, rows, format)
-                
+
                 execution_time = time.time() - start_time
-                
+
                 # Add metadata
                 metadata = {
                     "query": query,
@@ -116,11 +118,11 @@ class DatabaseToolsMixin(BaseToolsMixin):
                     "format": format,
                     "limited_results": limit < 1000 and len(rows) == limit,
                 }
-                
+
                 if format == "table":
                     response = {
                         "query_results": formatted_results,
-                        "metadata": metadata
+                        "metadata": metadata,
                     }
                 else:
                     # For JSON/CSV, include metadata in structured format
@@ -128,24 +130,28 @@ class DatabaseToolsMixin(BaseToolsMixin):
                         parsed_results = json.loads(formatted_results)
                         response = {
                             "query_results": parsed_results,
-                            "metadata": metadata
+                            "metadata": metadata,
                         }
                     else:
                         response = {
                             "query_results": formatted_results,
-                            "metadata": metadata
+                            "metadata": metadata,
                         }
 
                 return response
 
             except Exception as e:
                 logger.error(f"SQL query execution failed: {e}")
-                return self._create_error_response(e, "d365fo_execute_sql_query", {
-                    "query": query,
-                    "limit": limit,
-                    "format": format,
-                    "profile": profile
-                })
+                return self._create_error_response(
+                    e,
+                    "d365fo_execute_sql_query",
+                    {
+                        "query": query,
+                        "limit": limit,
+                        "format": format,
+                        "profile": profile,
+                    },
+                )
 
         @self.mcp.tool()
         async def d365fo_get_database_schema(
@@ -179,22 +185,30 @@ class DatabaseToolsMixin(BaseToolsMixin):
             """
             try:
                 db_path = await self._get_database_path(profile)
-                
+
                 schema_info = await self._get_schema_info(
-                    db_path, table_name, include_statistics, include_indexes, include_relationships
+                    db_path,
+                    table_name,
+                    include_statistics,
+                    include_indexes,
+                    include_relationships,
                 )
-                
+
                 return schema_info
 
             except Exception as e:
                 logger.error(f"Get database schema failed: {e}")
-                return self._create_error_response(e, "d365fo_get_database_schema", {
-                    "table_name": table_name,
-                    "include_statistics": include_statistics,
-                    "include_indexes": include_indexes,
-                    "include_relationships": include_relationships,
-                    "profile": profile
-                })
+                return self._create_error_response(
+                    e,
+                    "d365fo_get_database_schema",
+                    {
+                        "table_name": table_name,
+                        "include_statistics": include_statistics,
+                        "include_indexes": include_indexes,
+                        "include_relationships": include_relationships,
+                        "profile": profile,
+                    },
+                )
 
         @self.mcp.tool()
         async def d365fo_get_table_info(
@@ -224,21 +238,25 @@ class DatabaseToolsMixin(BaseToolsMixin):
             """
             try:
                 db_path = await self._get_database_path(profile)
-                
+
                 table_info = await self._get_detailed_table_info(
                     db_path, table_name, include_sample_data, include_relationships
                 )
-                
+
                 return table_info
 
             except Exception as e:
                 logger.error(f"Get table info failed: {e}")
-                return self._create_error_response(e, "d365fo_get_table_info", {
-                    "table_name": table_name,
-                    "include_sample_data": include_sample_data,
-                    "include_relationships": include_relationships,
-                    "profile": profile
-                })
+                return self._create_error_response(
+                    e,
+                    "d365fo_get_table_info",
+                    {
+                        "table_name": table_name,
+                        "include_sample_data": include_sample_data,
+                        "include_relationships": include_relationships,
+                        "profile": profile,
+                    },
+                )
 
         @self.mcp.tool()
         async def d365fo_get_database_statistics(
@@ -270,112 +288,145 @@ class DatabaseToolsMixin(BaseToolsMixin):
             try:
                 # Get database statistics using existing method
                 client = await self.client_manager.get_client(profile)
-                if hasattr(client, 'metadata_cache') and hasattr(client.metadata_cache, 'database'):
-                    stats = await client.metadata_cache.database.get_database_statistics() # type: ignore
+                if hasattr(client, "metadata_cache") and hasattr(
+                    client.metadata_cache, "database"
+                ):
+                    stats = await client.metadata_cache.database.get_database_statistics()  # type: ignore
                 else:
-                    raise ValueError("Database statistics not available for this profile")
-                
+                    raise ValueError(
+                        "Database statistics not available for this profile"
+                    )
+
                 # Enhance with additional statistics if requested
                 if include_table_stats or include_version_stats:
                     db_path = await self._get_database_path(profile)
                     additional_stats = await self._get_enhanced_statistics(
-                        db_path, include_table_stats, include_version_stats, include_performance_stats
+                        db_path,
+                        include_table_stats,
+                        include_version_stats,
+                        include_performance_stats,
                     )
                     stats.update(additional_stats)
-                
+
                 return stats
 
             except Exception as e:
                 logger.error(f"Get database statistics failed: {e}")
-                return self._create_error_response(e, "d365fo_get_database_statistics", {
-                    "include_table_stats": include_table_stats,
-                    "include_version_stats": include_version_stats,
-                    "include_performance_stats": include_performance_stats,
-                    "profile": profile
-                })
-    
+                return self._create_error_response(
+                    e,
+                    "d365fo_get_database_statistics",
+                    {
+                        "include_table_stats": include_table_stats,
+                        "include_version_stats": include_version_stats,
+                        "include_performance_stats": include_performance_stats,
+                        "profile": profile,
+                    },
+                )
+
     def _validate_query_safety(self, query: str) -> None:
         """Validate that a query is safe to execute.
-        
+
         Args:
             query: SQL query to validate
-            
+
         Raises:
             DatabaseQuerySafetyError: If query is deemed unsafe
         """
         # Normalize query for analysis
         normalized_query = query.strip().upper()
-        
+
         # Check if query starts with SELECT
-        if not normalized_query.startswith('SELECT'):
+        if not normalized_query.startswith("SELECT"):
             raise DatabaseQuerySafetyError("Only SELECT queries are allowed")
-        
+
         # Check for dangerous patterns
         for pattern in self.dangerous_patterns:
             if re.search(pattern, normalized_query, re.IGNORECASE | re.MULTILINE):
-                raise DatabaseQuerySafetyError(f"Query contains potentially dangerous pattern: {pattern}")
-        
+                raise DatabaseQuerySafetyError(
+                    f"Query contains potentially dangerous pattern: {pattern}"
+                )
+
         # Check for blocked operations
-        for operation in ['INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'CREATE', 'TRUNCATE']:
+        for operation in [
+            "INSERT",
+            "UPDATE",
+            "DELETE",
+            "DROP",
+            "ALTER",
+            "CREATE",
+            "TRUNCATE",
+        ]:
             if operation in normalized_query:
                 raise DatabaseQuerySafetyError(f"Operation {operation} is not allowed")
-        
+
         # Check for access to blocked tables
         for blocked_table in self.blocked_tables:
             if blocked_table.upper() in normalized_query:
-                raise DatabaseQuerySafetyError(f"Access to table {blocked_table} is restricted")
+                raise DatabaseQuerySafetyError(
+                    f"Access to table {blocked_table} is restricted"
+                )
 
     async def _get_database_path(self, profile: str = "default") -> str:
         """Get the path to the metadata database.
-        
+
         Args:
             profile: Configuration profile to use
-            
+
         Returns:
             Path to the database file
         """
         client = await self.client_manager.get_client(profile)
-        if hasattr(client, 'metadata_cache') and client.metadata_cache:
+        if hasattr(client, "metadata_cache") and client.metadata_cache:
             return str(client.metadata_cache.db_path)
         else:
-            raise DatabaseQuerySafetyError("No metadata database available for this profile")
+            raise DatabaseQuerySafetyError(
+                "No metadata database available for this profile"
+            )
 
-    async def _execute_safe_query(self, query: str, db_path: str, limit: int = 100) -> Tuple[List[str], List[Tuple]]:
+    async def _execute_safe_query(
+        self, query: str, db_path: str, limit: int = 100
+    ) -> Tuple[List[str], List[Tuple]]:
         """Execute a safe SQL query and return results.
-        
+
         Args:
             query: SQL query to execute
             db_path: Path to database file
             limit: Maximum number of rows to return
-            
+
         Returns:
             Tuple of (column_names, rows)
         """
         # Add LIMIT clause if not present
-        if limit and 'LIMIT' not in query.upper():
-            query += f' LIMIT {limit}'
-        
+        if limit and "LIMIT" not in query.upper():
+            query += f" LIMIT {limit}"
+
         async with aiosqlite.connect(db_path) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(query)
             rows = await cursor.fetchall()
-            
+
             # Get column names
-            column_names = [description[0] for description in cursor.description] if cursor.description else []
-            
+            column_names = (
+                [description[0] for description in cursor.description]
+                if cursor.description
+                else []
+            )
+
             # Convert rows to tuples for easier processing
             row_tuples = [tuple(row) for row in rows]
-            
+
             return column_names, row_tuples
 
-    def _format_query_results(self, columns: List[str], rows: List[Tuple], format_type: str = "table") -> str:
+    def _format_query_results(
+        self, columns: List[str], rows: List[Tuple], format_type: str = "table"
+    ) -> str:
         """Format query results in the specified format.
-        
+
         Args:
             columns: Column names
             rows: Row data
             format_type: Output format (table, json, csv)
-            
+
         Returns:
             Formatted results string
         """
@@ -385,22 +436,26 @@ class DatabaseToolsMixin(BaseToolsMixin):
             for row in rows:
                 row_dict = {col: value for col, value in zip(columns, row)}
                 result_dicts.append(row_dict)
-            return json.dumps({"columns": columns, "data": result_dicts, "row_count": len(rows)}, indent=2)
-        
+            return json.dumps(
+                {"columns": columns, "data": result_dicts, "row_count": len(rows)},
+                indent=2,
+            )
+
         elif format_type == "csv":
             # CSV format
             import csv
             import io
+
             output = io.StringIO()
             writer = csv.writer(output)
             writer.writerow(columns)
             writer.writerows(rows)
             return output.getvalue()
-        
+
         else:  # table format
             if not rows:
                 return "No results found."
-            
+
             # Calculate column widths
             col_widths = []
             for i, col in enumerate(columns):
@@ -409,55 +464,62 @@ class DatabaseToolsMixin(BaseToolsMixin):
                     if i < len(row):
                         max_width = max(max_width, len(str(row[i])))
                 col_widths.append(min(max_width, 50))  # Cap at 50 chars
-            
+
             # Create table
             lines = []
-            
+
             # Header
-            header = " | ".join(str(col).ljust(width) for col, width in zip(columns, col_widths))
+            header = " | ".join(
+                str(col).ljust(width) for col, width in zip(columns, col_widths)
+            )
             lines.append(header)
             lines.append("-" * len(header))
-            
+
             # Rows
             for row in rows:
                 row_str = " | ".join(
-                    str(value).ljust(width)[:width] for value, width in zip(row, col_widths)
+                    str(value).ljust(width)[:width]
+                    for value, width in zip(row, col_widths)
                 )
                 lines.append(row_str)
-            
+
             lines.append(f"\nTotal rows: {len(rows)}")
             return "\n".join(lines)
 
     async def _get_schema_info(
-        self, 
-        db_path: str, 
+        self,
+        db_path: str,
         table_name: Optional[str] = None,
         include_statistics: bool = True,
         include_indexes: bool = True,
-        include_relationships: bool = True
+        include_relationships: bool = True,
     ) -> Dict[str, Any]:
         """Get comprehensive database schema information."""
         async with aiosqlite.connect(db_path) as db:
             schema_info = {
                 "database_path": db_path,
                 "generated_at": time.time(),
-                "tables": {}
+                "tables": {},
             }
-            
+
             # Get list of tables
             if table_name:
-                tables_query = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
+                tables_query = (
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
+                )
                 cursor = await db.execute(tables_query, (table_name,))
             else:
-                tables_query = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+                tables_query = (
+                    "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+                )
                 cursor = await db.execute(tables_query)
-            
+
             table_names = [row[0] for row in await cursor.fetchall()]
-            
+
             # Get detailed info for each table
             for name in table_names:
                 table_info = {"name": name}
-                
+
                 # Get column information
                 cursor = await db.execute(f"PRAGMA table_info({name})")
                 columns = await cursor.fetchall()
@@ -467,29 +529,25 @@ class DatabaseToolsMixin(BaseToolsMixin):
                         "type": col[2],
                         "not_null": bool(col[3]),
                         "default_value": col[4],
-                        "primary_key": bool(col[5])
+                        "primary_key": bool(col[5]),
                     }
                     for col in columns
                 ]
-                
+
                 if include_statistics:
                     # Get row count
                     cursor = await db.execute(f"SELECT COUNT(*) FROM {name}")
-                    table_info["row_count"] = (await cursor.fetchone())[0] # type: ignore
-                
+                    table_info["row_count"] = (await cursor.fetchone())[0]  # type: ignore
+
                 if include_indexes:
                     # Get indexes
                     cursor = await db.execute(f"PRAGMA index_list({name})")
                     indexes = await cursor.fetchall()
                     table_info["indexes"] = [
-                        {
-                            "name": idx[1],
-                            "unique": bool(idx[2]),
-                            "origin": idx[3]
-                        }
+                        {"name": idx[1], "unique": bool(idx[2]), "origin": idx[3]}
                         for idx in indexes
                     ]
-                
+
                 if include_relationships:
                     # Get foreign keys
                     cursor = await db.execute(f"PRAGMA foreign_key_list({name})")
@@ -498,13 +556,13 @@ class DatabaseToolsMixin(BaseToolsMixin):
                         {
                             "column": fk[3],
                             "references_table": fk[2],
-                            "references_column": fk[4]
+                            "references_column": fk[4],
                         }
                         for fk in foreign_keys
                     ]
-                
+
                 schema_info["tables"][name] = table_info
-            
+
             return schema_info
 
     async def _get_detailed_table_info(
@@ -512,23 +570,20 @@ class DatabaseToolsMixin(BaseToolsMixin):
         db_path: str,
         table_name: str,
         include_sample_data: bool = False,
-        include_relationships: bool = True
+        include_relationships: bool = True,
     ) -> Dict[str, Any]:
         """Get detailed information about a specific table."""
         async with aiosqlite.connect(db_path) as db:
-            table_info = {
-                "table_name": table_name,
-                "generated_at": time.time()
-            }
-            
+            table_info = {"table_name": table_name, "generated_at": time.time()}
+
             # Verify table exists
             cursor = await db.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                (table_name,)
+                (table_name,),
             )
             if not await cursor.fetchone():
                 raise ValueError(f"Table '{table_name}' does not exist")
-            
+
             # Get column information with detailed types
             cursor = await db.execute(f"PRAGMA table_info({table_name})")
             columns = await cursor.fetchall()
@@ -539,31 +594,27 @@ class DatabaseToolsMixin(BaseToolsMixin):
                     "type": col[2],
                     "not_null": bool(col[3]),
                     "default_value": col[4],
-                    "primary_key": bool(col[5])
+                    "primary_key": bool(col[5]),
                 }
                 for col in columns
             ]
-            
+
             # Get table statistics
             cursor = await db.execute(f"SELECT COUNT(*) FROM {table_name}")
-            table_info["row_count"] = (await cursor.fetchone())[0] # type: ignore
-            
+            table_info["row_count"] = (await cursor.fetchone())[0]  # type: ignore
+
             # Get indexes
             cursor = await db.execute(f"PRAGMA index_list({table_name})")
             indexes = await cursor.fetchall()
             table_info["indexes"] = []
             for idx in indexes:
-                index_info = {
-                    "name": idx[1],
-                    "unique": bool(idx[2]),
-                    "origin": idx[3]
-                }
+                index_info = {"name": idx[1], "unique": bool(idx[2]), "origin": idx[3]}
                 # Get index columns
                 cursor = await db.execute(f"PRAGMA index_info({idx[1]})")
                 index_columns = await cursor.fetchall()
                 index_info["columns"] = [col[2] for col in index_columns]
                 table_info["indexes"].append(index_info)
-            
+
             if include_relationships:
                 # Get foreign keys
                 cursor = await db.execute(f"PRAGMA foreign_key_list({table_name})")
@@ -577,42 +628,44 @@ class DatabaseToolsMixin(BaseToolsMixin):
                         "to": fk[4],
                         "on_update": fk[5],
                         "on_delete": fk[6],
-                        "match": fk[7]
+                        "match": fk[7],
                     }
                     for fk in foreign_keys
                 ]
-                
+
                 # Find tables that reference this table
                 cursor = await db.execute(
                     """SELECT name FROM sqlite_master WHERE type='table'"""
                 )
                 all_tables = [row[0] for row in await cursor.fetchall()]
-                
+
                 referencing_tables = []
                 for other_table in all_tables:
                     cursor = await db.execute(f"PRAGMA foreign_key_list({other_table})")
                     fks = await cursor.fetchall()
                     for fk in fks:
                         if fk[2] == table_name:  # references our table
-                            referencing_tables.append({
-                                "table": other_table,
-                                "column": fk[3],
-                                "references_column": fk[4]
-                            })
-                
+                            referencing_tables.append(
+                                {
+                                    "table": other_table,
+                                    "column": fk[3],
+                                    "references_column": fk[4],
+                                }
+                            )
+
                 table_info["referenced_by"] = referencing_tables
-            
+
             if include_sample_data and table_info["row_count"] > 0:
                 # Get sample data (first 5 rows)
                 cursor = await db.execute(f"SELECT * FROM {table_name} LIMIT 5")
                 sample_rows = await cursor.fetchall()
                 column_names = [desc[0] for desc in cursor.description]
-                
+
                 table_info["sample_data"] = {
                     "columns": column_names,
-                    "rows": [list(row) for row in sample_rows]
+                    "rows": [list(row) for row in sample_rows],
                 }
-            
+
             return table_info
 
     async def _get_enhanced_statistics(
@@ -620,11 +673,11 @@ class DatabaseToolsMixin(BaseToolsMixin):
         db_path: str,
         include_table_stats: bool = True,
         include_version_stats: bool = True,
-        include_performance_stats: bool = True
+        include_performance_stats: bool = True,
     ) -> Dict[str, Any]:
         """Get enhanced database statistics."""
         stats = {}
-        
+
         async with aiosqlite.connect(db_path) as db:
             if include_table_stats:
                 # Get detailed table statistics
@@ -632,15 +685,15 @@ class DatabaseToolsMixin(BaseToolsMixin):
                     "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
                 )
                 table_names = [row[0] for row in await cursor.fetchall()]
-                
+
                 table_stats = {}
                 for table_name in table_names:
                     cursor = await db.execute(f"SELECT COUNT(*) FROM {table_name}")
-                    row_count = (await cursor.fetchone())[0] # type: ignore
+                    row_count = (await cursor.fetchone())[0]  # type: ignore
                     table_stats[table_name] = {"row_count": row_count}
-                
+
                 stats["detailed_table_statistics"] = table_stats
-            
+
             if include_version_stats:
                 # Enhanced version statistics
                 cursor = await db.execute(
@@ -654,23 +707,23 @@ class DatabaseToolsMixin(BaseToolsMixin):
                 )
                 version_stats = await cursor.fetchone()
                 stats["enhanced_version_statistics"] = {
-                    "unique_versions": version_stats[0], # type: ignore
-                    "environments_with_versions": version_stats[1],# type: ignore
-                    "average_reference_count": round(version_stats[2] or 0, 2),# type: ignore
-                    "most_recent_use": version_stats[3]# type: ignore
+                    "unique_versions": version_stats[0],  # type: ignore
+                    "environments_with_versions": version_stats[1],  # type: ignore
+                    "average_reference_count": round(version_stats[2] or 0, 2),  # type: ignore
+                    "most_recent_use": version_stats[3],  # type: ignore
                 }
-            
+
             if include_performance_stats:
                 # Database performance statistics
                 cursor = await db.execute("PRAGMA page_count")
-                page_count = (await cursor.fetchone())[0]# type: ignore
-                
+                page_count = (await cursor.fetchone())[0]  # type: ignore
+
                 cursor = await db.execute("PRAGMA page_size")
-                page_size = (await cursor.fetchone())[0]# type: ignore
-                
+                page_size = (await cursor.fetchone())[0]  # type: ignore
+
                 cursor = await db.execute("PRAGMA freelist_count")
-                freelist_count = (await cursor.fetchone())[0]# type: ignore
-                
+                freelist_count = (await cursor.fetchone())[0]  # type: ignore
+
                 stats["performance_statistics"] = {
                     "total_pages": page_count,
                     "page_size_bytes": page_size,
@@ -678,8 +731,13 @@ class DatabaseToolsMixin(BaseToolsMixin):
                     "free_pages": freelist_count,
                     "utilized_pages": page_count - freelist_count,
                     "space_utilization_percent": round(
-                        ((page_count - freelist_count) / page_count * 100) if page_count > 0 else 0, 2
-                    )
+                        (
+                            ((page_count - freelist_count) / page_count * 100)
+                            if page_count > 0
+                            else 0
+                        ),
+                        2,
+                    ),
                 }
-        
+
         return stats

@@ -1,6 +1,7 @@
 """Main F&O client implementation."""
 
 import asyncio
+import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -20,6 +21,8 @@ from .models import (
     DataEntityInfo,
     EnumerationInfo,
     FOClientConfig,
+    JsonServiceRequest,
+    JsonServiceResponse,
     PublicEntityInfo,
     QueryOptions,
 )
@@ -161,7 +164,7 @@ class FOClient:
                 f"Starting background metadata sync for version {global_version_id}"
             )
 
-            self.sync_session_manager.start_sync_session(
+            await self.sync_session_manager.start_sync_session(
                 global_version_id=global_version_id, initiated_by="background_task"
             )
 
@@ -367,14 +370,15 @@ class FOClient:
             if result.success:
                 self.logger.info(
                     f"Metadata sync completed: "
-                    f"{result.entity_count} entities, "
-                    f"{result.enumeration_count} enumerations, "
-                    f"{result.action_count} actions, "
+                    f"{result.entities_synced} entities, "
+                    f"{result.enumerations_synced} enumerations, "
+                    f"{result.actions_synced} actions, "
                     f"{result.duration_ms:.2f}ms"
                 )
                 return True
             else:
-                self.logger.error(f"Metadata sync failed: {result.error}")
+                error_msg = result.errors[0] if result.errors else "Unknown error"
+                self.logger.error(f"Metadata sync failed: {error_msg}")
                 return False
 
         except Exception as e:
@@ -538,36 +542,65 @@ class FOClient:
     # CRUD Operations
 
     async def get_entities(
-        self, entity_name: str, options: Optional[QueryOptions] = None
+        self,
+        entity_name: str,
+        options: Optional[QueryOptions] = None,
+        skip_validation: bool = False,
     ) -> Dict[str, Any]:
         """Get entities with OData query options
 
         Args:
             entity_name: Name of the entity set
             options: OData query options
+            skip_validation: Skip schema validation for performance
 
         Returns:
             Response containing entities
         """
-        return await self.crud_ops.get_entities(entity_name, options)
+        entity_schema = None
+        if not skip_validation:
+            entity_schema = await self.get_public_entity_schema_by_entityset(
+                entity_name
+            )
+            if not entity_schema:
+                raise FOClientError(
+                    f"Entity '{entity_name}' not found or not accessible for OData operations"
+                )
+
+        return await self.crud_ops.get_entities(entity_name, options, entity_schema)
 
     async def get_entity(
         self,
         entity_name: str,
         key: Union[str, Dict[str, Any]],
         options: Optional[QueryOptions] = None,
+        skip_validation: bool = False,
     ) -> Dict[str, Any]:
-        """Get single entity by key
+        """Get single entity by key with schema validation
 
         Args:
-            entity_name: Name of the entity set
+            entity_name: Name of the entity set (entityset/collection name)
             key: Entity key value (string for simple keys, dict for composite keys)
             options: OData query options
+            skip_validation: Skip schema validation for performance (batch operations)
 
         Returns:
             Entity data
+
+        Raises:
+            FOClientError: If entity not found or not accessible
         """
-        return await self.crud_ops.get_entity(entity_name, key, options)
+        entity_schema = None
+        if not skip_validation:
+            entity_schema = await self.get_public_entity_schema_by_entityset(
+                entity_name
+            )
+            if not entity_schema:
+                raise FOClientError(
+                    f"Entity '{entity_name}' not found or not accessible for OData operations"
+                )
+
+        return await self.crud_ops.get_entity(entity_name, key, options, entity_schema)
 
     async def get_entity_by_key(
         self,
@@ -575,6 +608,7 @@ class FOClient:
         key: Union[str, Dict[str, Any]],
         select: Optional[List[str]] = None,
         expand: Optional[List[str]] = None,
+        skip_validation: bool = False,
     ) -> Optional[Dict[str, Any]]:
         """Get single entity by key with optional field selection and expansion
 
@@ -583,6 +617,7 @@ class FOClient:
             key: Entity key value (string for simple keys, dict for composite keys)
             select: Optional list of fields to select
             expand: Optional list of navigation properties to expand
+            skip_validation: Skip schema validation for performance
 
         Returns:
             Entity data or None if not found
@@ -591,7 +626,7 @@ class FOClient:
             options = (
                 QueryOptions(select=select, expand=expand) if select or expand else None
             )
-            return await self.crud_ops.get_entity(entity_name, key, options)
+            return await self.get_entity(entity_name, key, options, skip_validation)
         except Exception as e:
             # If the entity is not found, return None instead of raising exception
             if "404" in str(e):
@@ -599,18 +634,36 @@ class FOClient:
             raise
 
     async def create_entity(
-        self, entity_name: str, data: Dict[str, Any]
+        self, entity_name: str, data: Dict[str, Any], skip_validation: bool = False
     ) -> Dict[str, Any]:
-        """Create new entity
+        """Create new entity with schema validation
 
         Args:
             entity_name: Name of the entity set
             data: Entity data to create
+            skip_validation: Skip schema validation for performance (batch operations)
 
         Returns:
             Created entity data
+
+        Raises:
+            FOClientError: If entity not found, read-only, or validation fails
         """
-        return await self.crud_ops.create_entity(entity_name, data)
+        entity_schema = None
+        if not skip_validation:
+            entity_schema = await self.get_public_entity_schema_by_entityset(
+                entity_name
+            )
+            if not entity_schema:
+                raise FOClientError(
+                    f"Entity '{entity_name}' not found or not accessible for OData operations"
+                )
+            if entity_schema.is_read_only:
+                raise FOClientError(
+                    f"Entity '{entity_name}' is read-only and cannot accept create operations"
+                )
+
+        return await self.crud_ops.create_entity(entity_name, data, entity_schema)
 
     async def update_entity(
         self,
@@ -618,33 +671,75 @@ class FOClient:
         key: Union[str, Dict[str, Any]],
         data: Dict[str, Any],
         method: str = "PATCH",
+        skip_validation: bool = False,
     ) -> Dict[str, Any]:
-        """Update existing entity
+        """Update existing entity with schema validation
 
         Args:
             entity_name: Name of the entity set
             key: Entity key value (string for simple keys, dict for composite keys)
             data: Updated entity data
             method: HTTP method (PATCH or PUT)
+            skip_validation: Skip schema validation for performance (batch operations)
 
         Returns:
             Updated entity data
+
+        Raises:
+            FOClientError: If entity not found, read-only, or validation fails
         """
-        return await self.crud_ops.update_entity(entity_name, key, data, method)
+        entity_schema = None
+        if not skip_validation:
+            entity_schema = await self.get_public_entity_schema_by_entityset(
+                entity_name
+            )
+            if not entity_schema:
+                raise FOClientError(
+                    f"Entity '{entity_name}' not found or not accessible for OData operations"
+                )
+            if entity_schema.is_read_only:
+                raise FOClientError(
+                    f"Entity '{entity_name}' is read-only and cannot accept update operations"
+                )
+
+        return await self.crud_ops.update_entity(
+            entity_name, key, data, method, entity_schema
+        )
 
     async def delete_entity(
-        self, entity_name: str, key: Union[str, Dict[str, Any]]
+        self,
+        entity_name: str,
+        key: Union[str, Dict[str, Any]],
+        skip_validation: bool = False,
     ) -> bool:
-        """Delete entity
+        """Delete entity with schema validation
 
         Args:
             entity_name: Name of the entity set
             key: Entity key value (string for simple keys, dict for composite keys)
+            skip_validation: Skip schema validation for performance (batch operations)
 
         Returns:
             True if successful
+
+        Raises:
+            FOClientError: If entity not found, read-only, or validation fails
         """
-        return await self.crud_ops.delete_entity(entity_name, key)
+        entity_schema = None
+        if not skip_validation:
+            entity_schema = await self.get_public_entity_schema_by_entityset(
+                entity_name
+            )
+            if not entity_schema:
+                raise FOClientError(
+                    f"Entity '{entity_name}' not found or not accessible for OData operations"
+                )
+            if entity_schema.is_read_only:
+                raise FOClientError(
+                    f"Entity '{entity_name}' is read-only and cannot accept delete operations"
+                )
+
+        return await self.crud_ops.delete_entity(entity_name, key, entity_schema)
 
     async def call_action(
         self,
@@ -652,6 +747,7 @@ class FOClient:
         parameters: Optional[Dict[str, Any]] = None,
         entity_name: Optional[str] = None,
         entity_key: Optional[Union[str, Dict[str, Any]]] = None,
+        skip_validation: bool = False,
     ) -> Any:
         """Call OData action method
 
@@ -660,12 +756,23 @@ class FOClient:
             parameters: Action parameters
             entity_name: Entity name for bound actions
             entity_key: Entity key for bound actions (string for simple keys, dict for composite keys)
+            skip_validation: Skip schema validation for performance
 
         Returns:
             Action result
         """
+        entity_schema = None
+        if not skip_validation and entity_name:
+            entity_schema = await self.get_public_entity_schema_by_entityset(
+                entity_name
+            )
+            if not entity_schema:
+                raise FOClientError(
+                    f"Entity '{entity_name}' not found or not accessible for OData operations"
+                )
+
         return await self.crud_ops.call_action(
-            action_name, parameters, entity_name, entity_key
+            action_name, parameters, entity_name, entity_key, entity_schema
         )
 
     # Label Operations
@@ -1252,18 +1359,445 @@ class FOClient:
 
     # Application Version Operations
 
-    async def get_entity_schema(self, entity_name: str) -> Optional[PublicEntityInfo]:
-        """Get entity schema - compatibility method for SmartSyncManagerV2
+    async def post_json_service(
+        self,
+        service_group: str,
+        service_name: str,
+        operation_name: str,
+        parameters: Optional[Dict[str, Any]] = None,
+    ) -> JsonServiceResponse:
+        """Call D365 F&O JSON service endpoint using POST method
+
+        This method provides a generic way to call D365 F&O JSON services that use the
+        /api/services/{ServiceGroup}/{ServiceName}/{OperationName} endpoint pattern.
+
+        Args:
+            service_group: Service group name (e.g., "SysSqlDiagnosticService")
+            service_name: Service name (e.g., "SysSqlDiagnosticServiceOperations")
+            operation_name: Operation name (e.g., "GetAxSqlExecuting")
+            parameters: Optional parameters to send in the POST body
+
+        Returns:
+            JsonServiceResponse containing the result data and metadata
+
+        Raises:
+            FOClientError: If the service call fails
+
+        Example:
+            # Call a service without parameters
+            response = await client.post_json_service(
+                "SysSqlDiagnosticService",
+                "SysSqlDiagnosticServiceOperations",
+                "GetAxSqlExecuting"
+            )
+
+            # Call a service with parameters
+            response = await client.post_json_service(
+                "SysSqlDiagnosticService",
+                "SysSqlDiagnosticServiceOperations",
+                "GetAxSqlResourceStats",
+                {
+                    "start": "2023-01-01T00:00:00Z",
+                    "end": "2023-01-02T00:00:00Z"
+                }
+            )
+        """
+        try:
+            # Create service request
+            request = JsonServiceRequest(
+                service_group=service_group,
+                service_name=service_name,
+                operation_name=operation_name,
+                parameters=parameters,
+            )
+
+            # Get the endpoint path
+            endpoint_path = request.get_endpoint_path()
+            url = f"{self.config.base_url.rstrip('/')}{endpoint_path}"
+
+            # Get session and make request
+            session = await self.session_manager.get_session()
+
+            # Prepare headers
+            headers = {"Content-Type": "application/json"}
+
+            # Prepare request body
+            body = parameters or {}
+
+            async with session.post(url, json=body, headers=headers) as response:
+                status_code = response.status
+
+                # Handle success cases
+                if status_code in [200, 201]:
+                    try:
+                        content_type = response.headers.get("content-type", "")
+                        if "application/json" in content_type:
+                            data = await response.json()
+                        else:
+                            data = await response.text()
+
+                        return JsonServiceResponse(
+                            success=True,
+                            data=data,
+                            status_code=status_code,
+                        )
+                    except Exception as parse_error:
+                        # If we can't parse the response, still return success with raw text
+                        text_data = await response.text()
+                        return JsonServiceResponse(
+                            success=True,
+                            data=text_data,
+                            status_code=status_code,
+                            error_message=f"Response parsing warning: {parse_error}",
+                        )
+
+                # Handle error cases
+                else:
+                    error_text = await response.text()
+                    return JsonServiceResponse(
+                        success=False,
+                        data=None,
+                        status_code=status_code,
+                        error_message=f"HTTP {status_code}: {error_text}",
+                    )
+
+        except Exception as e:
+            # Handle network errors and other exceptions
+            return JsonServiceResponse(
+                success=False,
+                data=None,
+                status_code=0,
+                error_message=f"Request failed: {e}",
+            )
+
+    async def call_json_service(
+        self,
+        request: JsonServiceRequest,
+    ) -> JsonServiceResponse:
+        """Call D365 F&O JSON service using a JsonServiceRequest object
+
+        This is an alternative interface to post_json_service that accepts a request object.
+
+        Args:
+            request: JsonServiceRequest containing service details and parameters
+
+        Returns:
+            JsonServiceResponse containing the result data and metadata
+
+        Example:
+            request = JsonServiceRequest(
+                service_group="SysSqlDiagnosticService",
+                service_name="SysSqlDiagnosticServiceOperations",
+                operation_name="GetAxSqlExecuting"
+            )
+            response = await client.call_json_service(request)
+        """
+        return await self.post_json_service(
+            request.service_group,
+            request.service_name,
+            request.operation_name,
+            request.parameters,
+        )
+
+    async def get_public_entity_schema_by_entityset(
+        self, entityset_name: str, use_cache_first: Optional[bool] = True
+    ) -> Optional[PublicEntityInfo]:
+        """Get public entity schema by entityset name (public collection name).
+
+        This method resolves the entityset name to the actual public entity name
+        and retrieves the full schema with cache-first optimization.
+
+        Args:
+            entityset_name: Public collection name or entity set name
+                           (e.g., "CustomersV3", "SalesOrders", "DataManagementEntities")
+            use_cache_first: Use metadata cache before F&O API (default: True)
+
+        Returns:
+            PublicEntityInfo with full schema, or None if entity not found
+
+        Resolution Logic:
+            1. Try direct lookup in public entities (entityset_name == entity name)
+            2. Search data entities for public_collection_name match
+            3. Resolve to public_entity_name and fetch schema
+            4. Use cache-first pattern for all lookups
+        """
+
+        async def cache_lookup():
+            if not self.metadata_cache:
+                return None
+
+            # Try direct public entity lookup first (entityset_name might be the entity name)
+            entity_schema = await self.metadata_cache.get_public_entity_schema(
+                entityset_name
+            )
+            if entity_schema:
+                self.logger.debug(
+                    f"Found entity schema directly for '{entityset_name}'"
+                )
+                return entity_schema
+
+            # Try resolving via data entity metadata
+            # Search for entities matching the entityset name
+            data_entities = await self.metadata_cache.get_data_entities(
+                name_pattern=entityset_name
+            )
+
+            for data_entity in data_entities:
+                # Check if public_collection_name matches
+                if data_entity.public_collection_name == entityset_name:
+                    self.logger.debug(
+                        f"Resolved '{entityset_name}' to entity '{data_entity.public_entity_name or data_entity.name}'"
+                    )
+                    # Found match - get schema by public_entity_name
+                    return await self.metadata_cache.get_public_entity_schema(
+                        data_entity.public_entity_name or data_entity.name
+                    )
+
+                # Also check if entity name matches (for direct name usage)
+                if data_entity.name == entityset_name:
+                    self.logger.debug(f"Found entity by name '{entityset_name}'")
+                    return await self.metadata_cache.get_public_entity_schema(
+                        data_entity.public_entity_name or data_entity.name
+                    )
+
+                # Check if public_entity_name matches
+                if data_entity.public_entity_name == entityset_name:
+                    self.logger.debug(
+                        f"Found entity by public_entity_name '{entityset_name}'"
+                    )
+                    return await self.metadata_cache.get_public_entity_schema(
+                        entityset_name
+                    )
+
+            return None
+
+        async def fallback_lookup():
+            # Try direct public entity lookup first
+            try:
+                entity_schema = await self.metadata_api_ops.get_public_entity_info(
+                    entityset_name, resolve_labels=False
+                )
+                if entity_schema:
+                    self.logger.debug(
+                        f"Found entity schema via API for '{entityset_name}'"
+                    )
+                    return entity_schema
+            except Exception as e:
+                self.logger.debug(
+                    f"Direct API lookup failed for '{entityset_name}': {e}"
+                )
+
+            # Search data entities to find the mapping
+            try:
+                data_entities = await self.metadata_api_ops.search_data_entities("")
+
+                for data_entity in data_entities:
+                    # Check if public_collection_name matches
+                    if data_entity.public_collection_name == entityset_name:
+                        self.logger.debug(
+                            f"Resolved '{entityset_name}' to entity '{data_entity.public_entity_name or data_entity.name}' via API"
+                        )
+                        # Found match - get schema by public_entity_name
+                        return await self.metadata_api_ops.get_public_entity_info(
+                            data_entity.public_entity_name or data_entity.name,
+                            resolve_labels=False,
+                        )
+
+                    # Also check if entity name matches
+                    if data_entity.name == entityset_name:
+                        return await self.metadata_api_ops.get_public_entity_info(
+                            data_entity.public_entity_name or data_entity.name,
+                            resolve_labels=False,
+                        )
+
+                    # Check if public_entity_name matches
+                    if data_entity.public_entity_name == entityset_name:
+                        return await self.metadata_api_ops.get_public_entity_info(
+                            entityset_name, resolve_labels=False
+                        )
+            except Exception as e:
+                self.logger.debug(
+                    f"Data entity search failed for '{entityset_name}': {e}"
+                )
+
+            return None
+
+        return await self._get_from_cache_first(
+            cache_lookup,
+            fallback_lookup,
+            use_cache_first=use_cache_first,
+        )
+
+    async def get_entity_schema(
+        self, entity_name: str, use_cache_first: Optional[bool] = True
+    ) -> Optional[PublicEntityInfo]:
+        """Get entity schema with cache-first optimization.
+
+        This is an enhanced version that uses the cache-first pattern for better performance.
 
         Args:
             entity_name: Name of the public entity
+            use_cache_first: Use metadata cache before F&O API (default: True)
 
         Returns:
             PublicEntityInfo object with schema details or None if not found
         """
-        return await self.metadata_api_ops.get_public_entity_info(
-            entity_name, resolve_labels=False
+        return await self.get_public_entity_info(
+            entity_name, resolve_labels=False, use_cache_first=use_cache_first
         )
+
+    async def download_srs_report(
+        self,
+        document_id: str,
+        legal_entity: str,
+        controller_name: str = "SalesInvoiceController",
+        data_table: str = "CustInvoiceJour",
+        data_field: str = "InvoiceId",
+        document_type: str = "SalesInvoice",
+        save_path: Optional[Union[str, Path]] = None,
+    ) -> str:
+        """Download SRS report as PDF from D365 F&O
+
+        This method downloads SQL Server Reporting Services (SSRS/SRS) reports from D365 F&O
+        by calling the RunCopilotReport action on the SrsFinanceCopilots entity. The report
+        is returned as base64-encoded PDF data which is decoded and saved to the specified path.
+
+        Args:
+            document_id: The ID/key of the document to download (e.g., invoice number, order ID)
+            legal_entity: The legal entity/company code (DataAreaId) for the document
+            controller_name: The SSRS controller class name. Common controllers:
+                - SalesInvoiceController: Customer invoices (CustInvoiceJour)
+                - FreeTextInvoiceController: Free text invoices (CustInvoiceJour)
+                - CustDebitCreditNoteController: Debit/Credit notes (CustInvoiceJour)
+                - SalesConfirmController: Sales confirmations (CustConfirmJour)
+                - PurchPurchaseOrderController: Purchase orders (VendPurchOrderJour)
+            data_table: The table name containing the document record
+            data_field: The field name that stores the document ID in the table
+            document_type: Human-readable document type for filename generation
+            save_path: Full path where PDF should be saved. If None, saves to ./Reports directory
+                      with auto-generated filename. Can be Path object or string.
+
+        Returns:
+            str: Absolute path to the saved PDF file
+
+        Raises:
+            FOClientError: If report generation fails, no PDF data returned, or file save fails
+            ValueError: If required parameters are missing or invalid
+
+        Example:
+            # Download customer invoice
+            path = await client.download_srs_report(
+                document_id="CIV-000708",
+                legal_entity="USMF",
+                controller_name="SalesInvoiceController",
+                data_table="CustInvoiceJour",
+                data_field="InvoiceId",
+                document_type="CustomerInvoice",
+                save_path="/reports/invoices/CIV-000708.pdf"
+            )
+
+            # Download with auto-generated filename
+            path = await client.download_srs_report(
+                document_id="FTI-00000021",
+                legal_entity="USMF",
+                controller_name="FreeTextInvoiceController"
+            )
+        """
+        import base64
+        from datetime import datetime
+
+        # Validate required parameters
+        if not document_id or not legal_entity:
+            raise ValueError(
+                f"document_id and legal_entity are required. "
+                f"Got document_id='{document_id}', legal_entity='{legal_entity}'"
+            )
+
+        # Determine save path
+        if save_path:
+            save_file = Path(save_path)
+            # Ensure parent directory exists
+            save_file.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            # Auto-generate filename in ~/Reports directory
+            save_directory = Path.home() / "Reports"
+            save_directory.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{document_type}_{document_id}_{legal_entity}_{timestamp}.pdf"
+            save_file = save_directory / filename
+
+        try:
+            # Build controller args
+            controller_args = {
+                "DataTableName": data_table,
+                "DataTableFieldName": data_field,
+                "DataTableFieldValue": document_id,
+            }
+
+            # Build action parameters
+            parameters = {
+                "_contractName": "SrsCopilotArgsContract",
+                "_controllerArgsJson": json.dumps(controller_args),
+                "_controllerName": controller_name,
+                "_legalEntityName": legal_entity,
+                "_reportParameterJson": "{}",
+            }
+
+            self.logger.info(
+                f"Downloading SRS report: {document_type} '{document_id}' "
+                f"for legal entity '{legal_entity}'"
+            )
+
+            # Call the action
+            result = await self.call_action(
+                action_name="RunCopilotReport",
+                parameters=parameters,
+                entity_name="SrsFinanceCopilots",
+            )
+
+            # Extract base64 PDF data from response
+            # Response structure: {"result": {"value": "base64data..."}} or {"Result": {"Value": "..."}}
+            base64_data = None
+            if isinstance(result, dict):
+                # Try standard case
+                result_obj = result.get("result") or result.get("Result")
+                if isinstance(result_obj, dict):
+                    base64_data = result_obj.get("value") or result_obj.get("Value")
+                # Fallback: check if value is at root
+                if base64_data is None:
+                    base64_data = result.get("value") or result.get("Value")
+
+            if not base64_data:
+                raise FOClientError(
+                    f"No PDF content returned from SRS report generation for document '{document_id}'. "
+                    f"The report may not exist or the document ID may be invalid."
+                )
+
+            # Decode base64 to PDF bytes
+            try:
+                pdf_bytes = base64.b64decode(base64_data)
+            except Exception as e:
+                raise FOClientError(
+                    f"Failed to decode PDF data for document '{document_id}': {e}"
+                )
+
+            # Save PDF file
+            try:
+                save_file.write_bytes(pdf_bytes)
+                absolute_path = str(save_file.resolve())
+                self.logger.info(f"SRS report saved successfully: {absolute_path}")
+                return absolute_path
+            except Exception as e:
+                raise FOClientError(f"Failed to save PDF file to '{save_file}': {e}")
+
+        except FOClientError:
+            # Re-raise FOClientError as-is
+            raise
+        except Exception as e:
+            # Wrap other exceptions
+            raise FOClientError(
+                f"Failed to download SRS report for document '{document_id}': {e}"
+            )
 
     async def get_application_version(self) -> str:
         """Get the current application version of the D365 F&O environment

@@ -9,18 +9,22 @@ import os
 import sys
 from pathlib import Path
 from typing import Literal, Optional
+
+from mcp.server.auth.settings import AuthSettings, ClientRegistrationOptions
 from mcp.server.fastmcp import FastMCP
 from pydantic import AnyHttpUrl, AnyUrl
 
 from d365fo_client import __version__
-from d365fo_client.mcp.auth_server.auth.providers.azure import AzureProvider
 from d365fo_client.mcp import FastD365FOMCPServer
-from d365fo_client.mcp.fastmcp_utils import create_default_profile_if_needed, load_default_config, migrate_legacy_config
+from d365fo_client.mcp.auth_server.auth.providers.apikey import APIKeyVerifier
+from d365fo_client.mcp.auth_server.auth.providers.azure import AzureProvider
+from d365fo_client.mcp.fastmcp_utils import (
+    create_default_profile_if_needed,
+    load_default_config,
+    migrate_legacy_config,
+)
 from d365fo_client.profile_manager import ProfileManager
 from d365fo_client.settings import get_settings
-from mcp.server.auth.settings import  AuthSettings,ClientRegistrationOptions
-from d365fo_client.mcp.auth_server.auth.providers.apikey import APIKeyVerifier
-
 
 
 def setup_logging(level: str = "INFO", log_file_path: Optional[str] = None) -> None:
@@ -40,7 +44,7 @@ def setup_logging(level: str = "INFO", log_file_path: Optional[str] = None) -> N
     else:
         # Use default log file path from settings
         settings = get_settings()
-        log_file = Path(settings.log_file) #type: ignore
+        log_file = Path(settings.log_file)  # type: ignore
         # Settings already ensures directories exist
         log_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -52,18 +56,18 @@ def setup_logging(level: str = "INFO", log_file_path: Optional[str] = None) -> N
     # Create rotating file handler - rotates every 24 hours (midnight)
     file_handler = logging.handlers.TimedRotatingFileHandler(
         filename=str(log_file),
-        when='midnight',        # Rotate at midnight
-        interval=1,             # Every 1 day
-        backupCount=30,         # Keep 30 days of logs
-        encoding='utf-8',       # Use UTF-8 encoding
-        utc=False              # Use local time for rotation
+        when="midnight",  # Rotate at midnight
+        interval=1,  # Every 1 day
+        backupCount=30,  # Keep 30 days of logs
+        encoding="utf-8",  # Use UTF-8 encoding
+        utc=False,  # Use local time for rotation
     )
     file_handler.setLevel(log_level)
-    
+
     # Create console handler
     console_handler = logging.StreamHandler(sys.stderr)
     console_handler.setLevel(log_level)
-    
+
     # Create formatter
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -126,69 +130,65 @@ Environment Variables:
   D365FO_LOG_FILE                Custom log file path (default: ~/.d365fo-mcp/logs/fastmcp-server.log)
   D365FO_META_CACHE_DIR          Metadata cache directory (default: ~/.d365fo-mcp/cache)
 
-        """
+        """,
     )
-    
+
     parser.add_argument(
-        "--version",
-        action="version", 
-        version=f"%(prog)s {__version__}"
+        "--version", action="version", version=f"%(prog)s {__version__}"
     )
-    
+
     # Get settings for defaults
     settings = get_settings()
-    
+
     parser.add_argument(
         "--transport",
         type=str,
         choices=["stdio", "sse", "http", "streamable-http"],
         default=settings.mcp_transport.value,
-        help=f"Transport protocol to use (default: {settings.mcp_transport.value}, from D365FO_MCP_TRANSPORT env var)"
+        help=f"Transport protocol to use (default: {settings.mcp_transport.value}, from D365FO_MCP_TRANSPORT env var)",
     )
-    
+
     parser.add_argument(
         "--host",
         type=str,
         default=settings.http_host,
-        help=f"Host to bind to for SSE/HTTP transports (default: {settings.http_host})"
+        help=f"Host to bind to for SSE/HTTP transports (default: {settings.http_host})",
     )
-    
+
     parser.add_argument(
         "--port",
         type=int,
         default=settings.http_port,
-        help=f"Port to bind to for SSE/HTTP transports (default: {settings.http_port})"
+        help=f"Port to bind to for SSE/HTTP transports (default: {settings.http_port})",
     )
-    
+
     parser.add_argument(
         "--stateless",
         action="store_true",
-        help="Enable stateless HTTP mode for horizontal scaling and load balancing. " +
-             "In stateless mode, each request is independent and sessions are not persisted."
+        help="Enable stateless HTTP mode for horizontal scaling and load balancing. "
+        + "In stateless mode, each request is independent and sessions are not persisted.",
     )
-    
+
     parser.add_argument(
         "--json-response",
         action="store_true",
-        help="Use JSON responses instead of SSE streams (HTTP transport only). " +
-             "Useful for API gateways and clients that prefer standard JSON responses."
+        help="Use JSON responses instead of SSE streams (HTTP transport only). "
+        + "Useful for API gateways and clients that prefer standard JSON responses.",
     )
-    
+
     parser.add_argument(
         "--debug",
         action="store_true",
-        help="Enable debug mode with verbose logging and detailed error information"
+        help="Enable debug mode with verbose logging and detailed error information",
     )
-    
+
     parser.add_argument(
         "--log-level",
         type=str,
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         default=settings.log_level.value,
-        help=f"Set logging level (default: {settings.log_level.value}, from D365FO_LOG_LEVEL env var)"
+        help=f"Set logging level (default: {settings.log_level.value}, from D365FO_LOG_LEVEL env var)",
     )
-    
-    
 
     return parser.parse_args()
 
@@ -196,7 +196,7 @@ Environment Variables:
 # Get settings first
 settings = get_settings()
 
-# Parse arguments  
+# Parse arguments
 args = parse_arguments()
 arg_transport = args.transport
 
@@ -246,14 +246,20 @@ if is_remote_transport:
     logger.info(f"Port: {transport_config.get('http', {}).get('port', 8000)}")
 
 logger.info(f"Debug mode: {server_config.get('debug', False)}")
-logger.info(f"JSON response: {transport_config.get('http', {}).get('json_response', False)}")
-logger.info(f"Stateless HTTP: {transport_config.get('http', {}).get('stateless', False)}")
+logger.info(
+    f"JSON response: {transport_config.get('http', {}).get('json_response', False)}"
+)
+logger.info(
+    f"Stateless HTTP: {transport_config.get('http', {}).get('stateless', False)}"
+)
 logger.info(f"Log level: {args.log_level}")
 logger.info(f"Config path: {config_path}")
 logger.info(f"D365FO Base URL: {default_fo.get('base_url', settings.base_url)}")
 logger.info(f"Settings Base URL: {settings.base_url}")
 logger.info(f"Startup Mode: {settings.get_startup_mode()}")
-logger.info(f"Client Credentials: {'Configured' if settings.has_client_credentials() else 'Not configured'}")
+logger.info(
+    f"Client Credentials: {'Configured' if settings.has_client_credentials() else 'Not configured'}"
+)
 logger.info("====================================")
 
 # Validate authentication for remote transports
@@ -278,7 +284,7 @@ if is_remote_transport:
         logger.warning(
             "Both OAuth and API Key authentication configured. "
             "Using OAuth (takes precedence)."
-        )    
+        )
 
 # Initialize authentication provider
 auth_provider: AzureProvider | APIKeyVerifier | None = None  # type: ignore
@@ -307,7 +313,7 @@ if is_remote_transport:
             base_url=settings.mcp_auth_base_url,
             required_scopes=required_scopes or ["User.Read"],  # type: ignore
             redirect_path="/auth/callback",
-            clients_storage_path=config_path or ...
+            clients_storage_path=config_path or ...,
         )
 
         auth = AuthSettings(
@@ -334,14 +340,18 @@ if is_remote_transport:
 
         # For API Key authentication
         auth = AuthSettings(
-            issuer_url=AnyHttpUrl(settings.mcp_auth_base_url) if settings.mcp_auth_base_url else AnyHttpUrl("http://localhost"),
-            resource_server_url=None
+            issuer_url=(
+                AnyHttpUrl(settings.mcp_auth_base_url)
+                if settings.mcp_auth_base_url
+                else AnyHttpUrl("http://localhost")
+            ),
+            resource_server_url=None,
         )
 
 # Initialize FastMCP server with configuration
 mcp = FastMCP(
     name=server_config.get("name", "d365fo-mcp-server"),
-    auth_server_provider=auth_provider if isinstance(auth_provider, AzureProvider) else None,# type: ignore
+    auth_server_provider=auth_provider if isinstance(auth_provider, AzureProvider) else None,  # type: ignore
     token_verifier=auth_provider if isinstance(auth_provider, APIKeyVerifier) else None,
     auth=auth,
     instructions=server_config.get(
@@ -353,9 +363,8 @@ mcp = FastMCP(
     debug=server_config.get("debug", False),
     json_response=transport_config.get("http", {}).get("json_response", False),
     stateless_http=transport_config.get("http", {}).get("stateless", False),
-    streamable_http_path= "/" if transport == "streamable-http" else "/mcp",
+    streamable_http_path="/" if transport == "streamable-http" else "/mcp",
     sse_path="/" if transport == "streamable-http" else "/sse",
-
 )
 
 # Add OAuth callback route only for Azure OAuth provider
@@ -363,9 +372,10 @@ if is_remote_transport and isinstance(auth_provider, AzureProvider):
     from starlette.requests import Request
     from starlette.responses import RedirectResponse
 
-    @mcp.custom_route(path=auth_provider._redirect_path, methods=["GET"]) # type: ignore
+    @mcp.custom_route(path=auth_provider._redirect_path, methods=["GET"])  # type: ignore
     async def handle_idp_callback(request: Request) -> RedirectResponse:
-        return await auth_provider._handle_idp_callback(request) # type: ignore
+        return await auth_provider._handle_idp_callback(request)  # type: ignore
+
 
 # Initialize FastD365FOMCPServer
 server = FastD365FOMCPServer(mcp, config, profile_manager=profile_manager)
@@ -382,7 +392,9 @@ if is_remote_transport:
         logger.info("  Authorization: Bearer <your-api-key>")
         logger.info("")
         logger.info("Example:")
-        logger.info(f"  curl -H 'Authorization: Bearer YOUR_KEY' http://localhost:{transport_config.get('http', {}).get('port', 8000)}/")
+        logger.info(
+            f"  curl -H 'Authorization: Bearer YOUR_KEY' http://localhost:{transport_config.get('http', {}).get('port', 8000)}/"
+        )
         logger.info("=" * 60)
 
 logger.info("FastD365FOMCPServer initialized successfully")
@@ -402,6 +414,7 @@ def main() -> None:
         logger.error(f"Fatal error: {e}", exc_info=True)
         print(f"Fatal error: {e}", file=sys.stderr)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
