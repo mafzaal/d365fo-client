@@ -18,7 +18,7 @@ __all__ = [
     "CrudToolsMixin",
     "DatabaseToolsMixin",
     "DatabaseQuerySafetyError",
-    'DmfToolsMixin',
+    "DmfToolsMixin",
     "LabelToolsMixin",
     "MetadataToolsMixin",
     "PerformanceToolsMixin",
