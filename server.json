@@ -9,13 +9,13 @@
     "url": "https://github.com/mafzaal/d365fo-client",
     "source": "github"
   },
-  "version": "0.3.6",
+  "version": "0.3.7",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "d365fo-client",
       "runtimeHint": "uvx",
-      "version": "0.3.6",
+      "version": "0.3.7",
       "transport": {
         "type": "stdio"
       },

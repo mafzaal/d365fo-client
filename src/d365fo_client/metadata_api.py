@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from d365fo_client.crud import CrudOperations
 
+from .exceptions import MetadataError
 from .labels import LabelOperations
 from .models import (
     ActionInfo,
@@ -29,7 +30,7 @@ from .models import (
     RelatedFixedConstraintInfo,
 )
 from .query import QueryBuilder
-from .session import SessionManager
+from .session import SessionManager, _parse_server_timing
 
 logger = logging.getLogger(__name__)
 
@@ -258,17 +259,27 @@ class MetadataAPIOperations:
             List of DataEntityInfo objects
         """
         session = await self.session_manager.get_session()
+        tracing = self.session_manager.get_tracing_headers()
         url = f"{self.metadata_url}/DataEntities"
 
         params = QueryBuilder.build_query_params(options)
 
-        async with session.get(url, params=params) as response:
+        async with session.get(url, params=params, headers=tracing) as response:
+            activity_id = response.headers.get("ms-dyn-aid")
+            server_timing_ms = _parse_server_timing(response.headers.get("server-timing"))
+            if activity_id or server_timing_ms is not None:
+                logger.debug("GET DataEntities: x-ms-client-request-id=%s ms-dyn-aid=%s server-timing=%sms",
+                             tracing.get("x-ms-client-request-id"), activity_id or "n/a",
+                             server_timing_ms if server_timing_ms is not None else "n/a")
             if response.status == 200:
                 data = await response.json()
                 return data
             else:
-                raise Exception(
-                    f"Failed to get data entities: {response.status} - {await response.text()}"
+                raise MetadataError(
+                    f"Failed to get data entities: {response.status} - {await response.text()}",
+                    activity_id=activity_id,
+                    request_id=tracing.get("x-ms-client-request-id"),
+                    server_timing_ms=server_timing_ms,
                 )
 
     async def search_data_entities(
@@ -446,9 +457,16 @@ class MetadataAPIOperations:
         """
         try:
             session = await self.session_manager.get_session()
+            tracing = self.session_manager.get_tracing_headers()
             url = f"{self.metadata_url}/DataEntities('{entity_name}')"
 
-            async with session.get(url) as response:
+            async with session.get(url, headers=tracing) as response:
+                activity_id = response.headers.get("ms-dyn-aid")
+                server_timing_ms = _parse_server_timing(response.headers.get("server-timing"))
+                if activity_id or server_timing_ms is not None:
+                    logger.debug("GET DataEntities('%s'): x-ms-client-request-id=%s ms-dyn-aid=%s server-timing=%sms",
+                                 entity_name, tracing.get("x-ms-client-request-id"), activity_id or "n/a",
+                                 server_timing_ms if server_timing_ms is not None else "n/a")
                 if response.status == 200:
                     item = await response.json()
 
@@ -518,16 +536,26 @@ class MetadataAPIOperations:
             Response containing public entities
         """
         session = await self.session_manager.get_session()
+        tracing = self.session_manager.get_tracing_headers()
         url = f"{self.metadata_url}/PublicEntities"
 
         params = QueryBuilder.build_query_params(options)
 
-        async with session.get(url, params=params) as response:
+        async with session.get(url, params=params, headers=tracing) as response:
+            activity_id = response.headers.get("ms-dyn-aid")
+            server_timing_ms = _parse_server_timing(response.headers.get("server-timing"))
+            if activity_id or server_timing_ms is not None:
+                logger.debug("GET PublicEntities: x-ms-client-request-id=%s ms-dyn-aid=%s server-timing=%sms",
+                             tracing.get("x-ms-client-request-id"), activity_id or "n/a",
+                             server_timing_ms if server_timing_ms is not None else "n/a")
             if response.status == 200:
                 return await response.json()
             else:
-                raise Exception(
-                    f"Failed to get public entities: {response.status} - {await response.text()}"
+                raise MetadataError(
+                    f"Failed to get public entities: {response.status} - {await response.text()}",
+                    activity_id=activity_id,
+                    request_id=tracing.get("x-ms-client-request-id"),
+                    server_timing_ms=server_timing_ms,
                 )
 
     async def get_all_public_entities_with_details(
@@ -648,9 +676,16 @@ class MetadataAPIOperations:
         """
         try:
             session = await self.session_manager.get_session()
+            tracing = self.session_manager.get_tracing_headers()
             url = f"{self.metadata_url}/PublicEntities('{entity_name}')"
 
-            async with session.get(url) as response:
+            async with session.get(url, headers=tracing) as response:
+                activity_id = response.headers.get("ms-dyn-aid")
+                server_timing_ms = _parse_server_timing(response.headers.get("server-timing"))
+                if activity_id or server_timing_ms is not None:
+                    logger.debug("GET PublicEntities('%s'): x-ms-client-request-id=%s ms-dyn-aid=%s server-timing=%sms",
+                                 entity_name, tracing.get("x-ms-client-request-id"), activity_id or "n/a",
+                                 server_timing_ms if server_timing_ms is not None else "n/a")
                 if response.status == 200:
                     item = await response.json()
 
@@ -665,8 +700,11 @@ class MetadataAPIOperations:
                 elif response.status == 404:
                     return None
                 else:
-                    raise Exception(
-                        f"Failed to get public entity: {response.status} - {await response.text()}"
+                    raise MetadataError(
+                        f"Failed to get public entity: {response.status} - {await response.text()}",
+                        activity_id=activity_id,
+                        request_id=tracing.get("x-ms-client-request-id"),
+                        server_timing_ms=server_timing_ms,
                     )
 
         except Exception as e:
@@ -686,16 +724,26 @@ class MetadataAPIOperations:
             Response containing public enumerations
         """
         session = await self.session_manager.get_session()
+        tracing = self.session_manager.get_tracing_headers()
         url = f"{self.metadata_url}/PublicEnumerations"
 
         params = QueryBuilder.build_query_params(options)
 
-        async with session.get(url, params=params) as response:
+        async with session.get(url, params=params, headers=tracing) as response:
+            activity_id = response.headers.get("ms-dyn-aid")
+            server_timing_ms = _parse_server_timing(response.headers.get("server-timing"))
+            if activity_id or server_timing_ms is not None:
+                logger.debug("GET PublicEnumerations: x-ms-client-request-id=%s ms-dyn-aid=%s server-timing=%sms",
+                             tracing.get("x-ms-client-request-id"), activity_id or "n/a",
+                             server_timing_ms if server_timing_ms is not None else "n/a")
             if response.status == 200:
                 return await response.json()
             else:
-                raise Exception(
-                    f"Failed to get public enumerations: {response.status} - {await response.text()}"
+                raise MetadataError(
+                    f"Failed to get public enumerations: {response.status} - {await response.text()}",
+                    activity_id=activity_id,
+                    request_id=tracing.get("x-ms-client-request-id"),
+                    server_timing_ms=server_timing_ms,
                 )
 
     async def get_all_public_enumerations_with_details(
@@ -792,9 +840,16 @@ class MetadataAPIOperations:
         """
         try:
             session = await self.session_manager.get_session()
+            tracing = self.session_manager.get_tracing_headers()
             url = f"{self.metadata_url}/PublicEnumerations('{enumeration_name}')"
 
-            async with session.get(url) as response:
+            async with session.get(url, headers=tracing) as response:
+                activity_id = response.headers.get("ms-dyn-aid")
+                server_timing_ms = _parse_server_timing(response.headers.get("server-timing"))
+                if activity_id or server_timing_ms is not None:
+                    logger.debug("GET PublicEnumerations('%s'): x-ms-client-request-id=%s ms-dyn-aid=%s server-timing=%sms",
+                                 enumeration_name, tracing.get("x-ms-client-request-id"), activity_id or "n/a",
+                                 server_timing_ms if server_timing_ms is not None else "n/a")
                 if response.status == 200:
                     item = await response.json()
 
@@ -809,8 +864,11 @@ class MetadataAPIOperations:
                 elif response.status == 404:
                     return None
                 else:
-                    raise Exception(
-                        f"Failed to get public enumeration: {response.status} - {await response.text()}"
+                    raise MetadataError(
+                        f"Failed to get public enumeration: {response.status} - {await response.text()}",
+                        activity_id=activity_id,
+                        request_id=tracing.get("x-ms-client-request-id"),
+                        server_timing_ms=server_timing_ms,
                     )
 
         except Exception as e:

@@ -196,6 +196,8 @@ class ConfigManager:
             "use_cache_first": True,
             "timeout": 60,
             "credential_source": None,
+            "enable_request_tracing": True,
+            "trace_client_id": None,
         }
 
         # Temporary variables for legacy credential handling
@@ -226,6 +228,8 @@ class ConfigManager:
                     "use_cache_first": client_config.use_cache_first,
                     "timeout": client_config.timeout,
                     "credential_source": client_config.credential_source,
+                    "enable_request_tracing": client_config.enable_request_tracing,
+                    "trace_client_id": client_config.trace_client_id,
                 }
             )
 
@@ -238,6 +242,8 @@ class ConfigManager:
             "D365FO_USE_CACHE_FIRST": "use_cache_first",
             "D365FO_TIMEOUT": "timeout",
             "D365FO_CACHE_DIR": "metadata_cache_dir",
+            "D365FO_ENABLE_REQUEST_TRACING": "enable_request_tracing",
+            "D365FO_TRACE_CLIENT_ID": "trace_client_id",
         }
 
         # Environment variables for legacy credentials
@@ -250,7 +256,7 @@ class ConfigManager:
         for env_var, param_name in env_mappings.items():
             env_value = os.getenv(env_var)
             if env_value:
-                if param_name in ["verify_ssl", "use_label_cache", "use_cache_first"]:
+                if param_name in ["verify_ssl", "use_label_cache", "use_cache_first", "enable_request_tracing"]:
                     # Convert to boolean
                     config_params[param_name] = env_value.lower() in (
                         "true",

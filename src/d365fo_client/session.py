@@ -1,11 +1,74 @@
 """HTTP session management for D365 F&O client."""
 
-from typing import Optional
+import logging
+import uuid
+from pathlib import Path
+from typing import Dict, Optional
 
 import aiohttp
 
 from .auth import AuthenticationManager
 from .models import FOClientConfig
+
+logger = logging.getLogger(__name__)
+
+# File in ~/.d365fo-client/ that persists the stable trace client ID
+_TRACE_CLIENT_ID_FILE = Path.home() / ".d365fo-client" / "trace_client_id"
+
+
+def _parse_server_timing(header_value: Optional[str]) -> Optional[float]:
+    """Parse the ``server-timing`` response header and return the duration in ms.
+
+    D365FO returns a header such as ``server-timing: dur=345``.  The W3C format
+    allows multiple comma-separated entries and optional metric names, e.g.
+    ``db;dur=53, app;dur=47.2``.  This function returns the **first** ``dur=``
+    value found as a float (milliseconds), or *None* if the header is absent or
+    cannot be parsed.
+
+    Args:
+        header_value: Raw ``server-timing`` header string from the HTTP response.
+
+    Returns:
+        Duration in milliseconds, or *None* if not present / not parseable.
+    """
+    if not header_value or not isinstance(header_value, str):
+        return None
+    import re
+    match = re.search(r"dur=([0-9]+(?:\.[0-9]+)?)", header_value)
+    if match:
+        try:
+            return float(match.group(1))
+        except ValueError:
+            pass
+    return None
+
+
+def _load_or_create_trace_client_id(override: Optional[str]) -> str:
+    """Return the trace client ID, honouring this resolution order:
+
+    1. Explicitly configured ``trace_client_id`` value.
+    2. Value persisted in ``~/.d365fo-client/trace_client_id``.
+    3. Freshly generated UUID4 that is then persisted for future runs.
+    """
+    if override:
+        return override
+
+    try:
+        if _TRACE_CLIENT_ID_FILE.exists():
+            stored = _TRACE_CLIENT_ID_FILE.read_text(encoding="utf-8").strip()
+            if stored:
+                return stored
+    except Exception:
+        pass
+
+    new_id = str(uuid.uuid4())
+    try:
+        _TRACE_CLIENT_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _TRACE_CLIENT_ID_FILE.write_text(new_id, encoding="utf-8")
+    except Exception:
+        pass  # Non-fatal; we still have an in-memory ID for this run
+
+    return new_id
 
 
 class SessionManager:
@@ -22,6 +85,32 @@ class SessionManager:
         self.auth_manager = auth_manager
         self._session: Optional[aiohttp.ClientSession] = None
 
+        # Stable ID representing this d365fo-client application instance.
+        # Sent as ``x-ms-client-session-id`` on every request.
+        if config.enable_request_tracing:
+            self._trace_client_id: str = _load_or_create_trace_client_id(
+                config.trace_client_id
+            )
+            logger.debug("Request tracing enabled. trace_client_id=%s", self._trace_client_id)
+        else:
+            self._trace_client_id = ""
+
+    @property
+    def trace_client_id(self) -> str:
+        """Stable GUID that identifies this d365fo-client instance."""
+        return self._trace_client_id
+
+    def get_tracing_headers(self) -> Dict[str, str]:
+        """Return per-request tracing headers.
+
+        Generates a fresh ``x-ms-client-request-id`` UUID on every call as
+        required by the D365FO service-request-tracing specification.  Returns
+        an empty dict when tracing is disabled.
+        """
+        if not self.config.enable_request_tracing:
+            return {}
+        return {"x-ms-client-request-id": str(uuid.uuid4())}
+
     async def get_session(self) -> aiohttp.ClientSession:
         """Get HTTP session with auth headers
 
@@ -35,13 +124,17 @@ class SessionManager:
 
         # Update headers with fresh token
         token = await self.auth_manager.get_token()
-        self._session.headers.update(
-            {
-                "Authorization": f"Bearer {token}",
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            }
-        )
+        headers: Dict[str, str] = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+
+        # Stable session-level tracing header (same for every request in this session)
+        if self.config.enable_request_tracing and self._trace_client_id:
+            headers["x-ms-client-session-id"] = self._trace_client_id
+
+        self._session.headers.update(headers)
 
         return self._session
 

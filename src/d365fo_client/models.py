@@ -104,6 +104,11 @@ class FOClientConfig:
     metadata_sync_interval_minutes: int = 60
     language: str = "en-US"
 
+    # Request tracing (D365FO service request tracing)
+    # https://learn.microsoft.com/en-us/dynamics365/fin-ops-core/dev-itpro/data-entities/service-request-tracing
+    enable_request_tracing: bool = True
+    trace_client_id: Optional[str] = None  # Stable app UUID; auto-generated and persisted if None
+
     def __post_init__(self):
         """Post-initialization validation and setup."""
         # Set default cache directory if not provided
@@ -745,14 +750,24 @@ class JsonServiceResponse:
     data: Any
     status_code: int
     error_message: Optional[str] = None
+    activity_id: Optional[str] = None   # ms-dyn-aid from D365FO response header
+    request_id: Optional[str] = None    # x-ms-client-request-id sent by client
+    server_timing_ms: Optional[float] = None  # server-timing dur= value (milliseconds)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result: Dict[str, Any] = {
             "success": self.success,
             "data": self.data,
             "status_code": self.status_code,
             "error_message": self.error_message,
         }
+        if self.activity_id:
+            result["ms_dyn_aid"] = self.activity_id
+        if self.request_id:
+            result["x_ms_client_request_id"] = self.request_id
+        if self.server_timing_ms is not None:
+            result["server_timing_ms"] = self.server_timing_ms
+        return result
 
 
 # ============================================================================

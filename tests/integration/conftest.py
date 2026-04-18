@@ -19,6 +19,12 @@ if env_file.exists():
     load_dotenv(env_file)
     print(f"Loaded environment variables from {env_file}")
 
+# Also load .env from the integration test directory itself
+integration_env_file = Path(__file__).parent / ".env"
+if integration_env_file.exists():
+    load_dotenv(integration_env_file)
+    print(f"Loaded environment variables from {integration_env_file}")
+
 
 @pytest_asyncio.fixture
 async def sandbox_client() -> AsyncGenerator[FOClient, None]:
@@ -66,16 +72,30 @@ async def sandbox_client() -> AsyncGenerator[FOClient, None]:
             "Set D365FO_SANDBOX_BASE_URL or configure a default profile in ~/.cache/d365fo-client/config.yaml"
         )
 
+    # Use EnvironmentCredentialSource when D365FO_* credential vars are present;
+    # otherwise fall back to Azure Default Credentials (az login, Managed Identity, etc.)
+    credential_source = None
+    if (
+        os.getenv("D365FO_CLIENT_ID")
+        and os.getenv("D365FO_CLIENT_SECRET")
+        and os.getenv("D365FO_TENANT_ID")
+    ):
+        from d365fo_client.credential_sources import EnvironmentCredentialSource
+
+        credential_source = EnvironmentCredentialSource()
+
     config = FOClientConfig(
         base_url=base_url,
-        credential_source=None,  # Use Azure Default Credentials
+        credential_source=credential_source,
         verify_ssl=False,  # Often needed for test environments
         timeout=60,
     )
 
     async with FOClient(config) as client:
-        # Test connection before yielding
-        if not await client.test_connection():
+        # Test connection before yielding - check either data or metadata endpoint
+        data_ok = await client.test_connection()
+        metadata_ok = await client.test_metadata_connection()
+        if not data_ok and not metadata_ok:
             pytest.skip("Cannot connect to sandbox environment")
         yield client
 

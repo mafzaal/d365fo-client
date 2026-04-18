@@ -52,6 +52,14 @@ class CrudToolsMixin(BaseToolsMixin):
             For complex queries, retrieve data first and filter programmatically.
             """
             try:
+                # Pre-validate entity is accessible for OData queries
+                if not await self._validate_entity_for_query(entity_name, profile):
+                    return {
+                        "error": f"Entity '{entity_name}' not found or not accessible for OData queries. "
+                        "Use d365fo_search_entities to find valid entity names.",
+                        "entityName": entity_name,
+                    }
+
                 client = await self._get_client(profile)
 
                 # Build query options
@@ -67,7 +75,7 @@ class CrudToolsMixin(BaseToolsMixin):
                     expand=expand,
                 )
 
-                # FOClient now handles validation and schema fetching
+                # Entity already validated above — skip redundant validation in FOClient
                 result = await client.get_entities(entity_name, options=options)
 
                 return {
@@ -109,17 +117,20 @@ class CrudToolsMixin(BaseToolsMixin):
                 Dictionary with the entity record
             """
             try:
-                # Validate key_fields and key_values match
-                if len(key_fields) != len(key_values):
+                # Validate entity exists and key fields match schema — replaces manual length check
+                is_valid, schema, error_detail = await self._validate_entity_schema_and_keys(
+                    entity_name, key_fields, key_values, profile
+                )
+                if not is_valid:
                     return {
-                        "error": "Key fields and values length mismatch",
+                        "error": error_detail,
                         "entityName": entity_name,
                         "key_fields": key_fields,
                         "key_values": key_values,
                     }
 
-                # Build key dict
-                key = {k: v for k, v in zip(key_fields, key_values)}
+                # Build type-aware key dict using schema property metadata
+                key = self._build_validated_key_dict(key_fields, key_values, schema)
 
                 client = await self._get_client(profile)
 
@@ -132,17 +143,13 @@ class CrudToolsMixin(BaseToolsMixin):
                     else None
                 )
 
-                # FOClient now handles:
-                # - Schema lookup via get_public_entity_schema_by_entityset()
-                # - Entity validation (raises FOClientError if not found)
-                # - Schema-aware key encoding via QueryBuilder
-                result = await client.get_entity(entity_name, key, options)
+                # Schema already validated above — skip redundant schema fetch in FOClient
+                result = await client.get_entity(entity_name, key, options, skip_validation=True)
 
                 return {"entityName": entity_name, "key": key, "data": result}
 
             except Exception as e:
                 logger.error(f"Get entity record failed: {e}")
-                # Build key dict for error response if possible
                 try:
                     key = (
                         {k: v for k, v in zip(key_fields, key_values)}
@@ -220,27 +227,26 @@ class CrudToolsMixin(BaseToolsMixin):
                 Dictionary with update result
             """
             try:
-                # Validate key_fields and key_values match
-                if len(key_fields) != len(key_values):
+                # Validate entity and keys — replaces manual length check, gives better errors
+                is_valid, schema, error_detail = await self._validate_entity_schema_and_keys(
+                    entity_name, key_fields, key_values, profile
+                )
+                if not is_valid:
                     return {
-                        "error": "Key fields and values length mismatch",
+                        "error": error_detail,
                         "entityName": entity_name,
                         "key_fields": key_fields,
                         "key_values": key_values,
                         "updated": False,
                     }
 
-                # Build key dict
-                key = {k: v for k, v in zip(key_fields, key_values)}
+                # Build type-aware key dict using schema property metadata
+                key = self._build_validated_key_dict(key_fields, key_values, schema)
 
                 client = await self._get_client(profile)
 
-                # FOClient now handles:
-                # - Schema validation via get_public_entity_schema_by_entityset()
-                # - Entity existence check (raises FOClientError if not found)
-                # - Read-only validation (raises FOClientError if read-only)
-                # - Schema-aware key encoding via QueryBuilder
-                result = await client.update_entity(entity_name, key, data)
+                # Schema already validated above — skip redundant schema fetch in FOClient
+                result = await client.update_entity(entity_name, key, data, skip_validation=True)
 
                 return {
                     "entityName": entity_name,
@@ -251,7 +257,6 @@ class CrudToolsMixin(BaseToolsMixin):
 
             except Exception as e:
                 logger.error(f"Update entity record failed: {e}")
-                # Build key dict for error response if possible
                 try:
                     key = (
                         {k: v for k, v in zip(key_fields, key_values)}
@@ -286,33 +291,31 @@ class CrudToolsMixin(BaseToolsMixin):
                 Dictionary with deletion result
             """
             try:
-                # Validate key_fields and key_values match
-                if len(key_fields) != len(key_values):
+                # Validate entity and keys — replaces manual length check, gives better errors
+                is_valid, schema, error_detail = await self._validate_entity_schema_and_keys(
+                    entity_name, key_fields, key_values, profile
+                )
+                if not is_valid:
                     return {
-                        "error": "Key fields and values length mismatch",
+                        "error": error_detail,
                         "entityName": entity_name,
                         "key_fields": key_fields,
                         "key_values": key_values,
                         "deleted": False,
                     }
 
-                # Build key dict
-                key = {k: v for k, v in zip(key_fields, key_values)}
+                # Build type-aware key dict using schema property metadata
+                key = self._build_validated_key_dict(key_fields, key_values, schema)
 
                 client = await self._get_client(profile)
 
-                # FOClient now handles:
-                # - Schema validation via get_public_entity_schema_by_entityset()
-                # - Entity existence check (raises FOClientError if not found)
-                # - Read-only validation (raises FOClientError if read-only)
-                # - Schema-aware key encoding via QueryBuilder
-                await client.delete_entity(entity_name, key)
+                # Schema already validated above — skip redundant schema fetch in FOClient
+                await client.delete_entity(entity_name, key, skip_validation=True)
 
                 return {"entityName": entity_name, "key": key, "deleted": True}
 
             except Exception as e:
                 logger.error(f"Delete entity record failed: {e}")
-                # Build key dict for error response if possible
                 try:
                     key = (
                         {k: v for k, v in zip(key_fields, key_values)}
@@ -351,15 +354,17 @@ class CrudToolsMixin(BaseToolsMixin):
                 Dictionary with action result
             """
             try:
-                client = await self._get_client(profile)
-
-                # Call action
-                # Construct key field=value mapping (only if both key_fields and key_values are provided)
+                # Build type-aware key dict when key fields are provided
                 key = None
                 if key_fields is not None and key_values is not None:
-                    if len(key_fields) != len(key_values):
-                        raise ValueError("Key fields and values length mismatch")
-                    key = {k: v for k, v in zip(key_fields, key_values)}
+                    is_valid, schema, error_detail = await self._validate_entity_schema_and_keys(
+                        entity_name or "", key_fields, key_values, profile
+                    )
+                    if not is_valid:
+                        raise ValueError(error_detail)
+                    key = self._build_validated_key_dict(key_fields, key_values, schema)
+
+                client = await self._get_client(profile)
 
                 result = await client.call_action(
                     action_name=action_name,  # type: ignore

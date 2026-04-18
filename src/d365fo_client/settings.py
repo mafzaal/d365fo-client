@@ -221,6 +221,24 @@ class D365FOSettings(BaseSettings):
 
     debug: bool = Field(default=False, description="Enable debug mode", alias="DEBUG")
 
+    # === Request Tracing Settings ===
+    # https://learn.microsoft.com/en-us/dynamics365/fin-ops-core/dev-itpro/data-entities/service-request-tracing
+
+    enable_request_tracing: bool = Field(
+        default=True,
+        description="Send x-ms-client-request-id header with every D365FO API request",
+        alias="D365FO_ENABLE_REQUEST_TRACING",
+    )
+
+    trace_client_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Stable GUID identifying this d365fo-client application instance. "
+            "Auto-generated and persisted to ~/.d365fo-client/trace_client_id if not set."
+        ),
+        alias="D365FO_TRACE_CLIENT_ID",
+    )
+
     @field_validator("log_file", mode="before")
     @classmethod
     def validate_log_file(cls, v):
@@ -255,6 +273,7 @@ class D365FOSettings(BaseSettings):
         "use_cache_first",
         "verify_ssl",
         "debug",
+        "enable_request_tracing",
         mode="before",
     )
     @classmethod
