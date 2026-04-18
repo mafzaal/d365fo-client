@@ -10,8 +10,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from d365fo_client.exceptions import ActionError, EntityError, FOClientError
-from d365fo_client.models import FOClientConfig
-from d365fo_client.session import SessionManager, _load_or_create_trace_client_id
+from d365fo_client.models import FOClientConfig, JsonServiceResponse
+from d365fo_client.session import (
+    SessionManager,
+    _load_or_create_trace_client_id,
+    _parse_server_timing,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -221,3 +225,94 @@ class TestActivityIdInExceptions:
                 await crud.get_entities("CustomersV3")
 
         assert exc_info.value.activity_id == "server-activity-id-42"
+
+
+# ---------------------------------------------------------------------------
+# 6. server-timing header parsing
+# ---------------------------------------------------------------------------
+
+
+class TestServerTimingParsing:
+    def test_simple_dur(self):
+        assert _parse_server_timing("dur=345") == 345.0
+
+    def test_decimal_dur(self):
+        assert _parse_server_timing("dur=47.2") == 47.2
+
+    def test_named_entry(self):
+        """W3C format with a name prefix like 'db;dur=53'."""
+        assert _parse_server_timing("db;dur=53") == 53.0
+
+    def test_multiple_entries_first_wins(self):
+        """Returns the first dur= value when multiple entries are present."""
+        assert _parse_server_timing("db;dur=200, app;dur=145") == 200.0
+
+    def test_none_header(self):
+        assert _parse_server_timing(None) is None
+
+    def test_empty_string(self):
+        assert _parse_server_timing("") is None
+
+    def test_no_dur_field(self):
+        assert _parse_server_timing("miss=100") is None
+
+    def test_zero_duration(self):
+        assert _parse_server_timing("dur=0") == 0.0
+
+    def test_error_carries_server_timing(self):
+        err = FOClientError("timed out", server_timing_ms=345.0)
+        assert err.server_timing_ms == 345.0
+        d = err.to_dict()
+        assert d["server_timing_ms"] == 345.0
+
+    def test_error_to_dict_omits_when_none(self):
+        err = FOClientError("bare error")
+        assert "server_timing_ms" not in err.to_dict()
+
+    def test_json_service_response_carries_timing(self):
+        resp = JsonServiceResponse(
+            success=True,
+            data={"key": "val"},
+            status_code=200,
+            server_timing_ms=345.0,
+        )
+        d = resp.to_dict()
+        assert d["server_timing_ms"] == 345.0
+
+    def test_json_service_response_omits_when_none(self):
+        resp = JsonServiceResponse(success=True, data={}, status_code=200)
+        assert "server_timing_ms" not in resp.to_dict()
+
+    @pytest.mark.asyncio
+    async def test_crud_error_includes_server_timing(self):
+        """EntityError raised by CrudOperations must carry server_timing_ms."""
+        from d365fo_client.crud import CrudOperations
+
+        config = _make_config(enable_request_tracing=True)
+        mock_auth = MagicMock()
+        mock_auth.get_token = AsyncMock(return_value="tok")
+        sm = SessionManager(config, mock_auth)
+
+        mock_response = AsyncMock()
+        mock_response.status = 500
+        mock_response.headers = {
+            "ms-dyn-aid": "srv-aid-99",
+            "server-timing": "dur=789",
+        }
+        mock_response.text = AsyncMock(return_value="Internal Server Error")
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=False)
+
+        mock_session = MagicMock()
+        mock_session.get = MagicMock(return_value=mock_response)
+
+        with patch.object(sm, "get_session", return_value=mock_session):
+            crud = CrudOperations(sm, "https://test.dynamics.com")
+            with pytest.raises(EntityError) as exc_info:
+                await crud.get_entities("CustomersV3")
+
+        assert exc_info.value.server_timing_ms == 789.0
+        assert exc_info.value.activity_id == "srv-aid-99"
+        d = exc_info.value.to_dict()
+        assert d["server_timing_ms"] == 789.0
+        assert d["ms_dyn_aid"] == "srv-aid-99"

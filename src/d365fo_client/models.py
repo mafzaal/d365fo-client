@@ -752,6 +752,7 @@ class JsonServiceResponse:
     error_message: Optional[str] = None
     activity_id: Optional[str] = None   # ms-dyn-aid from D365FO response header
     request_id: Optional[str] = None    # x-ms-client-request-id sent by client
+    server_timing_ms: Optional[float] = None  # server-timing dur= value (milliseconds)
 
     def to_dict(self) -> Dict[str, Any]:
         result: Dict[str, Any] = {
@@ -764,6 +765,8 @@ class JsonServiceResponse:
             result["ms_dyn_aid"] = self.activity_id
         if self.request_id:
             result["x_ms_client_request_id"] = self.request_id
+        if self.server_timing_ms is not None:
+            result["server_timing_ms"] = self.server_timing_ms
         return result
 
 

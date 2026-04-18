@@ -12,6 +12,8 @@ class FOClientError(Exception):
             through service telemetry.
         request_id: The ``x-ms-client-request-id`` value sent in the request header.
             Also required for support ticket tracing.
+        server_timing_ms: Duration reported by the server in the ``server-timing``
+            response header (milliseconds), if present.
     """
 
     def __init__(
@@ -19,10 +21,12 @@ class FOClientError(Exception):
         message: str,
         activity_id: Optional[str] = None,
         request_id: Optional[str] = None,
+        server_timing_ms: Optional[float] = None,
     ) -> None:
         super().__init__(message)
         self.activity_id: Optional[str] = activity_id
         self.request_id: Optional[str] = request_id
+        self.server_timing_ms: Optional[float] = server_timing_ms
 
     def to_dict(self) -> dict:
         """Return a structured representation suitable for AI agent consumption."""
@@ -31,6 +35,8 @@ class FOClientError(Exception):
             result["ms_dyn_aid"] = self.activity_id
         if self.request_id:
             result["x_ms_client_request_id"] = self.request_id
+        if self.server_timing_ms is not None:
+            result["server_timing_ms"] = self.server_timing_ms
         return result
 
 

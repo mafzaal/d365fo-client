@@ -26,7 +26,7 @@ from .models import (
     QueryOptions,
 )
 from .query import QueryBuilder
-from .session import SessionManager
+from .session import SessionManager, _parse_server_timing
 
 
 class FOClient:
@@ -1428,11 +1428,13 @@ class FOClient:
             async with session.post(url, json=body, headers=headers) as response:
                 status_code = response.status
                 activity_id = response.headers.get("ms-dyn-aid")
+                server_timing_ms = _parse_server_timing(response.headers.get("server-timing"))
                 request_id = headers.get("x-ms-client-request-id")
-                if activity_id:
+                if activity_id or server_timing_ms is not None:
                     self.logger.debug(
-                        "JSON service %s/%s/%s: x-ms-client-request-id=%s ms-dyn-aid=%s",
-                        service_group, service_name, operation_name, request_id, activity_id,
+                        "JSON service %s/%s/%s: x-ms-client-request-id=%s ms-dyn-aid=%s server-timing=%sms",
+                        service_group, service_name, operation_name, request_id, activity_id or "n/a",
+                        server_timing_ms if server_timing_ms is not None else "n/a",
                     )
 
                 # Handle success cases
@@ -1450,6 +1452,7 @@ class FOClient:
                             status_code=status_code,
                             activity_id=activity_id,
                             request_id=request_id,
+                            server_timing_ms=server_timing_ms,
                         )
                     except Exception as parse_error:
                         # If we can't parse the response, still return success with raw text
@@ -1461,6 +1464,7 @@ class FOClient:
                             error_message=f"Response parsing warning: {parse_error}",
                             activity_id=activity_id,
                             request_id=request_id,
+                            server_timing_ms=server_timing_ms,
                         )
 
                 # Handle error cases
@@ -1473,6 +1477,7 @@ class FOClient:
                         error_message=f"HTTP {status_code}: {error_text}",
                         activity_id=activity_id,
                         request_id=request_id,
+                        server_timing_ms=server_timing_ms,
                     )
 
         except Exception as e:

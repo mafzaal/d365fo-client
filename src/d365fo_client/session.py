@@ -16,6 +16,33 @@ logger = logging.getLogger(__name__)
 _TRACE_CLIENT_ID_FILE = Path.home() / ".d365fo-client" / "trace_client_id"
 
 
+def _parse_server_timing(header_value: Optional[str]) -> Optional[float]:
+    """Parse the ``server-timing`` response header and return the duration in ms.
+
+    D365FO returns a header such as ``server-timing: dur=345``.  The W3C format
+    allows multiple comma-separated entries and optional metric names, e.g.
+    ``db;dur=53, app;dur=47.2``.  This function returns the **first** ``dur=``
+    value found as a float (milliseconds), or *None* if the header is absent or
+    cannot be parsed.
+
+    Args:
+        header_value: Raw ``server-timing`` header string from the HTTP response.
+
+    Returns:
+        Duration in milliseconds, or *None* if not present / not parseable.
+    """
+    if not header_value or not isinstance(header_value, str):
+        return None
+    import re
+    match = re.search(r"dur=([0-9]+(?:\.[0-9]+)?)", header_value)
+    if match:
+        try:
+            return float(match.group(1))
+        except ValueError:
+            pass
+    return None
+
+
 def _load_or_create_trace_client_id(override: Optional[str]) -> str:
     """Return the trace client ID, honouring this resolution order:
 

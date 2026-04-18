@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 from .exceptions import ActionError, EntityError
 from .models import QueryOptions
 from .query import QueryBuilder
-from .session import SessionManager
+from .session import SessionManager, _parse_server_timing
 
 if TYPE_CHECKING:
     from .models import PublicEntityInfo
@@ -18,14 +18,16 @@ def _log_activity(
     operation: str,
     request_id: Optional[str],
     activity_id: Optional[str],
+    server_timing_ms: Optional[float] = None,
 ) -> None:
     """Log the D365FO activity ID alongside our request ID for traceability."""
-    if activity_id:
+    if activity_id or server_timing_ms is not None:
         logger.debug(
-            "%s: x-ms-client-request-id=%s ms-dyn-aid=%s",
+            "%s: x-ms-client-request-id=%s ms-dyn-aid=%s server-timing=%sms",
             operation,
             request_id or "n/a",
-            activity_id,
+            activity_id or "n/a",
+            server_timing_ms if server_timing_ms is not None else "n/a",
         )
 
 
@@ -65,7 +67,8 @@ class CrudOperations:
 
         async with session.get(url, headers=tracing) as response:
             activity_id = response.headers.get("ms-dyn-aid")
-            _log_activity(f"GET {entity_name}", tracing.get("x-ms-client-request-id"), activity_id)
+            server_timing_ms = _parse_server_timing(response.headers.get("server-timing"))
+            _log_activity(f"GET {entity_name}", tracing.get("x-ms-client-request-id"), activity_id, server_timing_ms)
             if response.status == 200:
                 return await response.json()
             else:
@@ -74,6 +77,7 @@ class CrudOperations:
                     f"GET {entity_name} failed: {response.status} - {error_text}",
                     activity_id=activity_id,
                     request_id=tracing.get("x-ms-client-request-id"),
+                    server_timing_ms=server_timing_ms,
                 )
 
     async def get_entity(
@@ -115,7 +119,8 @@ class CrudOperations:
 
         async with session.get(url, headers=tracing) as response:
             activity_id = response.headers.get("ms-dyn-aid")
-            _log_activity(f"GET {entity_name}({key})", tracing.get("x-ms-client-request-id"), activity_id)
+            server_timing_ms = _parse_server_timing(response.headers.get("server-timing"))
+            _log_activity(f"GET {entity_name}({key})", tracing.get("x-ms-client-request-id"), activity_id, server_timing_ms)
             if response.status == 200:
                 return await response.json()
             else:
@@ -124,6 +129,7 @@ class CrudOperations:
                     f"GET {entity_name}({key}) failed: {response.status} - {error_text}",
                     activity_id=activity_id,
                     request_id=tracing.get("x-ms-client-request-id"),
+                    server_timing_ms=server_timing_ms,
                 )
 
     async def create_entity(
@@ -148,7 +154,8 @@ class CrudOperations:
 
         async with session.post(url, json=data, headers=tracing) as response:
             activity_id = response.headers.get("ms-dyn-aid")
-            _log_activity(f"CREATE {entity_name}", tracing.get("x-ms-client-request-id"), activity_id)
+            server_timing_ms = _parse_server_timing(response.headers.get("server-timing"))
+            _log_activity(f"CREATE {entity_name}", tracing.get("x-ms-client-request-id"), activity_id, server_timing_ms)
             if response.status in [200, 201]:
                 return await response.json()
             else:
@@ -157,6 +164,7 @@ class CrudOperations:
                     f"CREATE {entity_name} failed: {response.status} - {error_text}",
                     activity_id=activity_id,
                     request_id=tracing.get("x-ms-client-request-id"),
+                    server_timing_ms=server_timing_ms,
                 )
 
     async def update_entity(
@@ -188,7 +196,8 @@ class CrudOperations:
 
         async with session.request(method, url, json=data, headers=tracing) as response:
             activity_id = response.headers.get("ms-dyn-aid")
-            _log_activity(f"{method} {entity_name}({key})", tracing.get("x-ms-client-request-id"), activity_id)
+            server_timing_ms = _parse_server_timing(response.headers.get("server-timing"))
+            _log_activity(f"{method} {entity_name}({key})", tracing.get("x-ms-client-request-id"), activity_id, server_timing_ms)
             if response.status in [200, 204]:
                 if response.status == 204:
                     return {"success": True}
@@ -199,6 +208,7 @@ class CrudOperations:
                     f"{method} {entity_name}({key}) failed: {response.status} - {error_text}",
                     activity_id=activity_id,
                     request_id=tracing.get("x-ms-client-request-id"),
+                    server_timing_ms=server_timing_ms,
                 )
 
     async def delete_entity(
@@ -226,7 +236,8 @@ class CrudOperations:
 
         async with session.delete(url, headers=tracing) as response:
             activity_id = response.headers.get("ms-dyn-aid")
-            _log_activity(f"DELETE {entity_name}({key})", tracing.get("x-ms-client-request-id"), activity_id)
+            server_timing_ms = _parse_server_timing(response.headers.get("server-timing"))
+            _log_activity(f"DELETE {entity_name}({key})", tracing.get("x-ms-client-request-id"), activity_id, server_timing_ms)
             if response.status in [200, 204]:
                 return True
             else:
@@ -235,6 +246,7 @@ class CrudOperations:
                     f"DELETE {entity_name}({key}) failed: {response.status} - {error_text}",
                     activity_id=activity_id,
                     request_id=tracing.get("x-ms-client-request-id"),
+                    server_timing_ms=server_timing_ms,
                 )
 
     async def call_action(
@@ -269,7 +281,8 @@ class CrudOperations:
 
         async with session.post(url, json=body, headers=tracing) as response:
             activity_id = response.headers.get("ms-dyn-aid")
-            _log_activity(f"ACTION {action_name}", tracing.get("x-ms-client-request-id"), activity_id)
+            server_timing_ms = _parse_server_timing(response.headers.get("server-timing"))
+            _log_activity(f"ACTION {action_name}", tracing.get("x-ms-client-request-id"), activity_id, server_timing_ms)
             if response.status in [200, 201, 204]:
                 if response.status == 204:
                     return {"success": True}
@@ -285,4 +298,5 @@ class CrudOperations:
                     f"Action {action_name} failed: {response.status} - {error_text}",
                     activity_id=activity_id,
                     request_id=tracing.get("x-ms-client-request-id"),
+                    server_timing_ms=server_timing_ms,
                 )
