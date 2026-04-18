@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-04-18
+
+### Added
+- **Request Tracing**: Comprehensive request tracing system for D365 F&O client operations
+  - Activity ID and Request ID tracking in all HTTP operations
+  - Enhanced exception messages with trace IDs for better debugging
+  - Trace ID propagation through client, CRUD, metadata, and label operations
+  - New `enable_request_tracing` configuration option
+  - Request trace IDs included in response metadata for correlation
+  - Comprehensive unit tests for request tracing functionality
+- **Entity Validation**: Enhanced entity accessibility checks in CRUD operations
+  - Pre-flight validation to prevent errors on inaccessible entities
+  - Schema consistency validation for key fields
+  - Improved error messages for better clarity in validation failures
+
+### Improved
+- **Error Handling**: Enhanced error handling across CRUD tools and integration tests
+  - Graceful handling of D365 connection errors in test suite
+  - Better validation messages for entity access issues
+  - Improved test resilience with connection error detection
+- **Base Tools Mixin**: Added 190+ lines of enhanced validation and error handling infrastructure
+  - Centralized entity validation logic
+  - Improved error response formatting
+  - Better schema validation utilities
+
+### Documentation
+- **Service Discovery**: Added comprehensive D365 Finance & Operations Service Discovery Specification
+  - Detailed documentation of D365 F&O service discovery patterns
+  - API endpoint documentation and examples
+- **Copilot Instructions**: Major refactoring of AI assistant integration documentation
+  - Streamlined project overview and development environment sections
+  - Consolidated build, test, and lint commands
+  - Enhanced integration testing framework documentation
+  - Improved CLI development practices
+  - Added security considerations and publishing checklist
+  - Removed deprecated sections (1,058 lines reduced to 53 lines of focused content)
+
+### Dependencies
+- **MCP Framework**: Updated mcp from 1.21.1 to 1.27.0 (through 1.22.0, 1.23.1, 1.24.0, 1.25.0, 1.26.0)
+- **Development Tools**:
+  - Updated ruff from 0.14.5 to 0.15.10 (through 0.14.6, 0.14.8, 0.14.9, 0.14.10, 0.14.11, 0.14.13, 0.14.14, 0.15.2, 0.15.4, 0.15.8, 0.15.9)
+  - Updated black from 25.11.0 to 26.3.1 (through 25.12.0, 26.1.0)
+  - Updated mypy from 1.18.2 to 1.20.1 (through 1.19.0, 1.19.1, 1.20.0)
+  - Updated isort from 7.0.0 to 8.0.1 (through 8.0.0)
+  - Updated pytest from 9.0.1 to 9.0.3 (through 9.0.2)
+  - Updated pytest-cov from 7.0.0 to 7.1.0
+  - Updated pip-audit from 2.9.0 to 2.10.0
+  - Updated responses from 0.25.8 to 0.26.0
+  - Updated types-pyyaml to 6.0.12.20260408
+  - Updated types-tabulate from 0.9.0.20240106 to 0.10.0.20260408
+- **Core Dependencies**:
+  - Updated aiohttp from 3.13.2 to 3.13.5 (through 3.13.3, 3.13.4)
+  - Updated aiosqlite from 0.21.0 to 0.22.1 (through 0.22.0)
+  - Updated authlib from 1.6.5 to 1.6.9 (through 1.6.6, 1.6.8)
+  - Updated azure-identity from 1.25.1 to 1.25.3 (through 1.25.2)
+  - Updated cachetools from 6.2.2 to 7.0.5 (through 6.2.3, 6.2.4, 6.2.5, 7.0.1)
+  - Updated pydantic-settings from 2.12.0 to 2.13.1
+  - Updated requests from 2.32.5 to 2.33.0
+  - Updated rich from 14.2.0 to 15.0.0 (through 14.3.1, 14.3.3)
+  - Updated tabulate from 0.9.0 to 0.10.0
+  - Updated uvicorn from 0.38.0 to 0.44.0 (through 0.40.0, 0.41.0, 0.42.0, 0.43.0)
+- **CI Actions**:
+  - Updated actions/checkout from 5 to 6
+  - Updated actions/upload-artifact from 5 to 7 (through 6)
+  - Updated actions/download-artifact from 6 to 8 (through 7)
+  - Updated codecov/codecov-action from 5 to 6
+  - Updated docker/setup-buildx-action from 3.11.1 to 4.0.0 (through 3.12.0)
+  - Updated docker/login-action from 3.6.0 to 4.1.0 (through 3.7.0, 4.0.0)
+  - Updated docker/build-push-action from 6.18.0 to 7.1.0 (through 6.19.2, 7.0.0)
+  - Updated docker/metadata-action from 5 to 6
+
 ## [0.3.6] - 2025-11-23
 
 ### Added
