@@ -80,9 +80,10 @@ class LabelOperations:
 
         try:
             session = await self.session_manager.get_session()
+            tracing = self.session_manager.get_tracing_headers()
             url = f"{self.metadata_url}/Labels(Id='{label_id}',Language='{language}')"
 
-            async with session.get(url) as response:
+            async with session.get(url, headers=tracing) as response:
                 if response.status == 200:
                     data = await response.json()
                     label_text = data.get("Value", "")
@@ -139,9 +140,10 @@ class LabelOperations:
             for label_id in uncached_ids:
                 try:
                     session = await self.session_manager.get_session()
+                    tracing = self.session_manager.get_tracing_headers()
                     url = f"{self.metadata_url}/Labels(Id='{label_id}',Language='{language}')"
 
-                    async with session.get(url) as response:
+                    async with session.get(url, headers=tracing) as response:
                         if response.status == 200:
                             data = await response.json()
                             label_text = data.get("Value", "")

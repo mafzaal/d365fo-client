@@ -295,9 +295,10 @@ class FOClient:
         """
         try:
             session = await self.session_manager.get_session()
+            tracing = self.session_manager.get_tracing_headers()
             url = f"{self.config.base_url}/data"
 
-            async with session.get(url) as response:
+            async with session.get(url, headers=tracing) as response:
                 return response.status == 200
         except Exception as e:
             print(f"Connection test failed: {e}")
@@ -311,12 +312,13 @@ class FOClient:
         """
         try:
             session = await self.session_manager.get_session()
+            tracing = self.session_manager.get_tracing_headers()
 
             # Try the PublicEntities endpoint first as it's more reliable
             url = f"{self.metadata_url}/PublicEntities"
             params = {"$top": 1}
 
-            async with session.get(url, params=params) as response:
+            async with session.get(url, params=params, headers=tracing) as response:
                 if response.status == 200:
                     return True
 
@@ -1416,14 +1418,22 @@ class FOClient:
             # Get session and make request
             session = await self.session_manager.get_session()
 
-            # Prepare headers
+            # Prepare headers (merge tracing headers with content-type)
             headers = {"Content-Type": "application/json"}
+            headers.update(self.session_manager.get_tracing_headers())
 
             # Prepare request body
             body = parameters or {}
 
             async with session.post(url, json=body, headers=headers) as response:
                 status_code = response.status
+                activity_id = response.headers.get("ms-dyn-aid")
+                request_id = headers.get("x-ms-client-request-id")
+                if activity_id:
+                    self.logger.debug(
+                        "JSON service %s/%s/%s: x-ms-client-request-id=%s ms-dyn-aid=%s",
+                        service_group, service_name, operation_name, request_id, activity_id,
+                    )
 
                 # Handle success cases
                 if status_code in [200, 201]:
@@ -1438,6 +1448,8 @@ class FOClient:
                             success=True,
                             data=data,
                             status_code=status_code,
+                            activity_id=activity_id,
+                            request_id=request_id,
                         )
                     except Exception as parse_error:
                         # If we can't parse the response, still return success with raw text
@@ -1447,6 +1459,8 @@ class FOClient:
                             data=text_data,
                             status_code=status_code,
                             error_message=f"Response parsing warning: {parse_error}",
+                            activity_id=activity_id,
+                            request_id=request_id,
                         )
 
                 # Handle error cases
@@ -1457,6 +1471,8 @@ class FOClient:
                         data=None,
                         status_code=status_code,
                         error_message=f"HTTP {status_code}: {error_text}",
+                        activity_id=activity_id,
+                        request_id=request_id,
                     )
 
         except Exception as e:

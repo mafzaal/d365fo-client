@@ -1,13 +1,32 @@
 """CRUD operations for D365 F&O client."""
 
+import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
+from .exceptions import ActionError, EntityError
 from .models import QueryOptions
 from .query import QueryBuilder
 from .session import SessionManager
 
 if TYPE_CHECKING:
     from .models import PublicEntityInfo
+
+logger = logging.getLogger(__name__)
+
+
+def _log_activity(
+    operation: str,
+    request_id: Optional[str],
+    activity_id: Optional[str],
+) -> None:
+    """Log the D365FO activity ID alongside our request ID for traceability."""
+    if activity_id:
+        logger.debug(
+            "%s: x-ms-client-request-id=%s ms-dyn-aid=%s",
+            operation,
+            request_id or "n/a",
+            activity_id,
+        )
 
 
 class CrudOperations:
@@ -40,16 +59,21 @@ class CrudOperations:
             Response containing entities
         """
         session = await self.session_manager.get_session()
+        tracing = self.session_manager.get_tracing_headers()
         query_string = QueryBuilder.build_query_string(options)
         url = f"{self.base_url}/data/{entity_name}{query_string}"
 
-        async with session.get(url) as response:
+        async with session.get(url, headers=tracing) as response:
+            activity_id = response.headers.get("ms-dyn-aid")
+            _log_activity(f"GET {entity_name}", tracing.get("x-ms-client-request-id"), activity_id)
             if response.status == 200:
                 return await response.json()
             else:
                 error_text = await response.text()
-                raise Exception(
-                    f"GET {entity_name} failed: {response.status} - {error_text}"
+                raise EntityError(
+                    f"GET {entity_name} failed: {response.status} - {error_text}",
+                    activity_id=activity_id,
+                    request_id=tracing.get("x-ms-client-request-id"),
                 )
 
     async def get_entity(
@@ -71,6 +95,7 @@ class CrudOperations:
             Entity data
         """
         session = await self.session_manager.get_session()
+        tracing = self.session_manager.get_tracing_headers()
 
         # Use schema-aware URL building for proper key encoding
         # This will add cross-company=true if dataAreaId is in the key
@@ -88,13 +113,17 @@ class CrudOperations:
             else:
                 url += query_string
 
-        async with session.get(url) as response:
+        async with session.get(url, headers=tracing) as response:
+            activity_id = response.headers.get("ms-dyn-aid")
+            _log_activity(f"GET {entity_name}({key})", tracing.get("x-ms-client-request-id"), activity_id)
             if response.status == 200:
                 return await response.json()
             else:
                 error_text = await response.text()
-                raise Exception(
-                    f"GET {entity_name}({key}) failed: {response.status} - {error_text}"
+                raise EntityError(
+                    f"GET {entity_name}({key}) failed: {response.status} - {error_text}",
+                    activity_id=activity_id,
+                    request_id=tracing.get("x-ms-client-request-id"),
                 )
 
     async def create_entity(
@@ -114,15 +143,20 @@ class CrudOperations:
             Created entity data
         """
         session = await self.session_manager.get_session()
+        tracing = self.session_manager.get_tracing_headers()
         url = f"{self.base_url}/data/{entity_name}"
 
-        async with session.post(url, json=data) as response:
+        async with session.post(url, json=data, headers=tracing) as response:
+            activity_id = response.headers.get("ms-dyn-aid")
+            _log_activity(f"CREATE {entity_name}", tracing.get("x-ms-client-request-id"), activity_id)
             if response.status in [200, 201]:
                 return await response.json()
             else:
                 error_text = await response.text()
-                raise Exception(
-                    f"CREATE {entity_name} failed: {response.status} - {error_text}"
+                raise EntityError(
+                    f"CREATE {entity_name} failed: {response.status} - {error_text}",
+                    activity_id=activity_id,
+                    request_id=tracing.get("x-ms-client-request-id"),
                 )
 
     async def update_entity(
@@ -146,20 +180,25 @@ class CrudOperations:
             Updated entity data
         """
         session = await self.session_manager.get_session()
+        tracing = self.session_manager.get_tracing_headers()
         # Use schema-aware URL building for proper key encoding
         url = QueryBuilder.build_entity_url(
             self.base_url, entity_name, key, entity_schema
         )
 
-        async with session.request(method, url, json=data) as response:
+        async with session.request(method, url, json=data, headers=tracing) as response:
+            activity_id = response.headers.get("ms-dyn-aid")
+            _log_activity(f"{method} {entity_name}({key})", tracing.get("x-ms-client-request-id"), activity_id)
             if response.status in [200, 204]:
                 if response.status == 204:
                     return {"success": True}
                 return await response.json()
             else:
                 error_text = await response.text()
-                raise Exception(
-                    f"{method} {entity_name}({key}) failed: {response.status} - {error_text}"
+                raise EntityError(
+                    f"{method} {entity_name}({key}) failed: {response.status} - {error_text}",
+                    activity_id=activity_id,
+                    request_id=tracing.get("x-ms-client-request-id"),
                 )
 
     async def delete_entity(
@@ -179,18 +218,23 @@ class CrudOperations:
             True if successful
         """
         session = await self.session_manager.get_session()
+        tracing = self.session_manager.get_tracing_headers()
         # Use schema-aware URL building for proper key encoding
         url = QueryBuilder.build_entity_url(
             self.base_url, entity_name, key, entity_schema
         )
 
-        async with session.delete(url) as response:
+        async with session.delete(url, headers=tracing) as response:
+            activity_id = response.headers.get("ms-dyn-aid")
+            _log_activity(f"DELETE {entity_name}({key})", tracing.get("x-ms-client-request-id"), activity_id)
             if response.status in [200, 204]:
                 return True
             else:
                 error_text = await response.text()
-                raise Exception(
-                    f"DELETE {entity_name}({key}) failed: {response.status} - {error_text}"
+                raise EntityError(
+                    f"DELETE {entity_name}({key}) failed: {response.status} - {error_text}",
+                    activity_id=activity_id,
+                    request_id=tracing.get("x-ms-client-request-id"),
                 )
 
     async def call_action(
@@ -214,6 +258,7 @@ class CrudOperations:
             Action result
         """
         session = await self.session_manager.get_session()
+        tracing = self.session_manager.get_tracing_headers()
         # Use schema-aware URL building for entity-bound actions
         url = QueryBuilder.build_action_url(
             self.base_url, action_name, entity_name, entity_key, entity_schema
@@ -222,7 +267,9 @@ class CrudOperations:
         # Prepare request body
         body = parameters or {}
 
-        async with session.post(url, json=body) as response:
+        async with session.post(url, json=body, headers=tracing) as response:
+            activity_id = response.headers.get("ms-dyn-aid")
+            _log_activity(f"ACTION {action_name}", tracing.get("x-ms-client-request-id"), activity_id)
             if response.status in [200, 201, 204]:
                 if response.status == 204:
                     return {"success": True}
@@ -234,6 +281,8 @@ class CrudOperations:
                     return await response.text()
             else:
                 error_text = await response.text()
-                raise Exception(
-                    f"Action {action_name} failed: {response.status} - {error_text}"
+                raise ActionError(
+                    f"Action {action_name} failed: {response.status} - {error_text}",
+                    activity_id=activity_id,
+                    request_id=tracing.get("x-ms-client-request-id"),
                 )
