@@ -10,19 +10,41 @@ import json
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+from urllib.parse import urlencode
 
 import pytest
+from mcp.server.auth.middleware.client_auth import ClientAuthenticator
 from mcp.shared.auth import OAuthClientInformationFull
 from pydantic import AnyUrl
+from starlette.requests import Request
 
-from d365fo_client.mcp.auth_server.auth.providers.azure import (
-    AzureProvider,
-    AzureProviderSettings,
-)
+from d365fo_client.mcp.auth_server.auth.providers.azure import AzureProvider
 
 
 class TestAzureProviderPersistence:
     """Test cases for Azure provider client persistence."""
+
+    @staticmethod
+    def _build_form_request(form_data: dict[str, str]) -> Request:
+        """Create a Starlette request with form-encoded data."""
+        body = urlencode(form_data).encode()
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/token",
+            "headers": [(b"content-type", b"application/x-www-form-urlencoded")],
+        }
+
+        sent = False
+
+        async def receive():
+            nonlocal sent
+            if sent:
+                return {"type": "http.request", "body": b"", "more_body": False}
+            sent = True
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        return Request(scope, receive)
 
     @pytest.fixture
     def temp_storage_dir(self):
@@ -148,8 +170,6 @@ class TestAzureProviderPersistence:
         azure_provider._clients["test"] = sample_client_data
 
         json_path = Path(temp_storage_dir) / "clients.json"
-        temp_path = json_path.with_suffix(".tmp")
-
         # Mock to verify temporary file usage
         original_replace = Path.replace
         replace_called = []
@@ -393,6 +413,55 @@ class TestAzureProviderPersistence:
 
                 # Should not raise despite save error
                 await azure_provider.register_client(sample_client_data)
+
+    @pytest.mark.asyncio
+    async def test_register_client_preserves_token_endpoint_auth_method(
+        self, azure_provider
+    ):
+        """Registered clients should keep the auth method issued during DCR."""
+        client_info = OAuthClientInformationFull(
+            client_id="post-auth-client",
+            client_secret="super-secret",
+            redirect_uris=[AnyUrl("http://localhost:3000/callback")],
+            grant_types=["authorization_code", "refresh_token"],
+            token_endpoint_auth_method="client_secret_post",
+        )
+
+        await azure_provider.register_client(client_info)
+
+        stored_client = azure_provider._clients[client_info.client_id]
+        assert stored_client.token_endpoint_auth_method == "client_secret_post"
+
+    @pytest.mark.asyncio
+    async def test_registered_client_authenticates_with_posted_secret(
+        self, azure_provider
+    ):
+        """Token requests with DCR client_secret_post credentials should authenticate."""
+        client_info = OAuthClientInformationFull(
+            client_id="claude-web-client",
+            client_secret="super-secret",
+            redirect_uris=[AnyUrl("https://claude.ai/api/mcp/auth_callback")],
+            grant_types=["authorization_code", "refresh_token"],
+            token_endpoint_auth_method="client_secret_post",
+        )
+        await azure_provider.register_client(client_info)
+
+        request = self._build_form_request(
+            {
+                "grant_type": "authorization_code",
+                "code": "issued-code",
+                "client_id": client_info.client_id,
+                "client_secret": "super-secret",
+                "code_verifier": "verifier",
+                "redirect_uri": "https://claude.ai/api/mcp/auth_callback",
+            }
+        )
+
+        authenticated_client = await ClientAuthenticator(
+            azure_provider
+        ).authenticate_request(request)
+
+        assert authenticated_client.client_id == client_info.client_id
 
     def test_unicode_handling(self, azure_provider, temp_storage_dir):
         """Test proper handling of Unicode characters in client data."""
