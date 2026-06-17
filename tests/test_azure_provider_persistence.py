@@ -170,7 +170,7 @@ class TestAzureProviderPersistence:
         azure_provider._clients["test"] = sample_client_data
 
         json_path = Path(temp_storage_dir) / "clients.json"
-        # Mock to verify temporary file usage
+        # Mock to verify the final atomic rename is used
         original_replace = Path.replace
         replace_called = []
 
