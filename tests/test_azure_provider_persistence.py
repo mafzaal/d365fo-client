@@ -15,10 +15,7 @@ import pytest
 from mcp.shared.auth import OAuthClientInformationFull
 from pydantic import AnyUrl
 
-from d365fo_client.mcp.auth_server.auth.providers.azure import (
-    AzureProvider,
-    AzureProviderSettings,
-)
+from d365fo_client.mcp.auth_server.auth.providers.azure import AzureProvider
 
 
 class TestAzureProviderPersistence:
@@ -48,6 +45,7 @@ class TestAzureProviderPersistence:
             client_secret="oauth-secret-456",
             client_name="Test OAuth Client",
             scope="User.Read email openid profile",
+            token_endpoint_auth_method="client_secret_post",
             redirect_uris=[
                 AnyUrl("http://localhost:3000/callback"),
                 AnyUrl("https://example.com/auth/callback"),
@@ -101,6 +99,10 @@ class TestAzureProviderPersistence:
         assert client_data["client_id"] == sample_client_data.client_id
         assert client_data["client_name"] == sample_client_data.client_name
         assert client_data["scope"] == sample_client_data.scope
+        assert (
+            client_data["token_endpoint_auth_method"]
+            == sample_client_data.token_endpoint_auth_method
+        )
 
         # Verify redirect_uris are properly serialized as strings
         assert isinstance(client_data["redirect_uris"], list)
@@ -148,8 +150,6 @@ class TestAzureProviderPersistence:
         azure_provider._clients["test"] = sample_client_data
 
         json_path = Path(temp_storage_dir) / "clients.json"
-        temp_path = json_path.with_suffix(".tmp")
-
         # Mock to verify temporary file usage
         original_replace = Path.replace
         replace_called = []
@@ -188,6 +188,10 @@ class TestAzureProviderPersistence:
         assert loaded_client.client_id == sample_client_data.client_id
         assert loaded_client.client_name == sample_client_data.client_name
         assert loaded_client.scope == sample_client_data.scope
+        assert (
+            loaded_client.token_endpoint_auth_method
+            == sample_client_data.token_endpoint_auth_method
+        )
 
         # Verify redirect_uris are properly restored as AnyUrl objects
         assert len(loaded_client.redirect_uris) == len(sample_client_data.redirect_uris)
@@ -299,6 +303,10 @@ class TestAzureProviderPersistence:
         assert loaded_client.client_secret == sample_client_data.client_secret
         assert loaded_client.client_name == sample_client_data.client_name
         assert loaded_client.scope == sample_client_data.scope
+        assert (
+            loaded_client.token_endpoint_auth_method
+            == sample_client_data.token_endpoint_auth_method
+        )
         assert len(loaded_client.redirect_uris) == len(sample_client_data.redirect_uris)
 
         for loaded_uri, original_uri in zip(
@@ -326,6 +334,33 @@ class TestAzureProviderPersistence:
         # Verify file was created (basic check since we mocked the registration)
         json_path = Path(azure_provider.clients_storage_path) / "clients.json"
         assert json_path.exists()
+
+    async def test_register_client_preserves_token_endpoint_auth_method(
+        self, azure_provider, sample_client_data
+    ):
+        """Test that registered clients retain their token auth method."""
+        await azure_provider.register_client(sample_client_data)
+
+        registered_client = azure_provider._clients[sample_client_data.client_id]
+
+        assert (
+            registered_client.token_endpoint_auth_method
+            == sample_client_data.token_endpoint_auth_method
+        )
+
+    async def test_register_client_defaults_to_client_secret_post_with_secret(
+        self, azure_provider, sample_client_data
+    ):
+        """Test that registered clients default to client_secret_post when a secret exists."""
+        client_without_auth_method = sample_client_data.model_copy(
+            update={"token_endpoint_auth_method": None}
+        )
+
+        await azure_provider.register_client(client_without_auth_method)
+
+        registered_client = azure_provider._clients[client_without_auth_method.client_id]
+
+        assert registered_client.token_endpoint_auth_method == "client_secret_post"
 
     def test_load_clients_called_during_init(self, minimal_settings, temp_storage_dir):
         """Test that _load_clients is called during provider initialization."""

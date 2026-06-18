@@ -398,6 +398,12 @@ class OAuthProxy(OAuthProvider):
         proxied IDP only knows about this server's fixed redirect URI.
         """
 
+        token_endpoint_auth_method = client_info.token_endpoint_auth_method
+        if token_endpoint_auth_method is None:
+            token_endpoint_auth_method = (
+                "client_secret_post" if client_info.client_secret else "none"
+            )
+
         # Create a ProxyDCRClient with configured redirect URI validation
         proxy_client = ProxyDCRClient(
             client_id=client_info.client_id,
@@ -406,7 +412,7 @@ class OAuthProxy(OAuthProvider):
             grant_types=client_info.grant_types
             or ["authorization_code", "refresh_token"],
             scope=self._default_scope_str,
-            token_endpoint_auth_method="none",
+            token_endpoint_auth_method=token_endpoint_auth_method,
             allowed_redirect_uri_patterns=self._allowed_client_redirect_uris,
         )
 
