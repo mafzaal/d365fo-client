@@ -69,6 +69,4 @@ jobs:
     
     - name: Check package
       run: |
-        uv venv
-        uv pip install twine
-        uv run twine check dist/*
+        uvx twine check dist/*
